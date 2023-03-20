@@ -3,7 +3,7 @@ The NerdSoloMiner v2
 
 Original project https://github.com/valerio-vaccaro/HAN
 
-![image](https://github.com/cryptopasivo/NerdMiner_v2/blob/master/images/NerdMinerv2.jpg)
+![image](https://raw.githubusercontent.com/BitMaker-hub/NerdMiner_v2/master/images/NerdMinerv2.jpg)
 
 ## Requirements
 - TTGO T-Display S3
