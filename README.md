@@ -26,5 +26,5 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 1. Load the firmware with the binaries from the bin folder.
 
 Complete tutorial on YouTube:
-
+ 
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
