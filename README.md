@@ -1,26 +1,39 @@
+# NerdSoloMiner
+A NerdSoloMiner using > Han miner
 
-<img style="max-width:100%;" src="https://github.com/BitMaker-hub/nanoBitcoinSwitch/blob/master/Recursos/nanoBitcoinSwitch.jpg">
+Original project https://github.com/valerio-vaccaro/HAN
 
-## Compatible with any ESP32 microcontroller, supporting native LN invoices and static LNURLPay links.
-- Link to the original code: https://github.com/arcbtc/bitcoinSwitch
-- Minimal code to get balance from LNBits wallet.
-- Check how to configure
+![image](https://github.com/cryptopasivo/NerdMiner_v2/blob/master/images/NerdMinerv2.jpg)
 
-> <a href="https://youtu.be/FeoIwTjv3YM">Video tutorial</a>
+## Requirements
+- TTGO T-Display S3
+- 3D BOX
+- Program from Expressif webtool
 
-> Join us! <a href="https://t.me/makerbits">t.me/makerbits</a>
+## Description
+ESP32 implementing Stratum protocol to mine on solo pool. Pool can be changed but originally works with ckpool.
 
-### Install instructions
-- Install <a href="https://www.arduino.cc/en/software">Arduino IDE 1.8.19</a>
-- Install ESP32 boards, using <a href="https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html#installing-using-boards-manager">boards manager</a>
-![image](https://user-images.githubusercontent.com/33088785/161862832-1269a12e-16ce-427c-9a92-df3ee573a1fb.png)
+This miner is multicore and multithreads, each thread mine a different block template. After 1,000,000 trials the block in refreshed in order to avoid mining on old template.
 
-- Download this repo
-- Open it with ardruino
-- Setup all config vars on configs.h
-- Select the correct ESP32 board from tools>board
-- Upload to device
+## HW Schematic
+Connect your ESP32 following this image.
 
-> Default password is "ToTheMoon"
+You will find all STL files to build the box.
 
-> More info about original code on https://github.com/arcbtc/bitcoinSwitch
+![image]https://github.com/cryptopasivo/ESP32_NerdMiner/blob/master/ASIC_BOX/ASIC_BOX.png)
+
+You can add a 5V fan just for fun and to make your miner pretty.
+
+
+## Selecting pool and payment address
+All configurations are saved in the file `config.h`.
+
+Wifi can be set using `WIFI_SSID` and `WIFI_PASSWORD` constants.
+
+`THREADS` defines the number of concurrent threads used, every thread will work on a different template.
+
+Every thread will use a progressive nonce from 0 to `MAX_NONCE`, when nonce will be equal to `MAX_NONCE` a new template will be downloaded and nonce will be reset to 0.
+
+Funds will go to the address writte in `ADDRESS`.
+
+`POOL_URL` and `POOL_PORT` are used for select the solo pool.
