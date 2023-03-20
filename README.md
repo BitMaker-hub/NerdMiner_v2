@@ -1,5 +1,5 @@
 # NerdSoloMiner
-A NerdSoloMiner using > Han miner
+The NerdSoloMiner v2
 
 Original project https://github.com/valerio-vaccaro/HAN
 
@@ -8,32 +8,23 @@ Original project https://github.com/valerio-vaccaro/HAN
 ## Requirements
 - TTGO T-Display S3
 - 3D BOX
-- Program from Expressif webtool
 
 ## Description
 ESP32 implementing Stratum protocol to mine on solo pool. Pool can be changed but originally works with ckpool.
 
+This project is using ESP32-S3, uses WifiManager to modify miner settings and save them to SPIFF. 
+
 This miner is multicore and multithreads, each thread mine a different block template. After 1,000,000 trials the block in refreshed in order to avoid mining on old template.
 
-## HW Schematic
-Connect your ESP32 following this image.
+## TUTORIAL
+Create your own miner using the online tool ESPtool and the binary files that you will find in the bin folder.
+If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
 
-You will find all STL files to build the box.
+1. Get a TTGO T-display S3
+1. Download this repository
+1. Go to ESPtool online: https://espressif.github.io/esptool-js/
+1. Load the firmware with the binaries from the bin folder.
 
-![image]https://github.com/cryptopasivo/ESP32_NerdMiner/blob/master/ASIC_BOX/ASIC_BOX.png)
+Complete tutorial on YouTube:
 
-You can add a 5V fan just for fun and to make your miner pretty.
-
-
-## Selecting pool and payment address
-All configurations are saved in the file `config.h`.
-
-Wifi can be set using `WIFI_SSID` and `WIFI_PASSWORD` constants.
-
-`THREADS` defines the number of concurrent threads used, every thread will work on a different template.
-
-Every thread will use a progressive nonce from 0 to `MAX_NONCE`, when nonce will be equal to `MAX_NONCE` a new template will be downloaded and nonce will be reset to 0.
-
-Funds will go to the address writte in `ADDRESS`.
-
-`POOL_URL` and `POOL_PORT` are used for select the solo pool.
+[![Ver video aquí](https://img.youtube.com/vi/2K7ztWxtyY8/0.jpg)](https://youtu.be/2K7ztWxtyY8)
