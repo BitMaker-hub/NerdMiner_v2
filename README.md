@@ -7,7 +7,7 @@ Original project https://github.com/valerio-vaccaro/HAN
 
 ## Requirements
 - TTGO T-Display S3
-- 3D BOX
+- 3D BOX [here](3d_files/)
 
 ## Description
 ESP32 implementing Stratum protocol to mine on solo pool. Pool can be changed but originally works with ckpool.
@@ -30,4 +30,4 @@ Complete tutorial on YouTube:
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
 
 ## DEVELOPMENT
-You can use platformio to develop this project.
+You can use platformio pltaform to develop this project.
