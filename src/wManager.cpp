@@ -8,7 +8,7 @@
 
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
-#include "Lib/images.h"
+#include "media/images.h"
 #include <TFT_eSPI.h> // Graphics and font library
 
 // JSON configuration file

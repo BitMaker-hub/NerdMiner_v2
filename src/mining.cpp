@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-#include "Lib/Free_Fonts.h"
-#include "Lib/images.h"
+#include "media/Free_Fonts.h"
+#include "media/images.h"
 #include "mbedtls/md.h"
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include "OpenFontRender.h"

@@ -4,11 +4,12 @@
 #include "mbedtls/md.h"
 
 #include <TFT_eSPI.h> // Graphics and font library
-#include "Lib/images.h"
-#include "Lib/myFonts.h"
+#include "media/images.h"
+#include "media/myFonts.h"
 #include "OpenFontRender.h"
 #include "wManager.h"
 #include "mining.h"
+#include "../TFT_setup/User_Setup.h"
 
 OpenFontRender render;
 

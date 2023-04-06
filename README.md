@@ -28,3 +28,6 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 Complete tutorial on YouTube:
  
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
+
+## DEVELOPMENT
+You can use platformio to develop this project.
