@@ -8,7 +8,7 @@ The main aim of this project is to let you **learn more about minery** and to ha
 
 Original project https://github.com/valerio-vaccaro/HAN
 
-![image](https://raw.githubusercontent.com/BitMaker-hub/NerdMiner_v2/master/images/NerdMinerv2.jpg)
+![image](https://raw.githubusercontent.com/BitMaker-hub/NerdMiner_v2/master/src/images/NerdMinerv2.jpg)
 
 ### Project description
 **ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with ckpool.
