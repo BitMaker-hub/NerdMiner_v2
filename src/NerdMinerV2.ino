@@ -1,15 +1,18 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include "mbedtls/md.h"
-
+#include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library
+
+#include "mbedtls/md.h"
 #include "media/images.h"
 #include "media/myFonts.h"
 #include "OpenFontRender.h"
 #include "wManager.h"
 #include "mining.h"
-#include "../TFT_setup/User_Setup.h"
+
+//3 seconds WDT
+#define WDT_TIMEOUT 3
 
 OpenFontRender render;
 
@@ -21,7 +24,10 @@ static long templates = 0;
 static long hashes = 0;
 static int halfshares = 0; // increase if blockhash has 16 bits of zeroes
 static int shares = 0; // increase if blockhash has 32 bits of zeroes
-static int valids = 0; // increased if blockhash <= target                            
+static int valids = 0; // increased if blockhash <= target
+
+int oldStatus = 0;
+unsigned long start = millis();
 
 //void runMonitor(void *name);
 
@@ -29,14 +35,18 @@ static int valids = 0; // increased if blockhash <= target
 void setup()
 {
   Serial.begin(115200);
-  //Serial.setTxTimeoutMS(10);
+  Serial.setTimeout(0);
   delay(100);
 
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
   
   /******** INIT NERDMINER ************/
-  Serial.println("NerdMinerv2 started......");
+  Serial.println("NerdMiner v2 starting......");
+
+  // Setup the button
+  pinMode(PIN_BUTTON_1, INPUT);
+  attachInterrupt(PIN_BUTTON_1, checkResetConfigButton, FALLING);
   
   /******** INIT DISPLAY ************/
   tft.init();
@@ -66,36 +76,47 @@ void setup()
   /******** CREATE TASK TO PRINT SCREEN *****/
   //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   // Higher prio monitor task
+  Serial.println("");
+  Serial.println("Initiating tasks...");
   xTaskCreate(runMonitor, "Monitor", 5000, NULL, 4, NULL);
 
   /******** CREATE TASKs TO PRINT SCREEN *****/
-  for (int i = 0; i < 2; i++) {
-    //char *name = (char*) malloc(32);
-    //sprintf(name, "Worker[%d]", i);
+  for (size_t i = 0; i < THREADS; i++) {
+    char *name = (char*) malloc(32);
+    sprintf(name, "(%d)", i);
 
     // Start mining tasks
-    //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
-    xTaskCreate(runWorker, "worker", 35000, NULL, 1, NULL);
-    //Serial.printf("Starting %s %s!\n", "worker", res == pdPASS? "successful":"failed");
+    BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
+    Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
   }
 }
 
-int oldStatus = 0;
-unsigned long start = millis();
+void app_error_fault_handler(void *arg) {
+  // Get stack errors
+  char *stack = (char *)arg;
+
+  // Print the stack errors in the console
+  esp_log_write(ESP_LOG_ERROR, "APP_ERROR", "Pila de errores:\n%s", stack);
+
+  // restart ESP32
+  esp_restart();
+}
+
 void loop() {
 
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
   
-  if(WiFi.status() != oldStatus) {
-    if(WiFi.status() == WL_CONNECTED)
-         Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
-    else Serial.print("[Error] - current status: ");Serial.println(WiFi.status());
+  int newStatus = WiFi.status();
+  if (newStatus != oldStatus) {
+    if (newStatus == WL_CONNECTED) {
+      Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
+    } else {
+      Serial.print("[Error] - current status: ");
+      Serial.println(newStatus);
+    }
+    oldStatus = newStatus;
   }
-  oldStatus = WiFi.status();
 
-  //runWorker();
+  checkRemoveConfiguration();
+
 }
-
-
-
-

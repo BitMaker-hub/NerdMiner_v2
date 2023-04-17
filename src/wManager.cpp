@@ -10,12 +10,10 @@
 #include <ArduinoJson.h>
 #include "media/images.h"
 #include <TFT_eSPI.h> // Graphics and font library
+#include "wManager.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
-
-//Botón configuración
-#define TRIGGER_PIN  14
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -28,6 +26,11 @@ char btcString[80] = "yourBtcAddress";
 
 // Define WiFiManager Object
 WiFiManager wm;
+
+static int buttonReset = 1;
+static unsigned long lastButtonPress = 0; // Última vez que se pulsó el botón
+
+volatile bool buttonPressed = false;
 
 extern TFT_eSPI tft;  // tft variable declared on main
 
@@ -84,6 +87,7 @@ bool loadConfigFile()
         Serial.println("Opened configuration file");
         StaticJsonDocument<512> json;
         DeserializationError error = deserializeJson(json, configFile);
+        configFile.close();
         serializeJsonPretty(json, Serial);
         if (!error)
         {
@@ -137,7 +141,7 @@ void init_WifiManager()
   Serial.begin(115200);
   //Serial.setTxTimeoutMs(10);
   //Init config pin
-  pinMode(TRIGGER_PIN, INPUT);
+  // pinMode(TRIGGER_PIN, INPUT);
   
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
@@ -263,29 +267,48 @@ void init_WifiManager()
   }
 }
 
-void checkConfigButton(){
-  // check for button press
-  if ( digitalRead(TRIGGER_PIN) == LOW ) {
-    // poor mans debounce/press-hold, code not ideal for production
-    delay(50);
-    if( digitalRead(TRIGGER_PIN) == LOW ){
-      Serial.println("Button Pressed");
-      // still holding button for 3000 ms, reset settings, code not ideaa for production
-      delay(3000); // reset delay hold
-      if( digitalRead(TRIGGER_PIN) == LOW ){
-        Serial.println("Button Held");
-        Serial.println("Erasing Config, restarting");
-        wm.resetSettings();
-        SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
-        ESP.restart();
-      }
-    }
+void checkResetConfigButton(){
+
+  // Leer el estado del botón
+  int buttonState = digitalRead(PIN_BUTTON_1);
+  unsigned int last_time = (millis() - lastButtonPress);
+  Serial.printf("button pressed %i - %u\n", buttonReset, last_time);
+
+  buttonReset++;
+  lastButtonPress = millis();
+
+  if ( last_time > 1000) {
+    buttonReset = 1;
   }
+
+  // Si el botón está pulsado y ha pasado suficiente tiempo desde la última pulsación
+  if (last_time < 1000 && buttonReset == 4) {
+    buttonPressed = true;
+  } 
+    
 }
 
+void checkRemoveConfiguration() {
+  if(!buttonPressed){
+    return;
+  }
+
+  buttonPressed = false;
+  // check for button press
+  Serial.printf("[CONFIG] Button reset pressed %i\n", buttonReset);
+  Serial.println("[CONFIG] Erasing pool config");
+  Serial.println("[CONFIG] Deleting existing configuration");
+  SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
+  Serial.println("[CONFIG] Erasing wifi config");
+  wm.resetSettings();
+  Serial.println("[CONFIG] Restarting");
+  delay(1000); 
+  ESP.restart();
+}
+
+
 void wifiManagerProcess() {
-  wm.process(); // avoid delays() in loop when non-blocking and other long running code  
-  checkConfigButton();
+  wm.process(); // avoid delays() in loop when non-blocking and other long running code
 }
 
 

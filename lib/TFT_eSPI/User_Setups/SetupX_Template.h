@@ -8,6 +8,10 @@
 //   run without the need to make any more changes for a particular hardware setup!
 //   Note that some sketches are designed for a particular TFT pixel width/height
 
+#define USER_SETUP_ID 0xFFFFFFFF
+
+// Define to disable all #warnings in library (can be put in User_Setup_Select.h)
+//#define DISABLE_ALL_LIBRARY_WARNINGS
 
 // ##################################################################################
 //
@@ -31,24 +35,29 @@
 
 // Tell the library to use 8 bit parallel mode (otherwise SPI is assumed)
 //#define TFT_PARALLEL_8_BIT
-
+//#define TFT_PARALLEL_16_BIT // **** 16 bit parallel ONLY with RP2040 processor ****
+ 
 // Display type -  only define if RPi display
 //#define RPI_DISPLAY_TYPE // 20MHz maximum SPI
 
 // Only define one driver, the other ones must be commented out
-//#define ILI9341_DRIVER       // Generic driver for common displays
-#define ILI9341_2_DRIVER     // Alternative ILI9341 driver, see https://github.com/Bodmer/TFT_eSPI/issues/1172
+#define ILI9341_DRIVER       // Generic driver for common displays
+//#define ILI9341_2_DRIVER   // Alternative ILI9341 driver, see https://github.com/Bodmer/TFT_eSPI/issues/1172
+//#define ILI9342_DRIVER     // Landscape default orientation variant of ILI9341
 //#define ST7735_DRIVER      // Define additional parameters below for this display
 //#define ILI9163_DRIVER     // Define additional parameters below for this display
 //#define S6D02A1_DRIVER
 //#define RPI_ILI9486_DRIVER // 20MHz maximum SPI
+//#define HX8357B_DRIVER
+//#define HX8357C_DRIVER
 //#define HX8357D_DRIVER
 //#define ILI9481_DRIVER
 //#define ILI9486_DRIVER
-//define ILI9488_DRIVER     // WARNING: Do not connect ILI9488 display SDO to MISO if other devices share the SPI bus (TFT SDO does NOT tristate when CS is high)
+//#define ILI9488_DRIVER     // WARNING: Do not connect ILI9488 display SDO to MISO if other devices share the SPI bus (TFT SDO does NOT tristate when CS is high)
 //#define ST7789_DRIVER      // Full configuration option, define additional parameters below for this display
 //#define ST7789_2_DRIVER    // Minimal configuration option, define additional parameters below for this display
 //#define R61581_DRIVER
+//#define RM68120_DRIVER     // Untested
 //#define RM68140_DRIVER
 //#define ST7796_DRIVER
 //#define SSD1351_DRIVER
@@ -77,14 +86,13 @@
 // For ST7789, ST7735, ILI9163 and GC9A01 ONLY, define the pixel width and height in portrait orientation
 // #define TFT_WIDTH  80
 // #define TFT_WIDTH  128
-// #define TFT_WIDTH  128 // ST7789 240 x 240 and 240 x 320
-#define TFT_WIDTH  240
-// #define TFT_WIDTH  320
+// #define TFT_WIDTH  172 // ST7789 172 x 320
+// #define TFT_WIDTH  240 // ST7789 240 x 240 and 240 x 320
 // #define TFT_HEIGHT 160
 // #define TFT_HEIGHT 128
-//#define TFT_HEIGHT 160 // ST7789 240 x 240
- #define TFT_HEIGHT 320 // ST7789 240 x 320
-// #define TFT_HEIGHT 240 // GC9A01 240 x 240 //#define TFT_HEIGHT 480
+// #define TFT_HEIGHT 240 // ST7789 240 x 240
+// #define TFT_HEIGHT 320 // ST7789 240 x 320
+// #define TFT_HEIGHT 240 // GC9A01 240 x 240
 
 // For ST7735 ONLY, define the type of display, originally this was based on the
 // colour of the tab on the screen protector film but this is not always true, so try
@@ -122,8 +130,8 @@
 // driven with a PWM signal or turned OFF/ON then this must be handled by the user
 // sketch. e.g. with digitalWrite(TFT_BL, LOW);
 
- #define TFT_BL   21            // LED back-light control pin
- #define TFT_BACKLIGHT_ON HIGH  // Level to turn ON back-light (HIGH or LOW)
+// #define TFT_BL   32            // LED back-light control pin
+// #define TFT_BACKLIGHT_ON HIGH  // Level to turn ON back-light (HIGH or LOW)
 
 
 
@@ -160,9 +168,9 @@
 // ###### EDIT THE PIN NUMBERS IN THE LINES FOLLOWING TO SUIT YOUR ESP8266 SETUP ######
 
 // For NodeMCU - use pin numbers in the form PIN_Dx where Dx is the NodeMCU pin designation
-//#define TFT_CS   PIN_D8  // Chip select control pin D8
-//#define TFT_DC   PIN_D3  // Data Command control pin
-//#define TFT_RST  PIN_D4  // Reset pin (could connect to NodeMCU RST, see next line)
+#define TFT_CS   PIN_D8  // Chip select control pin D8
+#define TFT_DC   PIN_D3  // Data Command control pin
+#define TFT_RST  PIN_D4  // Reset pin (could connect to NodeMCU RST, see next line)
 //#define TFT_RST  -1    // Set TFT_RST to -1 if the display RESET is connected to NodeMCU RST or 3.3V
 
 //#define TFT_BL PIN_D1  // LED back-light (only for ST7789 with backlight control pin)
@@ -195,25 +203,25 @@
 // For ESP32 Dev board (only tested with ILI9341 display)
 // The hardware SPI can be mapped to any pins
 
-// #define TFT_MISO -1 
-// #define TFT_MOSI 14
-// #define TFT_SCLK 33
-// #define TFT_CS   -1  // Chip select control pin
-// #define TFT_DC    13  // Data Command control pin
-// #define TFT_RST   12  // Reset pin (could connect to RST pin)
+//#define TFT_MISO 19
+//#define TFT_MOSI 23
+//#define TFT_SCLK 18
+//#define TFT_CS   15  // Chip select control pin
+//#define TFT_DC    2  // Data Command control pin
+//#define TFT_RST   4  // Reset pin (could connect to RST pin)
 //#define TFT_RST  -1  // Set TFT_RST to -1 if display RESET is connected to ESP32 board RST
 
 // For ESP32 Dev board (only tested with GC9A01 display)
 // The hardware SPI can be mapped to any pins
 
-#define TFT_MOSI 13 // In some display driver board, it might be written as "SDA" and so on.
-#define TFT_SCLK 14
-#define TFT_CS   15  // Chip select control pin
-#define TFT_DC   2  // Data Command control pin
-#define TFT_RST  12  // Reset pin (could connect to Arduino RESET pin)
-#define TFT_BL   21  // LED back-light
+//#define TFT_MOSI 15 // In some display driver board, it might be written as "SDA" and so on.
+//#define TFT_SCLK 14
+//#define TFT_CS   5  // Chip select control pin
+//#define TFT_DC   27  // Data Command control pin
+//#define TFT_RST  33  // Reset pin (could connect to Arduino RESET pin)
+//#define TFT_BL   22  // LED back-light
 
-#define TOUCH_CS 33     // Chip select pin (T_CS) of touch screen
+//#define TOUCH_CS 21     // Chip select pin (T_CS) of touch screen
 
 //#define TFT_WR 22    // Write strobe for modified Raspberry Pi TFT only
 
@@ -313,6 +321,12 @@
 //
 // ##################################################################################
 
+// For the RP2040 processor define the SPI port channel used (default 0 if undefined)
+//#define TFT_SPI_PORT 1 // Set to 0 if SPI0 pins are used, or 1 if spi1 pins used
+
+// For the STM32 processor define the SPI port channel used (default 1 if undefined)
+//#define TFT_SPI_PORT 2 // Set to 1 for SPI port 1, or 2 for SPI port 2
+
 // Define the SPI clock frequency, this affects the graphics rendering speed. Too
 // fast and the TFT driver will not keep up and display corruption appears.
 // With an ILI9341 display 40MHz works OK, 80MHz sometimes fails
@@ -321,19 +335,18 @@
 
 // #define SPI_FREQUENCY   1000000
 // #define SPI_FREQUENCY   5000000
-//#define SPI_FREQUENCY  10000000
-//#define SPI_FREQUENCY  20000000
-//#define SPI_FREQUENCY  27000000
-//#define SPI_FREQUENCY  40000000
-#define SPI_FREQUENCY  55000000 // STM32 SPI1 only (SPI2 maximum is 27MHz)
-//#define SPI_FREQUENCY  65000000
- //#define SPI_FREQUENCY  80000000
+// #define SPI_FREQUENCY  10000000
+// #define SPI_FREQUENCY  20000000
+#define SPI_FREQUENCY  27000000
+// #define SPI_FREQUENCY  40000000
+// #define SPI_FREQUENCY  55000000 // STM32 SPI1 only (SPI2 maximum is 27MHz)
+// #define SPI_FREQUENCY  80000000
 
 // Optional reduced SPI frequency for reading TFT
 #define SPI_READ_FREQUENCY  20000000
 
 // The XPT2046 requires a lower SPI clock rate of 2.5MHz so we define that here:
- #define SPI_TOUCH_FREQUENCY  2500000
+#define SPI_TOUCH_FREQUENCY  2500000
 
 // The ESP32 has 2 free SPI ports i.e. VSPI and HSPI, the VSPI is the default.
 // If the VSPI port is in use and pins are not accessible (e.g. TTGO T-Beam)
