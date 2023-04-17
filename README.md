@@ -8,7 +8,11 @@ The main aim of this project is to let you **learn more about minery** and to ha
 
 Original project https://github.com/valerio-vaccaro/HAN
 
-![image](https://raw.githubusercontent.com/BitMaker-hub/NerdMiner_v2/master/src/images/NerdMinerv2.jpg)
+![image](images/NerdMinerv2.jpg)
+
+## Requirements
+- TTGO T-Display S3
+- 3D BOX [here](3d_files/)
 
 ### Project description
 **ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with ckpool.
@@ -46,11 +50,18 @@ After programming, you will only need to setup your Wifi and BTC address.
 1. Setup your Wifi Network
 1. Add your BTCaddress
 
+Optional you can select other pool:
+
+| Pool URL                 | Port | URL |
+|---                       |---   |---  | 
+| solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
+| btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
+| eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
+
 **If you need to reboot your currentConfig**, hold right top button during 5 seconds and config will be deleted.
 
 #### Build video
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
-
 
 ## Developers
 ### Project guidelines
