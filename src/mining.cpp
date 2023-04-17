@@ -136,11 +136,10 @@ void runWorker(void *name) {
     
     // DIFFICULTY
     line = client.readStringUntil('\n');
-    String method = String((const char*) doc["method"]);
     Serial.print("    sub_details: "); Serial.println(sub_details);
     Serial.print("    extranonce1: "); Serial.println(extranonce1);
     Serial.print("    extranonce2_size: "); Serial.println(extranonce2_size);
-    Serial.print("    method: "); Serial.println(method);
+    Serial.print("    error: "); Serial.println(error);
     if((extranonce1.length() == 0) || line.length() == 0 || (error != 0)) { 
       Serial.printf("[WORKER] %s >>>>>>>>> Worker aborted\n", (char *)name); 
       Serial.printf("extranonce1 length: %u | line2 length: %u | error code: %u \n", 
@@ -434,12 +433,12 @@ void runWorker(void *name) {
         Serial.printf("[WORKER] %s SUBMITING WORK... MAX Nonce reached > MAX_NONCE\n", (char *)name);
         // STEP 3: Submit mining job
         if (client.connect(poolString, portNumber)) {
-          payload = "{\"params\": [\"" + ADDRESS + "\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"\"], \"id\": "+ String(id++) +", \"method\": \"mining.submit\"}";
+          payload = "{\"params\": [\"" + ADDRESS + "\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"" + String(nonce, HEX) + "\"], \"id\": "+ String(id++) +", \"method\": \"mining.submit\"}";
           Serial.print("  Sending  : "); Serial.println(payload);
           client.print(payload.c_str());
+          Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
           while (client.available()) {
-            line = client.readStringUntil('\n');
-            Serial.print("  Receiving: "); Serial.println(line);
+            Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
           }
           client.stop();
         }
