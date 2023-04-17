@@ -118,6 +118,7 @@ void runWorker(void *name) {
 
   Serial.println("");
   Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
+  ;Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
   
   String ADDRESS = String(btcString);
 
@@ -161,10 +162,7 @@ void runWorker(void *name) {
     Serial.print("    error: "); Serial.println(error);
     if((extranonce1.length() == 0) || line.length() == 0 || (error != 0)) { 
       Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-      Serial.printf("extranonce1 length: %u | line2 length: %u | error code: %u \n", 
-        extranonce1.length(), 
-        line.length(), 
-        error);
+      Serial.printf("extranonce1 length: %u | line2 length: %u | error code: %u \n", extranonce1.length(), line.length(), error);
       client.stop();
       doc.clear();
       doc.garbageCollect();
@@ -204,6 +202,15 @@ void runWorker(void *name) {
     Serial.print("    ntime: "); Serial.println(ntime);
     Serial.print("    clean_jobs: "); Serial.println(clean_jobs);
     #endif
+    //Check if parameters where correctly received
+    if((job_id.length() == 0)||(prevhash.length() == 0)||(coinb2.length() == 0)||(ntime.length() == 0)) { 
+      Serial.println(">>>>>>>>> Worker aborted"); 
+      client.stop();
+      doc.clear();
+      doc.garbageCollect();
+      continue; 
+     }
+
     doc.clear();
     templates++;
 
