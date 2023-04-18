@@ -80,7 +80,7 @@ void setup()
   Serial.println("Initiating tasks...");
   xTaskCreate(runMonitor, "Monitor", 5000, NULL, 4, NULL);
 
-  /******** CREATE TASKs TO PRINT SCREEN *****/
+  /******** CREATE MINER TASKS *****/
   for (size_t i = 0; i < THREADS; i++) {
     char *name = (char*) malloc(32);
     sprintf(name, "(%d)", i);
