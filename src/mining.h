@@ -1,7 +1,7 @@
 
 // Mining
 #define THREADS 1
-#define MAX_NONCE 1000000
+#define MAX_NONCE 3000000
 // #define MAX_NONCE    1.215.752.192
 
 // Pool
@@ -11,3 +11,4 @@
 
 void runMonitor(void *name);
 void runWorker(void *name);
+void runMiner(void);

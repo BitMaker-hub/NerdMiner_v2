@@ -141,8 +141,12 @@ void init_WifiManager()
   Serial.begin(115200);
   //Serial.setTxTimeoutMs(10);
   //Init config pin
-  // pinMode(TRIGGER_PIN, INPUT);
-  
+  pinMode(PIN_BUTTON_2, INPUT);
+
+  //Init pin 15 to eneble 5V external power (LilyGo bug)
+  pinMode(PIN_ENABLE5V, OUTPUT);
+  digitalWrite(PIN_ENABLE5V, HIGH);
+
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
  
@@ -170,7 +174,7 @@ void init_WifiManager()
 
   //Advanced settings
   wm.setConfigPortalBlocking(false); //Hacemos que el portal no bloquee el firmware
-  wm.setConnectTimeout(30); // how long to try to connect for before continuing
+  wm.setConnectTimeout(50); // how long to try to connect for before continuing
   //wm.setConfigPortalTimeout(30); // auto close configportal after n seconds
   // wm.setCaptivePortalEnable(false); // disable captive portal redirection
   // wm.setAPClientCheck(true); // avoid timeout if client connected to softap
@@ -267,10 +271,10 @@ void init_WifiManager()
   }
 }
 
-void checkResetConfigButton(){
+/*void checkResetConfigButton(){
 
   // Leer el estado del botón
-  int buttonState = digitalRead(PIN_BUTTON_1);
+  int buttonState = digitalRead(PIN_BUTTON_0);
   unsigned int last_time = (millis() - lastButtonPress);
   Serial.printf("button pressed %i - %u\n", buttonReset, last_time);
 
@@ -286,24 +290,26 @@ void checkResetConfigButton(){
     buttonPressed = true;
   } 
     
-}
+}*/
 
-void checkRemoveConfiguration() {
-  if(!buttonPressed){
-    return;
-  }
-
-  buttonPressed = false;
+void checkResetConfigButton() {
   // check for button press
-  Serial.printf("[CONFIG] Button reset pressed %i\n", buttonReset);
-  Serial.println("[CONFIG] Erasing pool config");
-  Serial.println("[CONFIG] Deleting existing configuration");
-  SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
-  Serial.println("[CONFIG] Erasing wifi config");
-  wm.resetSettings();
-  Serial.println("[CONFIG] Restarting");
-  delay(1000); 
-  ESP.restart();
+  if ( digitalRead(PIN_BUTTON_2) == LOW ) {
+    // poor mans debounce/press-hold, code not ideal for production
+    delay(50);
+    if( digitalRead(PIN_BUTTON_2) == LOW ){
+      Serial.println("Button Pressed");
+      // still holding button for 3000 ms, reset settings, code not ideaa for production
+      delay(3000); // reset delay hold
+      if( digitalRead(PIN_BUTTON_2) == LOW ){
+        Serial.println("Button Held");
+        Serial.println("Erasing Config, restarting");
+        wm.resetSettings();
+        SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
+        ESP.restart();
+      }
+    }
+  }
 }
 
 

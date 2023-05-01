@@ -6,6 +6,7 @@
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "mbedtls/md.h"
+#include "mbedtls/sha256.h"
 #include "OpenFontRender.h"
 #include "mining.h"
 
@@ -18,6 +19,7 @@ unsigned long Mhashes = 0;
 int halfshares; // increase if blockhash has 16 bits of zeroes
 int shares; // increase if blockhash has 32 bits of zeroes
 int valids; // increased if blockhash <= target
+bool enableGlobalHash = false;
 
 // Variables to hold data from custom textboxes
 extern char poolString[80];
@@ -27,42 +29,7 @@ extern char btcString[80];
 extern OpenFontRender render;
 extern TFT_eSprite background;
 
-bool checkHalfShare(unsigned char* hash) {
-  //bool valid = true;
-  for(uint8_t i=31; i>31-2; i--) {
-    if(hash[i] != 0) {
-      return false;
-    }
-  }
-  #ifdef DEBUG_MINING
-  if (valid) {
-    Serial.print("\thalf share : ");
-    for (size_t i = 0; i < 32; i++)
-        Serial.printf("%02x ", hash[i]);
-    Serial.println();
-  }
-  #endif
-  return true;
-}
 
-bool checkShare(unsigned char* hash) {
-  bool valid = true;
-  for(uint8_t i=31; i>31-4; i--) {
-    if(hash[i] != 0) {
-      valid = false;
-      break;
-    }
-  }
-  #ifdef DEBUG_MINING
-  if (valid) {
-    Serial.print("\tshare : ");
-    for (size_t i = 0; i < 32; i++)
-        Serial.printf("%02x ", hash[i]);
-    Serial.println();
-  }
-  #endif
-  return valid;
-}
 
 bool checkValid(unsigned char* hash, unsigned char* target) {
   bool valid = true;
@@ -111,17 +78,25 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
         return count;
     }
 }
+
+bool verifyPayload (String line){
+  String inData=line;
+  if(inData.length() == 0) return false;
+  inData.trim();
+  if(inData.isEmpty()) return false;
+  return true;
+}
+
 void runWorker(void *name) {
 
   // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
   Serial.println("");
   Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
-  ;Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+  Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
   
   String ADDRESS = String(btcString);
 
-  mbedtls_md_context_t ctx;
   // connect to pool
   WiFiClient client;
   bool continueSecuence = false;
@@ -146,6 +121,7 @@ void runWorker(void *name) {
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload.c_str());
     line = client.readStringUntil('\n');
+    if(!verifyPayload(line)) return;
     Serial.print("  Receiving: "); Serial.println(line);
     deserializeJson(doc, line);
     int error = doc["error"];
@@ -174,6 +150,7 @@ void runWorker(void *name) {
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload.c_str());
     line = client.readStringUntil('\n');
+    if(!verifyPayload(line)) return;
     Serial.print("  Receiving: "); Serial.println(line);
     Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
     Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
@@ -275,20 +252,20 @@ void runWorker(void *name) {
     Serial.println("---");
     #endif
 
-    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-    mbedtls_md_init(&ctx);
-    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
-
+    mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
+  
     byte interResult[32]; // 256 bit
     byte shaResult[32]; // 256 bit
   
-    mbedtls_md_starts(&ctx);
-    mbedtls_md_update(&ctx, bytearray, str_len);
-    mbedtls_md_finish(&ctx, interResult);
+    mbedtls_sha256_starts_ret(&ctx,0);
+    mbedtls_sha256_update_ret(&ctx, bytearray, str_len);
+    mbedtls_sha256_finish_ret(&ctx, interResult);
 
-    mbedtls_md_starts(&ctx);
-    mbedtls_md_update(&ctx, interResult, 32);
-    mbedtls_md_finish(&ctx, shaResult);
+    mbedtls_sha256_starts_ret(&ctx,0);
+    mbedtls_sha256_update_ret(&ctx, interResult, 32);
+    mbedtls_sha256_finish_ret(&ctx, shaResult);
+    mbedtls_sha256_free(&ctx);
 
     #ifdef DEBUG_MINING
     Serial.print("    coinbase double sha: ");
@@ -323,13 +300,16 @@ void runWorker(void *name) {
         Serial.println("");
         #endif
 
-        mbedtls_md_starts(&ctx);
-        mbedtls_md_update(&ctx, merkle_concatenated, 64);
-        mbedtls_md_finish(&ctx, interResult);
+        mbedtls_sha256_context ctx;
+        mbedtls_sha256_init(&ctx);
+        mbedtls_sha256_starts_ret(&ctx,0);
+        mbedtls_sha256_update_ret(&ctx, merkle_concatenated, 64);
+        mbedtls_sha256_finish_ret(&ctx, interResult);
 
-        mbedtls_md_starts(&ctx);
-        mbedtls_md_update(&ctx, interResult, 32);
-        mbedtls_md_finish(&ctx, merkle_result);
+        mbedtls_sha256_starts_ret(&ctx,0);
+        mbedtls_sha256_update_ret(&ctx, interResult, 32);
+        mbedtls_sha256_finish_ret(&ctx, merkle_result);
+        mbedtls_sha256_free(&ctx);
 
         #ifdef DEBUG_MINING
         Serial.print("    merkle sha         : ");
@@ -419,65 +399,90 @@ void runWorker(void *name) {
     Serial.println("");
     #endif
 
+    mbedtls_sha256_context midstate[32];
+    unsigned char hash[32];
+
+    //Calcular midstate
+    mbedtls_sha256_init(midstate); 
+    mbedtls_sha256_starts_ret(midstate, 0);
+    mbedtls_sha256_update_ret(midstate, bytearray_blockheader, 64);
+
     // search a valid nonce
+    enableGlobalHash = true;
     uint32_t nonce = 0;
     uint32_t startT = micros();
-    bytearray_blockheader[79] = 0; //We only mine until 1MHashes this will allways be zero
+    unsigned char *header64 = bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      bytearray_blockheader[76] = (nonce >> 0) & 0xFF;
-      bytearray_blockheader[77] = (nonce >> 8) & 0xFF;
-      bytearray_blockheader[78] = (nonce >> 16) & 0xFF;
-      bytearray_blockheader[79] = (nonce >> 24) & 0xFF;
+      memcpy(bytearray_blockheader + 77, &nonce, 3);
 
       // double sha
-      mbedtls_md_starts(&ctx);
-      mbedtls_md_update(&ctx, bytearray_blockheader, 80);
-      mbedtls_md_finish(&ctx, interResult);
+      // Sin midstate
+      /*mbedtls_sha256_starts_ret(&ctx,0);
+      mbedtls_sha256_update_ret(&ctx, bytearray_blockheader, 80);
+      mbedtls_sha256_finish_ret(&ctx, interResult);
 
-      mbedtls_md_starts(&ctx);
-      mbedtls_md_update(&ctx, interResult, 32);
-      mbedtls_md_finish(&ctx, shaResult);
+      mbedtls_sha256_starts_ret(&ctx,0);
+      mbedtls_sha256_update_ret(&ctx, interResult, 32);
+      mbedtls_sha256_finish_ret(&ctx, shaResult);
+      for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", shaResult[i]);
+        Serial.println("");*/
 
-      // check if half share
-      if(checkHalfShare(shaResult)) {
-        halfshares++;
-        // check if share
-        if(checkShare(shaResult)) {
-          shares++;
-          // check if valid header
-          if(checkValid(shaResult, bytearray_target)) {
-            //Serial.printf("%s on core %d: ", (char *)name, xPortGetCoreID());
-            Serial.printf("[WORKER] %s CONGRATULATIONS! Valid completed with nonce: %d | 0x%x\n", (char *)name, nonce, nonce);
-            valids++;
-            Serial.printf("[WORKER]  %s  Submiting work valid!\n", (char *)name);
-            while (!client.connected()) {
-              client.connect(poolString, portNumber);
-              vTaskDelay(1000 / portTICK_PERIOD_MS);
-            }
-            // STEP 3: Submit mining job
-            payload = "{\"params\": [\"" + ADDRESS + "\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"" + String(nonce, HEX) + "\"], \"id\": "+ String(id++) +", \"method\": \"mining.submit\"}";
-            Serial.print("  Sending  : "); Serial.println(payload);
-            client.print(payload.c_str());
-            line = client.readStringUntil('\n');
-            Serial.print("  Receiving: "); Serial.println(line);
-            client.stop();
-            // exit 
-            nonce = MAX_NONCE;
-            break;
-          }
-        } 
-      }     
+      //Con midstate
+      // Primer SHA-256
+      mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
+      mbedtls_sha256_update_ret(&ctx, header64, 16);
+      mbedtls_sha256_finish_ret(&ctx, hash);
 
-      nonce++;
-      hashes++;
+      // Segundo SHA-256
+      mbedtls_sha256_starts_ret(&ctx, 0);
+      mbedtls_sha256_update_ret(&ctx, hash, 32);
+      mbedtls_sha256_finish_ret(&ctx, hash);
+      /*for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", hash[i]);
+        Serial.println("");   */
       
-      if(hashes++>1000000) { Mhashes++; hashes=0;}
-      // exit 
-      if (nonce >= MAX_NONCE) {
-        break;
-      }
+      hashes++;
+      if (nonce++> MAX_NONCE) break; //exit
+
+      // check if 16bit share
+      if(hash[31]!=0) continue;
+      if(hash[30]!=0) continue;
+      halfshares++;
+      // check if 32bit share
+      if(hash[29]!=0) continue;
+      if(hash[28]!=0) continue;
+      shares++;
+
+       // check if valid header
+      if(checkValid(hash, bytearray_target)){
+          //Serial.printf("%s on core %d: ", (char *)name, xPortGetCoreID());
+          Serial.printf("[WORKER] %s CONGRATULATIONS! Valid completed with nonce: %d | 0x%x\n", (char *)name, nonce, nonce);
+          valids++;
+          Serial.printf("[WORKER]  %s  Submiting work valid!\n", (char *)name);
+          while (!client.connected()) {
+            client.connect(poolString, portNumber);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+          }
+          // STEP 3: Submit mining job
+          payload = "{\"params\": [\"" + ADDRESS + "\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"" + String(nonce, HEX) + "\"], \"id\": "+ String(id++) +", \"method\": \"mining.submit\"}";
+          Serial.print("  Sending  : "); Serial.println(payload);
+          client.print(payload.c_str());
+          line = client.readStringUntil('\n');
+          Serial.print("  Receiving: "); Serial.println(line);
+          client.stop();
+          // exit 
+          nonce = MAX_NONCE;
+          break;
+      }    
     } // exit if found a valid result or nonce > MAX_NONCE
+
+    mbedtls_sha256_free(&ctx);
+    mbedtls_sha256_free(midstate);
+    enableGlobalHash = false;
+
+    if(hashes>=MAX_NONCE) { Mhashes=Mhashes+MAX_NONCE/1000000; hashes=hashes-MAX_NONCE;}
 
     if (nonce == MAX_NONCE) {
         Serial.printf("[WORKER] %s SUBMITING WORK... MAX Nonce reached > MAX_NONCE\n", (char *)name);
@@ -495,11 +500,50 @@ void runWorker(void *name) {
     }
     uint32_t duration = micros() - startT;
   }
-  mbedtls_md_free(&ctx);
+  
 }
 
 
 //////////////////THREAD CALLS///////////////////
+
+//Testeamos hashrate final usando hilo principal
+//this is currently on test
+
+void runMiner(void){
+  uint32_t nonce=0;
+  unsigned char bytearray_blockheader[80];
+
+  if(!enableGlobalHash) return;
+
+  mbedtls_sha256_context midstate[32], ctx;
+  unsigned char hash[32];
+
+  //Calcular midstate
+  mbedtls_sha256_init(midstate); 
+  mbedtls_sha256_starts_ret(midstate, 0);
+  mbedtls_sha256_update_ret(midstate, bytearray_blockheader, 64);
+
+  //Iteraciones
+  unsigned char *header64 = bytearray_blockheader + 64;
+  
+  for(nonce = 0; nonce < 10000; nonce++){
+    memcpy(bytearray_blockheader + 77, &nonce, 3);
+    mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
+    mbedtls_sha256_update_ret(&ctx, header64, 16);
+    mbedtls_sha256_finish_ret(&ctx, hash);
+
+    // Segundo SHA-256
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, hash, 32);
+    mbedtls_sha256_finish_ret(&ctx, hash);
+
+    hashes++;
+  }
+
+  mbedtls_sha256_free(&ctx);
+  mbedtls_sha256_free(midstate);
+
+}
 
 void runMonitor(void *name){
 
