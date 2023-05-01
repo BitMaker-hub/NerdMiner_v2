@@ -75,8 +75,10 @@ Optional you can select other pool:
 - [x]  Bug rectangle on screen when 1milion shares
 - [x]  Bug memory leaks
 - [x]  Bug Reboots when received JSON contains some null values
-- [ ]  Improve hashrate using Blockstream Jade miner code
+- [x]  Implement midstate sha256
+- [ ]  Code refactoring
 - [ ]  Add blockHeight to screen
+- [ ]  Add clock to show current time
 - [ ]  Add new screen with global mining stats
 - [ ]  Add support to control BM1397
 
