@@ -79,7 +79,6 @@ void setup()
   // Higher prio monitor task
   Serial.println("");
   Serial.println("Initiating tasks...");
-  xTaskCreate(runMonitor, "Monitor", 5000, NULL, 4, NULL);
 
   /******** CREATE MINER TASKS *****/
   for (size_t i = 0; i < THREADS; i++) {
@@ -88,8 +87,10 @@ void setup()
 
     // Start mining tasks
     BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
-    Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
+    Serial.printf("Starting miner %s %s!\n", name, res == pdPASS? "successful":"failed");
   }
+
+  Serial.println("NerdMiner v2 started......");
 }
 
 void app_error_fault_handler(void *arg) {
@@ -123,4 +124,5 @@ void loop() {
   //Run miner on main core when there is time --Currently on test
   runMiner();
 
+  runMonitor();
 }
