@@ -565,66 +565,64 @@ uint8_t runFanControl(float temp_c)
   static bool fanState      = HIGH; // state on/off of Fan
   static uint8_t fanNewDuty = 100;  // new duty cycle
 
-
-	if (temp_c < tLow) {
-  	Serial.printf("<%.1f°C, ", tLow);
-		// distinguish two cases to consider hyteresis
-		if (fanState == HIGH) {
-			if (temp_c < tLow - (tHyst / 2) ) {
-				// fan is on, temp below threshold minus hysteresis -> switch off
-				Serial.print("ON=>OFF, ");
-				fanNewDuty = 0;
-			} else {
-				// fan is on, temp not below threshold minus hysteresis -> keep minimum speed
-				Serial.print("ON=>MinDuty, ");
-				fanNewDuty = minDuty;
-			}
-		} else if (fanState == LOW) {
-			// fan is off, temp below threshold -> keep off
-			Serial.print("OFF=>OFF, ");
-			fanNewDuty = 0;
-		}
-
-	} else if (temp_c < tHigh) {
-  	Serial.printf("<%.1f°C, ",tHigh);
-		// distinguish two cases to consider hyteresis
-		if (fanState == HIGH) {
-			// fan is on, temp above threshold > control fan speed
-			fanNewDuty = map(temp_c, tLow, tHigh, minDuty, maxDuty);
-			Serial.print("ON ");
-		} else if (fanState == LOW) {
-			if (temp_c > tLow + (tHyst / 2) ) {
-				// fan is off, temp above threshold plus hysteresis -> switch on
-				Serial.print("OFF=>ON ");
-				fanNewDuty = minDuty;
-			} else {
-				// fan is off, temp not above threshold plus hysteresis -> keep off
-				Serial.print("OFF=>OFF ");
-				fanNewDuty = 0;
-			}
-		}
-	} else if (temp_c >= tHigh) {
-		// fan is on, temp above maximum temperature -> maximum speed
-		Serial.printf(">%.1f°C ON=>FULL, ", tHigh);
-		fanNewDuty = maxDuty;
-	} else {
-		// any other temperature -> maximum speed (this case should never occur)
-		Serial.print("ERROR, ");
-		fanNewDuty = maxDuty;
-	}
+  if (temp_c < tLow) {
+    Serial.printf("<%.1f°C, ", tLow);
+    // distinguish two cases to consider hyteresis
+    if (fanState == HIGH) {
+      if (temp_c < tLow - (tHyst / 2) ) {
+        // fan is on, temp below threshold minus hysteresis -> switch off
+        Serial.print("ON=>OFF, ");
+        fanNewDuty = 0;
+      } else {
+        // fan is on, temp not below threshold minus hysteresis -> keep minimum speed
+        Serial.print("ON=>MinDuty, ");
+        fanNewDuty = minDuty;
+      }
+    } else if (fanState == LOW) {
+      // fan is off, temp below threshold -> keep off
+      Serial.print("OFF=>OFF, ");
+      fanNewDuty = 0;
+    }
+  } else if (temp_c < tHigh) {
+    Serial.printf("<%.1f°C, ",tHigh);
+    // distinguish two cases to consider hyteresis
+    if (fanState == HIGH) {
+      // fan is on, temp above threshold > control fan speed
+      fanNewDuty = map(temp_c, tLow, tHigh, minDuty, maxDuty);
+      Serial.print("ON ");
+    } else if (fanState == LOW) {
+      if (temp_c > tLow + (tHyst / 2) ) {
+        // fan is off, temp above threshold plus hysteresis -> switch on
+        Serial.print("OFF=>ON ");
+        fanNewDuty = minDuty;
+      } else {
+        // fan is off, temp not above threshold plus hysteresis -> keep off
+        Serial.print("OFF=>OFF ");
+        fanNewDuty = 0;
+      }
+    }
+  } else if (temp_c >= tHigh) {
+    // fan is on, temp above maximum temperature -> maximum speed
+    Serial.printf(">%.1f°C ON=>FULL, ", tHigh);
+    fanNewDuty = maxDuty;
+  } else {
+    // any other temperature -> maximum speed (this case should never occur)
+    Serial.print("ERROR, ");
+    fanNewDuty = maxDuty;
+  }
 
  	//set new duty
  	fanDuty = fanNewDuty;
 
   if (fanDuty == 0) {
-		fanState = LOW;
-		// Disable high side switch
-		digitalWrite(FAN_CONTROL_PIN, LOW);
-	} else {
-		fanState = HIGH;
-		// Enable high side switch
-		analogWrite(FAN_CONTROL_PIN, fanDuty);
-	}
+    fanState = LOW;
+    // Disable high side switch
+    digitalWrite(FAN_CONTROL_PIN, LOW);
+  } else {
+    fanState = HIGH;
+    // Enable high side switch
+    analogWrite(FAN_CONTROL_PIN, fanDuty);
+  }
   Serial.printf("Now PWM=%d%% Fan %s\n", fanDuty, fanState ? "ON":"OFF");
 
 #endif //  FAN_CONTROL_PIN
