@@ -48,7 +48,11 @@ void setup()
   // Setup the button
   pinMode(PIN_BUTTON_1, INPUT);
   attachInterrupt(PIN_BUTTON_1, checkResetConfigButton, FALLING);
-  
+  #ifdef FAN_CONTROL_PIN
+  pinMode(FAN_CONTROL_PIN, OUTPUT);
+  #endif
+
+
   /******** INIT DISPLAY ************/
   tft.init();
   tft.setRotation(1);
