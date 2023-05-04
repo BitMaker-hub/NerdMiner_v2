@@ -12,11 +12,13 @@
 #include "mining.h"
 
 #define TARGET_BUFFER_SIZE 64
-#define BUFFER_JSON_DOC 1024
+#define BUFFER_JSON_DOC 4096
 
 unsigned long templates = 0;
 unsigned long hashes= 0;
 unsigned long Mhashes = 0;
+unsigned long totalKHashes = 0;
+unsigned long mStart = millis();
 
 int halfshares; // increase if blockhash has 16 bits of zeroes
 int shares; // increase if blockhash has 32 bits of zeroes
@@ -79,11 +81,10 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
     }
 }
 
-bool verifyPayload (String line){
-  String inData=line;
-  if(inData.length() == 0) return false;
-  inData.trim();
-  if(inData.isEmpty()) return false;
+bool verifyPayload (String* line){
+  if(line->length() == 0) return false;
+  line->trim();
+  if(line->isEmpty()) return false;
   return true;
 }
 
@@ -133,6 +134,8 @@ void runWorker(void *name) {
 
   // connect to pool
   WiFiClient client;
+  IPAddress serverIP; //Temporally save poolIPaddres
+  bool isMinerSuscribed = false;
   bool continueSecuence = false;
   String line, extranonce1, extranonce2 = String("0");
   unsigned long id = 0, extranonce_number = 0;
@@ -140,67 +143,65 @@ void runWorker(void *name) {
 
   while(true) {
       
-    if(WiFi.status() != WL_CONNECTED) continue;
+    if(WiFi.status() != WL_CONNECTED){
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      continue;
+    } 
 
     // get template
     StaticJsonDocument<BUFFER_JSON_DOC> doc;
     
     char payload[BUFFER_JSON_DOC] = {0};
     
-    if (!client.connect(poolString, portNumber)) {
-      continue;
+    if (!client.connected()) {
+      isMinerSuscribed = false;
+      Serial.println("Client not connected, trying to connect..."); 
+      if (!client.connect(serverIP, portNumber)) {
+        Serial.println("Imposible to connect to : " + String(poolString));
+        WiFi.hostByName(poolString, serverIP);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        continue;
+      } 
     }
+
     // STEP 1: Pool server connection (SUBSCRIBE)
     // Docs: 
     // - https://cs.braiins.com/stratum-v1/docs
     // - https://github.com/aeternity/protocol/blob/master/STRATUM.md#mining-subscribe
-    id = getNextId(id);
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2\"]}\n", id);
-    Serial.printf("[WORKER] %s ==> Mining subscribe\n", (char *)name);
-    Serial.print("  Sending  : "); Serial.println(payload);
-    client.print(payload);
-    line = client.readStringUntil('\n');
-    if(!verifyPayload(line)) return;
-    Serial.print("  Receiving: "); Serial.println(line);
-    deserializeJson(doc, line);
-    if (checkError(doc)) {
-      Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-      continue;
-    }
-    String sub_details = String((const char*) doc["result"][0][0][1]);
-    extranonce1 = String((const char*) doc["result"][1]);
-    int extranonce2_size = doc["result"][2];
-    
-    // DIFFICULTY
-    line = client.readStringUntil('\n');
-    Serial.print("  Receiving: "); Serial.println(line);
-    Serial.print("    sub_details: "); Serial.println(sub_details);
-    Serial.print("    extranonce1: "); Serial.println(extranonce1);
-    Serial.print("    extranonce2_size: "); Serial.println(extranonce2_size);
+    if(!isMinerSuscribed){
+      id = getNextId(id);
+      sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2\"]}\n", id);
+      Serial.printf("[WORKER] %s ==> Mining subscribe\n", (char *)name);
+      Serial.print("  Sending  : "); Serial.println(payload);
+      client.print(payload);
+      line = client.readStringUntil('\n');
+      if(!verifyPayload(&line)) continue;
+      Serial.print("  Receiving: "); Serial.println(line);
+      deserializeJson(doc, line);
+      if (checkError(doc)) {
+        Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
+        continue;
+      }
+      String sub_details = String((const char*) doc["result"][0][0][1]);
+      extranonce1 = String((const char*) doc["result"][1]);
+      int extranonce2_size = doc["result"][2];
+      
+      // DIFFICULTY
+      line = client.readStringUntil('\n');
+      Serial.print("  Receiving: "); Serial.println(line);
+      Serial.print("    sub_details: "); Serial.println(sub_details);
+      Serial.print("    extranonce1: "); Serial.println(extranonce1);
+      Serial.print("    extranonce2_size: "); Serial.println(extranonce2_size);
 
-    // Recibe Work
-    //line = "{\"params\": [\"b3ba\", \"7dcf1304b04e79024066cd9481aa464e2fe17966e19edf6f33970e1fe0b60277\", \"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff270362f401062f503253482f049b8f175308\", \"0d2f7374726174756d506f6f6c2f000000000100868591052100001976a91431482118f1d7504daf1c001cbfaf91ad580d176d88ac00000000\", [\"57351e8569cb9d036187a79fd1844fd930c1309efcd16c46af9bb9713b6ee734\", \"936ab9c33420f187acae660fcdb07ffdffa081273674f0f41e6ecc1347451d23\"], \"00000002\", \"1b44dfdb\", \"53178f9b\", true], \"id\": null, \"method\": \"mining.notify\"}";
-    line = client.readStringUntil('\n');
-    doc.clear();
-    deserializeJson(doc, line);
-    Serial.print("doc size: "); Serial.println(doc.size());
-    String job_id = String((const char*) doc["params"][0]);
-    String prevhash = String((const char*) doc["params"][1]);
-    String coinb1 = String((const char*) doc["params"][2]);
-    String coinb2 = String((const char*) doc["params"][3]);
-    JsonArray merkle_branch = doc["params"][4];
-    String version = String((const char*) doc["params"][5]);
-    String nbits = String((const char*) doc["params"][6]);
-    String ntime = String((const char*) doc["params"][7]);
-    bool clean_jobs = doc["params"][8]; //bool
-
-    if((extranonce1.length() == 0) || line.length() == 0) { 
-      Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-      Serial.printf("extranonce1 length: %u | line2 length: %u \n", extranonce1.length(), line.length());
-      client.stop();
-      doc.clear();
-      doc.garbageCollect();
-      continue; 
+      if((extranonce1.length() == 0) || line.length() == 0) { 
+        Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
+        Serial.printf("extranonce1 length: %u | line2 length: %u \n", extranonce1.length(), line.length());
+        client.stop();
+        doc.clear();
+        doc.garbageCollect();
+        continue; 
+      }
+      isMinerSuscribed=true;
     }
   
     // STEP 2: Pool authorize work (Block Info)
@@ -212,9 +213,22 @@ void runWorker(void *name) {
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
     line = client.readStringUntil('\n');
-    if(!verifyPayload(line)) return;
+    if(!verifyPayload(&line)) continue;
     Serial.print("  Receiving: "); Serial.println(line);
-    client.stop();
+    Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
+    Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
+    // client.stop();
+    
+    deserializeJson(doc, line);
+    String job_id = String((const char*) doc["params"][0]);
+    String prevhash = String((const char*) doc["params"][1]);
+    String coinb1 = String((const char*) doc["params"][2]);
+    String coinb2 = String((const char*) doc["params"][3]);
+    JsonArray merkle_branch = doc["params"][4];
+    String version = String((const char*) doc["params"][5]);
+    String nbits = String((const char*) doc["params"][6]);
+    String ntime = String((const char*) doc["params"][7]);
+    bool clean_jobs = doc["params"][8]; //bool
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(job_id);
@@ -228,14 +242,11 @@ void runWorker(void *name) {
     Serial.print("    clean_jobs: "); Serial.println(clean_jobs);
     #endif
     //Check if parameters where correctly received
-    if((job_id.length() == 0)||(prevhash.length() == 0)||(coinb2.length() == 0)||(ntime.length() == 0)) { 
-      Serial.println(">>>>>>>>> Worker aborted"); 
-      client.stop();
-      doc.clear();
-      continue; 
-     }
+    if (checkError(doc)) {
+      Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
+      continue;
+    }
 
-    doc.clear();
     templates++;
 
     // calculate target - target = (nbits[2:]+'00'*(int(nbits[:2],16) - 3)).zfill(64)
@@ -456,19 +467,6 @@ void runWorker(void *name) {
     while(true) {
       memcpy(bytearray_blockheader + 77, &nonce, 3);
 
-      // double sha
-      // Sin midstate
-      /*mbedtls_sha256_starts_ret(&ctx,0);
-      mbedtls_sha256_update_ret(&ctx, bytearray_blockheader, 80);
-      mbedtls_sha256_finish_ret(&ctx, interResult);
-
-      mbedtls_sha256_starts_ret(&ctx,0);
-      mbedtls_sha256_update_ret(&ctx, interResult, 32);
-      mbedtls_sha256_finish_ret(&ctx, shaResult);
-      for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", shaResult[i]);
-        Serial.println("");*/
-
       //Con midstate
       // Primer SHA-256
       mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
@@ -487,12 +485,10 @@ void runWorker(void *name) {
       if (nonce++> TARGET_NONCE) break; //exit
 
       // check if 16bit share
-      if(hash[31]!=0) continue;
-      if(hash[30]!=0) continue;
+      if(hash[31] !=0 || hash[30] !=0) continue;
       halfshares++;
       // check if 32bit share
-      if(hash[29]!=0) continue;
-      if(hash[28]!=0) continue;
+      if(hash[29] !=0 || hash[28] !=0) continue;
       shares++;
 
        // check if valid header
@@ -563,7 +559,7 @@ void runWorker(void *name) {
 //Testeamos hashrate final usando hilo principal
 //this is currently on test
 
-void runMiner(void) {
+void runMiner(void){
   uint32_t nonce=0;
   unsigned char bytearray_blockheader[80];
 
@@ -580,7 +576,7 @@ void runMiner(void) {
   //Iteraciones
   unsigned char *header64 = bytearray_blockheader + 64;
   
-  for(nonce = 0; nonce < 10000; nonce++) {
+  for(nonce = 0; nonce < 10000; nonce++){
     memcpy(bytearray_blockheader + 77, &nonce, 3);
     mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
     mbedtls_sha256_update_ret(&ctx, header64, 16);
@@ -601,17 +597,17 @@ void runMiner(void) {
 
 void runMonitor() {
 
-  Serial.println("[MONITOR] started");
+  // Serial.println("[MONITOR] started");
   
-  unsigned long mStart = millis();
-  while(1){
+  
+  //while(1){
     background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen); 
     
     unsigned long mElapsed = millis()-mStart;
-    unsigned long totalKHashes = (Mhashes*1000) + hashes/1000; 
+    unsigned long totalKHashes = (Mhashes*1000) + hashes/1000 - totalKHashes; 
     //Serial.println("[runMonitor Task] -> Printing results on screen ");
     
-    //Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %.3f KH/s\n",
+    // Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %.3f KH/s\n",
     //  shares, totalKHashes, (1.0*(totalKHashes*1000))/mElapsed);
 
     //Hashrate
@@ -655,5 +651,5 @@ void runMonitor() {
     
     // Pause the task for 5000ms
     // vTaskDelay(5000 / portTICK_PERIOD_MS);
-  }
+  //}
 }
