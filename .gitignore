@@ -1,3 +1,4 @@
 .pio
 .vscode
 NerdMinerLog.txt
+platformio-device-monitor*.log
