@@ -527,28 +527,6 @@ void runWorker(void *name) {
     // TODO Pending doub 
     if(hashes>=MAX_NONCE) { Mhashes=Mhashes+MAX_NONCE/1000000; hashes=hashes-MAX_NONCE;}
 
-    if (nonce == TARGET_NONCE) {
-        Serial.printf("[WORKER] %s SUBMITING WORK... MAX Nonce reached > MAX_NONCE\n", (char *)name);
-        // STEP 3: Submit mining job
-        id = getNextId(id);
-        if (client.connect(poolString, portNumber)) {
-          sprintf(payload, "{\"params\": [\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"], \"id\": %u, \"method\": \"mining.submit\"}",
-              btcString,
-              job_id,
-              extranonce2,
-              ntime,
-              String(nonce, HEX),
-              id
-              );
-          Serial.print("  Sending  : "); Serial.println(payload);
-          client.print(payload);
-          unsigned long timeout = millis();
-          Serial.print("  Receiving: "); Serial.println(client.readString());
-          Serial.printf("[WORKER] %s SUBMITED WORK\n", (char *)name);
-          client.stop();
-        }
-    }
-
     uint32_t duration = micros() - startT;
   }
   

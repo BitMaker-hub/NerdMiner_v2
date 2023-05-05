@@ -76,10 +76,14 @@ Optional you can select other pool:
 - [x]  Bug memory leaks
 - [x]  Bug Reboots when received JSON contains some null values
 - [x]  Implement midstate sha256
+- [x]  Bug Wificlient DNS unresolved on Wifi.h
 - [ ]  Code refactoring
 - [ ]  Add blockHeight to screen
 - [ ]  Add clock to show current time
 - [ ]  Add new screen with global mining stats
 - [ ]  Add support to control BM1397
+
+### Donations/Project contributions
+If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡
 
 Enjoy
