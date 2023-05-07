@@ -47,6 +47,8 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 After programming, you will only need to setup your Wifi and BTC address.
 
 1. Connect to NerdMinerAP
+    - AP:   NerdMinerAP
+    - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
 

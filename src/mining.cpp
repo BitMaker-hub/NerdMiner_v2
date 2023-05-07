@@ -3,7 +3,6 @@
 #include <WiFi.h>
 #include <algorithm>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-#include <limits.h>
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "mbedtls/md.h"
@@ -33,6 +32,8 @@ extern char btcString[80];
 extern OpenFontRender render;
 extern TFT_eSprite background;
 
+
+
 bool checkValid(unsigned char* hash, unsigned char* target) {
   bool valid = true;
   for(uint8_t i=31; i>=0; i--) {
@@ -44,7 +45,7 @@ bool checkValid(unsigned char* hash, unsigned char* target) {
       break;
     }
   }
-  #ifdef  DEBUG_MINING_SHARE
+  #ifdef DEBUG_MINING
   if (valid) {
     Serial.print("\tvalid : ");
     for (size_t i = 0; i < 32; i++)
@@ -113,6 +114,13 @@ void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
   extranonce2[2 * extranonce2_size] = 0;
 }
 
+bool verifyPayload (String* line){
+  if(line->length() == 0) return false;
+  line->trim();
+  if(line->isEmpty()) return false;
+  return true;
+}
+
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
   if (doc["error"].size() == 0) {
     return false;
@@ -123,7 +131,7 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
 
 void runWorker(void *name) {
 
-  // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
+// TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
   Serial.println("");
   Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
@@ -534,6 +542,7 @@ void runWorker(void *name) {
 
 
 //////////////////THREAD CALLS///////////////////
+
 //Testeamos hashrate final usando hilo principal
 //this is currently on test
 
@@ -573,7 +582,7 @@ void runMiner(void){
 
 }
 
-void runMonitor() {
+void runMonitor(void *name){
 
   // Serial.println("[MONITOR] started");
   
