@@ -20,11 +20,11 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
-static long templates = 0;
-static long hashes = 0;
-static int halfshares = 0; // increase if blockhash has 16 bits of zeroes
-static int shares = 0; // increase if blockhash has 32 bits of zeroes
-static int valids = 0; // increased if blockhash <= target
+//static long templates = 0;
+//static long hashes = 0;
+//static int halfshares = 0; // increase if blockhash has 16 bits of zeroes
+//static int shares = 0; // increase if blockhash has 32 bits of zeroes
+//static int valids = 0; // increased if blockhash <= target
 
 int oldStatus = 0;
 unsigned long start = millis();

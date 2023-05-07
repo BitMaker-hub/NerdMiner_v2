@@ -13,15 +13,14 @@
 #define TARGET_BUFFER_SIZE 64
 #define BUFFER_JSON_DOC 4096
 
-unsigned long templates = 0;
-unsigned long hashes= 0;
-unsigned long Mhashes = 0;
-unsigned long totalKHashes = 0;
-unsigned long mStart = millis();
+static unsigned long templates = 0;
+static unsigned long hashes= 0;
+static unsigned long Mhashes = 0;
+static unsigned long totalKHashes = 0;
 
-int halfshares; // increase if blockhash has 16 bits of zeroes
-int shares; // increase if blockhash has 32 bits of zeroes
-int valids; // increased if blockhash <= target
+static int halfshares; // increase if blockhash has 16 bits of zeroes
+static int shares; // increase if blockhash has 32 bits of zeroes
+static int valids; // increased if blockhash <= target
 bool enableGlobalHash = false;
 
 // Variables to hold data from custom textboxes
@@ -114,13 +113,6 @@ void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
   extranonce2[2 * extranonce2_size] = 0;
 }
 
-bool verifyPayload (String* line){
-  if(line->length() == 0) return false;
-  line->trim();
-  if(line->isEmpty()) return false;
-  return true;
-}
-
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
   if (doc["error"].size() == 0) {
     return false;
@@ -142,7 +134,7 @@ void runWorker(void *name) {
 
   // connect to pool
   WiFiClient client;
-  IPAddress serverIP; //Temporally save poolIPaddres
+  IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
   bool isMinerSuscribed = false;
   bool continueSecuence = false;
   String line, extranonce1, extranonce2 = String("0");
@@ -182,6 +174,7 @@ void runWorker(void *name) {
       Serial.printf("[WORKER] %s ==> Mining subscribe\n", (char *)name);
       Serial.print("  Sending  : "); Serial.println(payload);
       client.print(payload);
+      vTaskDelay(200 / portTICK_PERIOD_MS);
       line = client.readStringUntil('\n');
       if(!verifyPayload(&line)) continue;
       Serial.print("  Receiving: "); Serial.println(line);
@@ -220,6 +213,7 @@ void runWorker(void *name) {
     Serial.printf("[WORKER] %s ==> Autorize work\n", (char *)name);
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
+    vTaskDelay(200 / portTICK_PERIOD_MS);
     line = client.readStringUntil('\n');
     if(!verifyPayload(&line)) continue;
     Serial.print("  Receiving: "); Serial.println(line);
@@ -473,7 +467,7 @@ void runWorker(void *name) {
     unsigned char *header64 = bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      memcpy(bytearray_blockheader + 77, &nonce, 3);
+      memcpy(bytearray_blockheader + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
@@ -584,25 +578,29 @@ void runMiner(void){
 
 void runMonitor(void *name){
 
-  // Serial.println("[MONITOR] started");
+  Serial.println("[MONITOR] started");
   
-  
-  //while(1){
+  unsigned long mLastCheck = 0;
+
+  while(1){
     background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen); 
     
-    unsigned long mElapsed = millis()-mStart;
-    unsigned long totalKHashes = (Mhashes*1000) + hashes/1000 - totalKHashes; 
+    unsigned long mElapsed = millis()-mLastCheck;
+    mLastCheck = millis();
+    unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
+    unsigned long elapsedKHs = currentKHashes - totalKHashes; 
+    totalKHashes = currentKHashes;
     //Serial.println("[runMonitor Task] -> Printing results on screen ");
     
-    // Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %.3f KH/s\n",
-    //  shares, totalKHashes, (1.0*(totalKHashes*1000))/mElapsed);
+     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %.3f KH/s\n",
+      shares, totalKHashes, (1.0*(elapsedKHs*1000))/mElapsed);
 
     //Hashrate
     render.setFontSize(70);
     render.setCursor(19, 118);
     render.setFontColor(TFT_BLACK);
     char tmp[10] = {0};
-    sprintf(tmp, "%.2f", (1.0*(totalKHashes*1000))/mElapsed);
+    sprintf(tmp, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
     render.rdrawString(tmp, 118, 114, TFT_BLACK);
     //Total hashes
     render.setFontSize(36);
@@ -617,7 +615,7 @@ void runMonitor(void *name){
     render.setFontSize(36);
     render.drawString(String(shares).c_str(), 186, 73, 0xDEDB);
     //Hores
-    unsigned long secElapsed=mElapsed/1000;
+    unsigned long secElapsed=millis()/1000;
     int hr = secElapsed/3600;                                                        //Number of seconds in an hour
     int mins = (secElapsed-(hr*3600))/60;                                              //Remove the number of hours and calculate the minutes.
     int sec = secElapsed-(hr*3600)-(mins*60);   
@@ -637,6 +635,6 @@ void runMonitor(void *name){
     background.pushSprite(0,0);
     
     // Pause the task for 5000ms
-    // vTaskDelay(5000 / portTICK_PERIOD_MS);
-  //}
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+  }
 }
