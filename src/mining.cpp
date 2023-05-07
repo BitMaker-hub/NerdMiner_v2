@@ -82,6 +82,13 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
     }
 }
 
+bool verifyPayload (String* line){
+  if(line->length() == 0) return false;
+  line->trim();
+  if(line->isEmpty()) return false;
+  return true;
+}
+
 unsigned long getNextId(unsigned long id) {
     if (id == ULONG_MAX) {
       id = 1;
