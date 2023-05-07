@@ -1,13 +1,8 @@
 
 // Mining
 #define THREADS 1
-#define MAX_NONCE 3000000
-// #define MAX_NONCE    1.215.752.192
-
-// Pool
-//#define POOL_URL "solo.ckpool.org" //"btc.zsolo.bid" "eu.stratum.slushpool.com"
-//#define POOL_PORT 3333  //6057 //3333
-
+#define MAX_NONCE       5000000U
+#define TARGET_NONCE    471136297U
 
 void runMonitor(void *name);
 void runWorker(void *name);

@@ -121,6 +121,6 @@ void loop() {
   checkResetConfigButton();
 
   //Run miner on main core when there is time --Currently on test
-  runMiner();
+  // runMiner();
 
 }
