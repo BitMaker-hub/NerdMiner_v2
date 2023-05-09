@@ -607,13 +607,13 @@ void runMonitor(void *name){
     render.rdrawString(String(Mhashes).c_str(), 268, 138, TFT_BLACK);
     //Block templates
     render.setFontSize(36);
-    render.drawString(String(templates).c_str(), 186, 17, 0xDEDB);
+    render.drawString(String(templates).c_str(), 186, 20, 0xDEDB);
     //16Bit shares
     render.setFontSize(36);
-    render.drawString(String(halfshares).c_str(), 186, 45, 0xDEDB);
+    render.drawString(String(halfshares).c_str(), 186, 48, 0xDEDB);
     //32Bit shares
     render.setFontSize(36);
-    render.drawString(String(shares).c_str(), 186, 73, 0xDEDB);
+    render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
     //Hores
     unsigned long secElapsed=millis()/1000;
     int hr = secElapsed/3600;                                                        //Number of seconds in an hour
@@ -629,7 +629,13 @@ void runMonitor(void *name){
     render.rdrawString(String(sec).c_str(), 298, 99, 0xDEDB);
     //Valid Blocks
     render.setFontSize(48);
-    render.drawString(String(valids).c_str(), 281, 55, 0xDEDB);
+    render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
+    //Print Temp
+    background.setTextColor(TFT_BLACK);
+    //background.setFreeFont(FF0);
+    background.drawString("30", 230, 4);
+    //Print Hour
+    background.drawString("22:10", 250, 4);
 
     //Push prepared background to screen
     background.pushSprite(0,0);

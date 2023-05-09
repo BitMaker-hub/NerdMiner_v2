@@ -42,6 +42,7 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 1. Online ESPtool works with chrome, chromium, brave
 1. ESPtool recommendations: use 115200bps
 1. Build errors > If during firmware download upload stops, it's recommended to enter the board in boot mode. Unplug cable, hold right bottom button and then plug cable. Try programming
+1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made. 
 
 ### NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
