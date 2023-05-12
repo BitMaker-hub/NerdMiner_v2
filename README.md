@@ -61,7 +61,11 @@ Optional you can select other pool:
 | btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
-**If you need to reboot your currentConfig**, hold right top button during 5 seconds and config will be deleted.
+### Buttons
+With the USB-C port to the right:
+- The top button allows you to **reset the configurations and reboot** your NerdMiner. Just hold it for 5 seconds.
+- Click the bottom button once to turn the screen off and on again
+- Double click to change the orientation (default is USB-C to the right)
 
 #### Build video
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
