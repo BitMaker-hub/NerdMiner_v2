@@ -1,8 +1,13 @@
+//Botón configuración
+#define PIN_BUTTON_1 0
+#define PIN_BUTTON_2 14
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library
+#include <OneButton.h>
 
 #include "mbedtls/md.h"
 #include "media/images.h"
@@ -13,6 +18,9 @@
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
+OneButton button1(PIN_BUTTON_1);
+OneButton button2(PIN_BUTTON_2);
+
 
 OpenFontRender render;
 
@@ -31,6 +39,20 @@ unsigned long start = millis();
 
 //void runMonitor(void *name);
 
+void alternate_screen_state() {
+  int screen_state= digitalRead(38);
+  //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
+  Serial.println("Switching display state");
+  digitalWrite(38, !screen_state);
+}
+
+void alternate_screen_rotation() {
+  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+
+}
+
+
+
 /********* INIT *****/
 void setup()
 {
@@ -41,14 +63,29 @@ void setup()
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
   disableCore1WDT();
-  
+
+  // Setup the buttons
+  // Button 1 (Boot)
+  button1.setPressTicks(5000);
+  button1.attachClick(alternate_screen_state);
+  button1.attachDoubleClick(alternate_screen_rotation);
+  // button1.attachLongPressStart([]{Serial.println("Button 1 started a long press");});
+  // button1.attachLongPressStop([]{Serial.println("Button 1 stopped a long press");});
+  // button1.attachDuringLongPress([]{Serial.println("Button 1 is being held down");});
+
+  // Button 2 (GPIO14)
+  button2.setPressTicks(5000);
+  // button2.attachClick();
+  // button2.attachDoubleClick([]{Serial.println("Button 2 was double clicked");});
+  button2.attachLongPressStart(reset_configurations);
+  // button2.attachLongPressStop(reset_configurations);
+  // button2.attachDuringLongPress([]{Serial.println("Button 2 is being held down");});
+
+
   /******** INIT NERDMINER ************/
   Serial.println("NerdMiner v2 starting......");
 
-  // Setup the button
-  pinMode(PIN_BUTTON_1, INPUT);
-  attachInterrupt(PIN_BUTTON_1, checkResetConfigButton, FALLING);
-  
+
   /******** INIT DISPLAY ************/
   tft.init();
   tft.setRotation(1);
@@ -73,7 +110,7 @@ void setup()
 
   /******** INIT WIFI ************/
   init_WifiManager();
-  
+
   /******** CREATE TASK TO PRINT SCREEN *****/
   //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   // Higher prio monitor task
@@ -104,7 +141,10 @@ void app_error_fault_handler(void *arg) {
 }
 
 void loop() {
-
+  // keep watching the push buttons:
+  button1.tick();
+  button2.tick();
+  
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
   
   int newStatus = WiFi.status();
@@ -118,9 +158,7 @@ void loop() {
     oldStatus = newStatus;
   }
 
-  checkResetConfigButton();
-
-  //Run miner on main core when there is time --Currently on test
+    //Run miner on main core when there is time --Currently on test
   // runMiner();
 
 }
