@@ -1,6 +1,4 @@
-//Botón configuración
-#define PIN_BUTTON_1 0
-#define PIN_BUTTON_2 14
+
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -40,10 +38,10 @@ unsigned long start = millis();
 //void runMonitor(void *name);
 
 void alternate_screen_state() {
-  int screen_state= digitalRead(38);
+  int screen_state= digitalRead(TFT_BL);
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
   Serial.println("Switching display state");
-  digitalWrite(38, !screen_state);
+  digitalWrite(TFT_BL, !screen_state);
 }
 
 void alternate_screen_rotation() {
@@ -158,7 +156,7 @@ void loop() {
     oldStatus = newStatus;
   }
 
-    //Run miner on main core when there is time --Currently on test
+  //Run miner on main core when there is time --Currently on test
   // runMiner();
 
 }
