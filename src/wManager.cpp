@@ -23,6 +23,9 @@ char poolString[80] = "solo.ckpool.org";
 int portNumber = 3333;
 char btcString[80] = "yourBtcAddress";
 
+// Display on/off setting
+bool displayOn = true;
+
 
 // Define WiFiManager Object
 WiFiManager wm;
@@ -299,6 +302,19 @@ void checkResetConfigButton() {
     delay(50);
     if( digitalRead(PIN_BUTTON_2) == LOW ){
       Serial.println("Button Pressed");
+
+      displayOn = !displayOn;
+
+      // Turn off or on the display based on the display state
+      if (displayOn) {
+        tft.writecommand(TFT_DISPON);  // Turns on the display
+        digitalWrite(38, HIGH);              // GPIO controls the BL (backlight)
+
+      } else {
+        tft.writecommand(TFT_DISPOFF); // Turns off the display
+        digitalWrite(38, LOW);              // GPIO controls the BL (backlight)
+
+      }
       // still holding button for 3000 ms, reset settings, code not ideaa for production
       delay(3000); // reset delay hold
       if( digitalRead(PIN_BUTTON_2) == LOW ){
