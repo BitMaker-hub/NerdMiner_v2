@@ -27,10 +27,6 @@ char btcString[80] = "yourBtcAddress";
 // Define WiFiManager Object
 WiFiManager wm;
 
-static int buttonReset = 1;
-static unsigned long lastButtonPress = 0; // Última vez que se pulsó el botón
-
-volatile bool buttonPressed = false;
 
 extern TFT_eSPI tft;  // tft variable declared on main
 
@@ -140,8 +136,6 @@ void init_WifiManager()
 {
   Serial.begin(115200);
   //Serial.setTxTimeoutMs(10);
-  //Init config pin
-  pinMode(PIN_BUTTON_2, INPUT);
 
   //Init pin 15 to eneble 5V external power (LilyGo bug)
   pinMode(PIN_ENABLE5V, OUTPUT);
@@ -271,45 +265,11 @@ void init_WifiManager()
   }
 }
 
-/*void checkResetConfigButton(){
-
-  // Leer el estado del botón
-  int buttonState = digitalRead(PIN_BUTTON_0);
-  unsigned int last_time = (millis() - lastButtonPress);
-  Serial.printf("button pressed %i - %u\n", buttonReset, last_time);
-
-  buttonReset++;
-  lastButtonPress = millis();
-
-  if ( last_time > 1000) {
-    buttonReset = 1;
-  }
-
-  // Si el botón está pulsado y ha pasado suficiente tiempo desde la última pulsación
-  if (last_time < 1000 && buttonReset == 4) {
-    buttonPressed = true;
-  } 
-    
-}*/
-
-void checkResetConfigButton() {
-  // check for button press
-  if ( digitalRead(PIN_BUTTON_2) == LOW ) {
-    // poor mans debounce/press-hold, code not ideal for production
-    delay(50);
-    if( digitalRead(PIN_BUTTON_2) == LOW ){
-      Serial.println("Button Pressed");
-      // still holding button for 3000 ms, reset settings, code not ideaa for production
-      delay(3000); // reset delay hold
-      if( digitalRead(PIN_BUTTON_2) == LOW ){
-        Serial.println("Button Held");
-        Serial.println("Erasing Config, restarting");
-        wm.resetSettings();
-        SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
-        ESP.restart();
-      }
-    }
-  }
+void reset_configurations() {
+  Serial.println("Erasing Config, restarting");
+  wm.resetSettings();
+  SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
+  ESP.restart();
 }
 
 
