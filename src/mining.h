@@ -7,3 +7,4 @@
 void runMonitor(void *name);
 void runWorker(void *name);
 void runMiner(void);
+String printLocalTime(void);

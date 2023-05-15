@@ -28,6 +28,7 @@ TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
 int oldStatus = 0;
 unsigned long start = millis();
+const char* ntpServer = "pool.ntp.org";
 
 //void runMonitor(void *name);
 
@@ -90,6 +91,10 @@ void setup()
     BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
     Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
   }
+
+  /******** TIME ZONE SETTING *****/
+  configTime(0, 0, ntpServer);
+  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
 }
 
 void app_error_fault_handler(void *arg) {
