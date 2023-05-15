@@ -17,6 +17,7 @@ static unsigned long templates = 0;
 static unsigned long hashes= 0;
 static unsigned long Mhashes = 0;
 static unsigned long totalKHashes = 0;
+static String temp;
 
 static int halfshares; // increase if blockhash has 16 bits of zeroes
 static int shares; // increase if blockhash has 32 bits of zeroes
@@ -631,11 +632,23 @@ void runMonitor(void *name){
     render.setFontSize(48);
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
     //Print Temp
-    background.setTextColor(TFT_BLACK);
+    //background.setTextColor(TFT_BLACK);
     //background.setFreeFont(FF0);
-    background.drawString("30", 230, 4);
+    //background.drawString("30", 230, 4);
     //Print Hour
-    background.drawString("22:10", 250, 4);
+    //background.drawString("22:10", 250, 4);
+
+    //Print Temp
+    temp = String(temperatureRead(), 0);
+    render.setFontSize(20);
+    render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
+
+    render.setFontSize(7);
+    render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
+
+    //Print Hour
+    render.setFontSize(20);
+    render.rdrawString(String(printLocalTime()).c_str(), 286, 1, TFT_BLACK);
 
     //Push prepared background to screen
     background.pushSprite(0,0);
@@ -643,4 +656,15 @@ void runMonitor(void *name){
     // Pause the task for 5000ms
     vTaskDelay(2000 / portTICK_PERIOD_MS);
   }
+}
+String printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return "00:00";
+  }
+  char LocalHour[80];
+  strftime (LocalHour, 80, "%H:%M", &timeinfo); //4 digit year, 2 digit month
+  String mystring(LocalHour); 
+  return LocalHour;
 }
