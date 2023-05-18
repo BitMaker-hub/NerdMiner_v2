@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <algorithm>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include "media/Free_Fonts.h"
@@ -120,6 +121,36 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
   }
   Serial.printf("ERROR: %d | reason: %s \n", (const int) doc["error"][0], (const char*) doc["error"][1]);
   return true;  
+}
+
+String getBlockHeight() {
+    WiFiClientSecure client;
+    client.setInsecure(); // Disable certificate verification
+    const char* host = "mempool.space";
+    const char* path = "/api/blocks/tip/height";
+
+    if (!client.connect(host, 443)) { // Note the change to port 443 for HTTPS
+        Serial.println("[HTTP] Connection failed");
+        return "";
+    }
+
+    client.print(String("GET ") + path + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+
+    // Read and print the entire HTTP response
+    String blockHeight = "";
+    
+    // Read and print the HTTP response
+    while (client.connected()) {
+        String line = client.readStringUntil('\n');
+        if (line.length() > 1) { // Skip the headers
+            
+            blockHeight = line;
+        }
+    }
+
+    return blockHeight;;
 }
 
 void runWorker(void *name) {
@@ -637,6 +668,27 @@ void runMonitor(void *name){
     //background.drawString("30", 230, 4);
     //Print Hour
     //background.drawString("22:10", 250, 4);
+
+    unsigned long lastUpdateTime = 0; // When the block height was last updated
+    const unsigned long updateInterval = 5 * 60 * 1000; // Update interval (5 minutes)
+    String blockHeight; // Current block height
+
+    //Print Block Height
+    // Check if it's time to update the block height
+    if (blockHeight == NULL) {
+      blockHeight = getBlockHeight();
+    }
+    if (millis() - lastUpdateTime >= updateInterval) {
+        blockHeight = getBlockHeight();
+        lastUpdateTime = millis();
+    }
+    
+    
+    background.setTextColor(TFT_WHITE);
+    background.setFreeFont(FF0);
+    background.drawString("Block height: " + blockHeight, 5, 4);    
+    
+
 
     //Print Temp
     temp = String(temperatureRead(), 0);
