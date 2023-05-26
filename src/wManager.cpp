@@ -143,6 +143,8 @@ void init_WifiManager()
 
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
+  // Check if button2 is pressed to enter configMode with actual configuration
+  if(!digitalRead(PIN_BUTTON_2)) forceConfig = true;
  
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
@@ -273,8 +275,23 @@ void reset_configurations() {
 }
 
 
+//----------------- MAIN PROCESS WIFI MANAGER --------------
+int oldStatus = 0;
+
 void wifiManagerProcess() {
+  
   wm.process(); // avoid delays() in loop when non-blocking and other long running code
+  
+  int newStatus = WiFi.status();
+  if (newStatus != oldStatus) {
+    if (newStatus == WL_CONNECTED) {
+      Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
+    } else {
+      Serial.print("[Error] - current status: ");
+      Serial.println(newStatus);
+    }
+    oldStatus = newStatus;
+  }
 }
 
 

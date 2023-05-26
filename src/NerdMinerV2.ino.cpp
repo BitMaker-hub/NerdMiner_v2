@@ -26,13 +26,6 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
-//static long templates = 0;
-//static long hashes = 0;
-//static int halfshares = 0; // increase if blockhash has 16 bits of zeroes
-//static int shares = 0; // increase if blockhash has 32 bits of zeroes
-//static int valids = 0; // increased if blockhash <= target
-
-int oldStatus = 0;
 unsigned long start = millis();
 const char* ntpServer = "pool.ntp.org";
 
@@ -61,7 +54,7 @@ void setup()
 
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
-  disableCore1WDT();
+  //disableCore1WDT();
 
   // Setup the buttons
   // Button 1 (Boot)
@@ -115,17 +108,28 @@ void setup()
   // Higher prio monitor task
   Serial.println("");
   Serial.println("Initiating tasks...");
-  xTaskCreate(runMonitor, "Monitor", 5000, NULL, 4, NULL);
+  char *name = (char*) malloc(32);
+  sprintf(name, "(%s)", "Monitor");
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 5000, (void*)name, 4, NULL,1);
+
+  /******** CREATE STRATUM TASK *****/
+  sprintf(name, "(%s)", "Stratum");
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 20000, (void*)name, 3, NULL,1);
+
 
   /******** CREATE MINER TASKS *****/
-  for (size_t i = 0; i < THREADS; i++) {
-    char *name = (char*) malloc(32);
-    sprintf(name, "(%d)", i);
+  //for (size_t i = 0; i < THREADS; i++) {
+  //  char *name = (char*) malloc(32);
+  //  sprintf(name, "(%d)", i);
 
-    // Start mining tasks
-    BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
-    Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
-  }
+  // Start stratum tasks
+  sprintf(name, "(%s)", "Miner0");
+  //BaseType_t res = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1, NULL, 0);
+  BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 0);
+  //sprintf(name, "(%s)", "Miner1");
+  //BaseType_t res4 = xTaskCreatePinnedToCore(runMiner, "1", 10000, (void*)name, 1,NULL, 1);
+  //Serial.printf("Starting %s %s!\n", "1", res3 == pdPASS? "successful":"failed");
+  
 
   /******** TIME ZONE SETTING *****/
   configTime(0, 0, ntpServer);
@@ -149,17 +153,6 @@ void loop() {
   button2.tick();
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
-  
-  int newStatus = WiFi.status();
-  if (newStatus != oldStatus) {
-    if (newStatus == WL_CONNECTED) {
-      Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
-    } else {
-      Serial.print("[Error] - current status: ");
-      Serial.println(newStatus);
-    }
-    oldStatus = newStatus;
-  }
 
   //Run miner on main core when there is time --Currently on test
   // runMiner();

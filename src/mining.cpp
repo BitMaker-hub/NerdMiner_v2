@@ -8,10 +8,9 @@
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
 #include "OpenFontRender.h"
+#include "stratum.h"
 #include "mining.h"
-
-#define TARGET_BUFFER_SIZE 64
-#define BUFFER_JSON_DOC 4096
+#include "utils.h"
 
 static unsigned long templates = 0;
 static unsigned long hashes= 0;
@@ -22,7 +21,6 @@ static String temp;
 static int halfshares; // increase if blockhash has 16 bits of zeroes
 static int shares; // increase if blockhash has 32 bits of zeroes
 static int valids; // increased if blockhash <= target
-bool enableGlobalHash = false;
 
 // Variables to hold data from custom textboxes
 extern char poolString[80];
@@ -32,97 +30,13 @@ extern char btcString[80];
 extern OpenFontRender render;
 extern TFT_eSprite background;
 
+//Global work data 
+static WiFiClient client;
+static miner_data mMiner; //Global miner data (Create a miner class TODO)
+mining_subscribe mWorker;
+mining_job mJob;
 
-
-bool checkValid(unsigned char* hash, unsigned char* target) {
-  bool valid = true;
-  for(uint8_t i=31; i>=0; i--) {
-    if(hash[i] > target[i]) {
-      valid = false;
-      break;
-    } else if (hash[i] < target[i]) {
-      valid = true;
-      break;
-    }
-  }
-  #ifdef DEBUG_MINING
-  if (valid) {
-    Serial.print("\tvalid : ");
-    for (size_t i = 0; i < 32; i++)
-        Serial.printf("%02x ", hash[i]);
-    Serial.println();
-  }
-  #endif
-  return valid;
-}
-
-uint8_t hex(char ch) {
-    uint8_t r = (ch > 57) ? (ch - 55) : (ch - 48);
-    return r & 0x0F;
-}
-
-int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
-    int count = 0;
-    if (in_size % 2) {
-        while (*in && out) {
-            *out = hex(*in++);
-            if (!*in)
-                return count;
-            *out = (*out << 4) | hex(*in++);
-            *out++;
-            count++;
-        }
-        return count;
-    } else {
-        while (*in && out) {
-            *out++ = (hex(*in++) << 4) | hex(*in++);
-            count++;
-        }
-        return count;
-    }
-}
-
-bool verifyPayload (String* line){
-  if(line->length() == 0) return false;
-  line->trim();
-  if(line->isEmpty()) return false;
-  return true;
-}
-
-unsigned long getNextId(unsigned long id) {
-    if (id == ULONG_MAX) {
-      id = 1;
-      return id;
-    }
-    return ++id;
-}
-
-void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
-  
-  unsigned long extranonce2_number = strtoul(extranonce2, NULL, 10);
-  extranonce2_number++;
-  
-  memset(extranonce2, '0', 2 * extranonce2_size);
-  if (extranonce2_number > long(pow(10, 2 * extranonce2_size))) {
-    return;
-  }
-  
-  char next_extranounce2[2 * extranonce2_size + 1];
-  memset(extranonce2, '0', 2 * extranonce2_size);
-  ultoa(extranonce2_number, next_extranounce2, 10);
-  memcpy(extranonce2 + (2 * extranonce2_size) - long(log10(extranonce2_number)) - 1 , next_extranounce2, strlen(next_extranounce2));
-  extranonce2[2 * extranonce2_size] = 0;
-}
-
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
-  if (doc["error"].size() == 0) {
-    return false;
-  }
-  Serial.printf("ERROR: %d | reason: %s \n", (const int) doc["error"][0], (const char*) doc["error"][1]);
-  return true;  
-}
-
-void runWorker(void *name) {
+void runStratumWorker(void *name) {
 
 // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
@@ -134,13 +48,10 @@ void runWorker(void *name) {
   #endif
 
   // connect to pool
-  WiFiClient client;
+  
   IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
+
   bool isMinerSuscribed = false;
-  bool continueSecuence = false;
-  String line, extranonce1, extranonce2 = String("0");
-  unsigned long id = 0, extranonce_number = 0;
-  unsigned int extranonce2_size;
 
   while(true) {
       
@@ -149,326 +60,117 @@ void runWorker(void *name) {
       continue;
     } 
 
-    // get template
-    StaticJsonDocument<BUFFER_JSON_DOC> doc;
-    
-    char payload[BUFFER_JSON_DOC] = {0};
-    
+    //Test vars:
+    strcpy(poolString, "testServerIP");
+    strcpy(btcString,"mybtcString");
+
+    portNumber = 3002;
     if (!client.connected()) {
       isMinerSuscribed = false;
       Serial.println("Client not connected, trying to connect..."); 
       if (!client.connect(serverIP, portNumber)) {
         Serial.println("Imposible to connect to : " + String(poolString));
         WiFi.hostByName(poolString, serverIP);
+        Serial.print("Resolved DNS got : "); Serial.println(serverIP);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         continue;
       } 
     }
 
-    // STEP 1: Pool server connection (SUBSCRIBE)
-    // Docs: 
-    // - https://cs.braiins.com/stratum-v1/docs
-    // - https://github.com/aeternity/protocol/blob/master/STRATUM.md#mining-subscribe
     if(!isMinerSuscribed){
-      id = getNextId(id);
-      sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2\"]}\n", id);
-      Serial.printf("[WORKER] %s ==> Mining subscribe\n", (char *)name);
-      Serial.print("  Sending  : "); Serial.println(payload);
-      client.print(payload);
-      vTaskDelay(200 / portTICK_PERIOD_MS);
-      line = client.readStringUntil('\n');
-      if(!verifyPayload(&line)) continue;
-      Serial.print("  Receiving: "); Serial.println(line);
-      deserializeJson(doc, line);
-      if (checkError(doc)) {
-        Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-        continue;
-      }
-      String sub_details = String((const char*) doc["result"][0][0][1]);
-      extranonce1 = String((const char*) doc["result"][1]);
-      int extranonce2_size = doc["result"][2];
-      
-      // DIFFICULTY
-      line = client.readStringUntil('\n');
-      Serial.print("  Receiving: "); Serial.println(line);
-      Serial.print("    sub_details: "); Serial.println(sub_details);
-      Serial.print("    extranonce1: "); Serial.println(extranonce1);
-      Serial.print("    extranonce2_size: "); Serial.println(extranonce2_size);
 
-      if((extranonce1.length() == 0) || line.length() == 0) { 
-        Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-        Serial.printf("extranonce1 length: %u | line2 length: %u \n", extranonce1.length(), line.length());
+      mWorker = init_mining_subscribe();
+
+      // STEP 1: Pool server connection (SUBSCRIBE)
+      if(!tx_mining_subscribe(client, mWorker)) { 
         client.stop();
-        doc.clear();
-        doc.garbageCollect();
         continue; 
       }
+
+      //strcpy(mWorker.name, btcString);
+      //strcpy(mWorker.pass, "x");
+      // STEP 2: Pool authorize work (Block Info)
+      tx_mining_auth(client, btcString, "x"); //Don't verifies authoritzation, TODO
+
       isMinerSuscribed=true;
     }
   
-    // STEP 2: Pool authorize work (Block Info)
-    id = getNextId(id);
-    sprintf(payload, "{\"params\": [\"%s\", \"x\"], \"id\": %u, \"method\": \"mining.authorize\"}\n", 
-      btcString,
-      id);
-    Serial.printf("[WORKER] %s ==> Autorize work\n", (char *)name);
-    Serial.print("  Sending  : "); Serial.println(payload);
-    client.print(payload);
-    vTaskDelay(200 / portTICK_PERIOD_MS);
-    line = client.readStringUntil('\n');
-    if(!verifyPayload(&line)) continue;
-    Serial.print("  Receiving: "); Serial.println(line);
-    Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
-    Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
-    // client.stop();
     
-    deserializeJson(doc, line);
-    String job_id = String((const char*) doc["params"][0]);
-    String prevhash = String((const char*) doc["params"][1]);
-    String coinb1 = String((const char*) doc["params"][2]);
-    String coinb2 = String((const char*) doc["params"][3]);
-    JsonArray merkle_branch = doc["params"][4];
-    String version = String((const char*) doc["params"][5]);
-    String nbits = String((const char*) doc["params"][6]);
-    String ntime = String((const char*) doc["params"][7]);
-    bool clean_jobs = doc["params"][8]; //bool
 
-    #ifdef DEBUG_MINING
-    Serial.print("    job_id: "); Serial.println(job_id);
-    Serial.print("    prevhash: "); Serial.println(prevhash);
-    Serial.print("    coinb1: "); Serial.println(coinb1);
-    Serial.print("    coinb2: "); Serial.println(coinb2);
-    Serial.print("    merkle_branch size: "); Serial.println(merkle_branch.size());
-    Serial.print("    version: "); Serial.println(version);
-    Serial.print("    nbits: "); Serial.println(nbits);
-    Serial.print("    ntime: "); Serial.println(ntime);
-    Serial.print("    clean_jobs: "); Serial.println(clean_jobs);
-    #endif
-    //Check if parameters where correctly received
-    if (checkError(doc)) {
-      Serial.printf("[WORKER] %s >>>>>>>>> Work aborted\n", (char *)name); 
-      continue;
+    //Read pending messages from pool
+    while(client.available()){
+
+      Serial.println("  Received message from pool");
+      String line = client.readStringUntil('\n');
+      stratum_method result = parse_mining_method(line);
+      switch (result)
+      {
+          case STRATUM_PARSE_ERROR:   Serial.println("  Parsed JSON: error on JSON"); break;
+          case MINING_NOTIFY:         if(parse_mining_notify(line, mJob)){
+                                          //Increse templates readed
+                                          templates++;
+                                          //Stop miner current job
+                                          mMiner.inRun = false;
+                                          //Prepare data for new job
+                                          mMiner=calculateMiningData(mWorker,mJob);
+                                          mMiner.newJob = true;
+                                          //Give new job to miner
+
+                                      }
+                                      break;
+          case MINING_SET_DIFFICULTY: if(parse_mining_set_difficulty(line, mMiner.difficulty)){
+                                        //Calculate new target
+                                        //TODO
+                                        //Give new target to workers
+                                        //TODO
+                                      }
+                                      break;
+          default:                    Serial.println("  Parsed JSON: unknown"); break;
+
+      }
     }
 
-    templates++;
-
-    // calculate target - target = (nbits[2:]+'00'*(int(nbits[:2],16) - 3)).zfill(64)
+    vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
     
-    char target[TARGET_BUFFER_SIZE+1];
-    memset(target, '0', TARGET_BUFFER_SIZE);
-    int zeros = (int) strtol(nbits.substring(0, 2).c_str(), 0, 16) - 3;
-    memcpy(target + zeros - 2, nbits.substring(2).c_str(), nbits.length() - 2);
-    target[TARGET_BUFFER_SIZE] = 0;
-    Serial.print("    target: "); Serial.println(target);
-    // bytearray target
-    uint8_t bytearray_target[32];
-    size_t size_target = to_byte_array(target, 32, bytearray_target);
-    // uint8_t buf;
-    // for (size_t j = 0; j < 16; j++) {
-    //     buf = bytearray_target[j];
-    //     bytearray_target[j] = bytearray_target[size_target - 1 - j];
-    //     bytearray_target[size_target - 1 - j] = buf;
-    // }
-    for (size_t j = 0; j < 8; j++) {
-      bytearray_target[j] ^= bytearray_target[size_target - 1 - j];
-      bytearray_target[size_target - 1 - j] ^= bytearray_target[j];
-      bytearray_target[j] ^= bytearray_target[size_target - 1 - j];
-    }
-
-    // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
-    char extranonce2_char[2 * extranonce2_size+1];	
-	  extranonce2.toCharArray(extranonce2_char, 2 * extranonce2_size + 1);
-    getNextExtranonce2(extranonce2_size, extranonce2_char);
-    //extranonce2 = String(extranonce2_char);
-    extranonce2 = "00000002";
-    
-    //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
-    String coinbase = coinb1 + extranonce1 + extranonce2 + coinb2;
-    Serial.print("    coinbase: "); Serial.println(coinbase);
-    size_t str_len = coinbase.length()/2;
-    uint8_t bytearray[str_len];
-
-    size_t res = to_byte_array(coinbase.c_str(), str_len*2, bytearray);
-
-    #ifdef DEBUG_MINING
-    Serial.print("    extranonce2: "); Serial.println(extranonce2);
-    Serial.print("    coinbase: "); Serial.println(coinbase);
-    Serial.print("    coinbase bytes - size: "); Serial.println(res);
-    for (size_t i = 0; i < res; i++)
-        Serial.printf("%02x", bytearray[i]);
-    Serial.println("---");
-    #endif
-
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
+  }
   
-    byte interResult[32]; // 256 bit
-    byte shaResult[32]; // 256 bit
+}
+
+
+//////////////////THREAD CALLS///////////////////
+
+//This works only with one thread, TODO -> Class or miner_data for each thread
+
+void runMiner(void * name){
   
-    mbedtls_sha256_starts_ret(&ctx,0);
-    mbedtls_sha256_update_ret(&ctx, bytearray, str_len);
-    mbedtls_sha256_finish_ret(&ctx, interResult);
+  while(1){
 
-    mbedtls_sha256_starts_ret(&ctx,0);
-    mbedtls_sha256_update_ret(&ctx, interResult, 32);
-    mbedtls_sha256_finish_ret(&ctx, shaResult);
-    mbedtls_sha256_free(&ctx);
-
-    #ifdef DEBUG_MINING
-    Serial.print("    coinbase double sha: ");
-    for (size_t i = 0; i < 32; i++)
-        Serial.printf("%02x", shaResult[i]);
-    Serial.println("");
-    #endif
-
-    byte merkle_result[32];
-    // copy coinbase hash
-    memcpy(merkle_result, shaResult, sizeof(shaResult));
-    
-    byte merkle_concatenated[32 * 2];
-    for (size_t k=0; k < merkle_branch.size(); k++) {
-        const char* merkle_element = (const char*) merkle_branch[k];
-        uint8_t bytearray[32];
-        size_t res = to_byte_array(merkle_element, 64, bytearray);
-
-        #ifdef DEBUG_MINING
-        Serial.print("    merkle element    "); Serial.print(k); Serial.print(": "); Serial.println(merkle_element);
-        #endif
-        for (size_t i = 0; i < 32; i++) {
-          merkle_concatenated[i] = merkle_result[i];
-          merkle_concatenated[32 + i] = bytearray[i];
-        }
-
-        #ifdef DEBUG_MINING
-        Serial.print("    merkle element    "); Serial.print(k); Serial.print(": "); Serial.println(merkle_element);
-        Serial.print("    merkle concatenated: ");
-        for (size_t i = 0; i < 64; i++)
-            Serial.printf("%02x", merkle_concatenated[i]);
-        Serial.println("");
-        #endif
-
-        mbedtls_sha256_context ctx;
-        mbedtls_sha256_init(&ctx);
-        mbedtls_sha256_starts_ret(&ctx,0);
-        mbedtls_sha256_update_ret(&ctx, merkle_concatenated, 64);
-        mbedtls_sha256_finish_ret(&ctx, interResult);
-
-        mbedtls_sha256_starts_ret(&ctx,0);
-        mbedtls_sha256_update_ret(&ctx, interResult, 32);
-        mbedtls_sha256_finish_ret(&ctx, merkle_result);
-        mbedtls_sha256_free(&ctx);
-
-        #ifdef DEBUG_MINING
-        Serial.print("    merkle sha         : ");
-        for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", merkle_result[i]);
-        Serial.println("");
-        #endif
-    }
-    // merkle root from merkle_result
-    
-    Serial.print("    merkle sha         : ");
-    char merkle_root[65];
-    for (int i = 0; i < 32; i++) {
-      Serial.printf("%02x", merkle_result[i]);
-      snprintf(&merkle_root[i*2], 3, "%02x", merkle_result[i]);
-    }
-    merkle_root[65] = 0;
-    Serial.println("");
-    
-    // calculate blockheader
-    // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])
-    String blockheader = version + prevhash + String(merkle_root) + ntime + nbits + "00000000"; 
-    str_len = blockheader.length()/2;
-    uint8_t bytearray_blockheader[str_len];
-    res = to_byte_array(blockheader.c_str(), str_len*2, bytearray_blockheader);
-
-    #ifdef DEBUG_MINING
-    Serial.println("    blockheader bytes "); Serial.print(str_len); Serial.print(" -> ");
-    #endif
-
-    // reverse version
-    uint8_t buff;
-    size_t bsize, boffset;
-    boffset = 0;
-    bsize = 4;
-    for (size_t j = boffset; j < boffset + (bsize/2); j++) {
-        buff = bytearray_blockheader[j];
-        bytearray_blockheader[j] = bytearray_blockheader[2 * boffset + bsize - 1 - j];
-        bytearray_blockheader[2 * boffset + bsize - 1 - j] = buff;
+    //Wait new job
+    while(1){
+      if(mMiner.newJob==true) break;
+      vTaskDelay(100 / portTICK_PERIOD_MS); //Small delay
     }
 
-    // reverse merkle 
-    boffset = 36;
-    bsize = 32;
-    for (size_t j = boffset; j < boffset + (bsize/2); j++) {
-        buff = bytearray_blockheader[j];
-        bytearray_blockheader[j] = bytearray_blockheader[2 * boffset + bsize - 1 - j];
-        bytearray_blockheader[2 * boffset + bsize - 1 - j] = buff;
-    }
-    // reverse difficulty
-    boffset = 72;
-    bsize = 4;
-    for (size_t j = boffset; j < boffset + (bsize/2); j++) {
-        buff = bytearray_blockheader[j];
-        bytearray_blockheader[j] = bytearray_blockheader[2 * boffset + bsize - 1 - j];
-        bytearray_blockheader[2 * boffset + bsize - 1 - j] = buff;
-    }
+    mMiner.newJob = false; //Clear newJob flag
+    mMiner.inRun = true; //Set inRun flag
 
-
-    #ifdef DEBUG_MINING
-    Serial.print(" >>> bytearray_blockheader     : "); 
-    for (size_t i = 0; i < 4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("version     ");
-    for (size_t i = 0; i < 4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("prev hash   ");
-    for (size_t i = 4; i < 4+32; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("merkle root ");
-    for (size_t i = 36; i < 36+32; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("nbits       ");
-    for (size_t i = 68; i < 68+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("difficulty  ");
-    for (size_t i = 72; i < 72+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("nonce       ");
-    for (size_t i = 76; i < 76+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.println("bytearray_blockheader: ");
-    for (size_t i = 0; i < str_len; i++) {
-      Serial.printf("%02x", bytearray_blockheader[i]);
-    }
-    Serial.println("");
-    #endif
-
+    //Prepare Premining data
     mbedtls_sha256_context midstate[32];
     unsigned char hash[32];
+    mbedtls_sha256_context ctx;
 
     //Calcular midstate
     mbedtls_sha256_init(midstate); 
     mbedtls_sha256_starts_ret(midstate, 0);
-    mbedtls_sha256_update_ret(midstate, bytearray_blockheader, 64);
+    mbedtls_sha256_update_ret(midstate, mMiner.bytearray_blockheader, 64);
 
     // search a valid nonce
-    enableGlobalHash = true;
-
     unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     uint32_t startT = micros();
-    unsigned char *header64 = bytearray_blockheader + 64;
+    unsigned char *header64 = mMiner.bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      memcpy(bytearray_blockheader + 76, &nonce, 4);
+      memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
@@ -486,36 +188,39 @@ void runWorker(void *name) {
       
       hashes++;
       if (nonce++> TARGET_NONCE) break; //exit
+      if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
       if(hash[31] !=0 || hash[30] !=0) continue;
       halfshares++;
+      
+      //Check target to submit
+      //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+      //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
+      //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
+      //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
+      double diff_hash = diff_from_target(hash);
+      if(hash[29] <= 0x3B)//(diff_hash > 1e-9)
+      {
+        tx_mining_submit(client, mWorker, mJob, nonce);
+        Serial.print("   - Current diff share: "); Serial.println(diff_hash);
+        Serial.print("   - TX SHARE: ");
+        for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", hash[i]);
+        Serial.println("");   
+      }
+      
       // check if 32bit share
       if(hash[29] !=0 || hash[28] !=0) continue;
       shares++;
 
-       // check if valid header
-      if(checkValid(hash, bytearray_target)){
+        // check if valid header
+      if(checkValid(hash, mMiner.bytearray_target)){
         Serial.printf("[WORKER] %s CONGRATULATIONS! Valid completed with nonce: %d | 0x%x\n", (char *)name, nonce, nonce);
         valids++;
         Serial.printf("[WORKER]  %s  Submiting work valid!\n", (char *)name);
-        while (!client.connected()) {
-          client.connect(poolString, portNumber);
-          vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
         // STEP 3: Submit mining job
-        id = getNextId(id);
-        sprintf(payload, "{\"params\": [\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"], \"id\": %u, \"method\": \"mining.submit\"}",
-          btcString,
-          job_id,
-          extranonce2,
-          ntime,
-          String(nonce, HEX),
-          id
-          );
-        Serial.print("  Sending  : "); Serial.println(payload);
-        client.print(payload);
-        Serial.print("  Receiving: "); Serial.println(client.readString());
+        tx_mining_submit(client, mWorker, mJob, nonce);
         client.stop();
         // exit 
         nonce = MAX_NONCE;
@@ -525,56 +230,12 @@ void runWorker(void *name) {
 
     mbedtls_sha256_free(&ctx);
     mbedtls_sha256_free(midstate);
-    enableGlobalHash = false;
 
     // TODO Pending doub 
     if(hashes>=MAX_NONCE) { Mhashes=Mhashes+MAX_NONCE/1000000; hashes=hashes-MAX_NONCE;}
 
     uint32_t duration = micros() - startT;
   }
-  
-}
-
-
-//////////////////THREAD CALLS///////////////////
-
-//Testeamos hashrate final usando hilo principal
-//this is currently on test
-
-void runMiner(void){
-  uint32_t nonce=0;
-  unsigned char bytearray_blockheader[80];
-
-  if(!enableGlobalHash) return;
-
-  mbedtls_sha256_context midstate[32], ctx;
-  unsigned char hash[32];
-
-  //Calcular midstate
-  mbedtls_sha256_init(midstate); 
-  mbedtls_sha256_starts_ret(midstate, 0);
-  mbedtls_sha256_update_ret(midstate, bytearray_blockheader, 64);
-
-  //Iteraciones
-  unsigned char *header64 = bytearray_blockheader + 64;
-  
-  for(nonce = 0; nonce < 10000; nonce++){
-    memcpy(bytearray_blockheader + 77, &nonce, 3);
-    mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
-    mbedtls_sha256_update_ret(&ctx, header64, 16);
-    mbedtls_sha256_finish_ret(&ctx, hash);
-
-    // Segundo SHA-256
-    mbedtls_sha256_starts_ret(&ctx, 0);
-    mbedtls_sha256_update_ret(&ctx, hash, 32);
-    mbedtls_sha256_finish_ret(&ctx, hash);
-
-    hashes++;
-  }
-
-  mbedtls_sha256_free(&ctx);
-  mbedtls_sha256_free(midstate);
-
 }
 
 void runMonitor(void *name){
