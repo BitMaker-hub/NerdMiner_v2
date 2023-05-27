@@ -155,7 +155,7 @@ miner_data init_miner_data(void){
   
   miner_data newMinerData;
 
-  newMinerData.difficulty = DEFAULT_DIFFICULTY;
+  newMinerData.difficulty = atof(DEFAULT_DIFFICULTY);
   newMinerData.inRun = false;
   newMinerData.newJob = false;
   

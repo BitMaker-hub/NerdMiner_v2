@@ -20,8 +20,8 @@ typedef struct {
     String extranonce1;
     String extranonce2;
     int extranonce2_size;
-    String wName;
-    String wPass;
+    char wName[80];
+    char wPass[20];
 } mining_subscribe;
 
 typedef struct {
@@ -61,7 +61,9 @@ bool parse_mining_notify(String line, mining_job& mJob);
 //Method Mining.submit
 bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce);
 
-//Method Mining.set_difficulty
+//Difficulty Methods 
+bool tx_suggest_difficulty(WiFiClient& client, const char * difficulty);
 bool parse_mining_set_difficulty(String line, float& difficulty);
+
 
 #endif // STRATUM_API_H

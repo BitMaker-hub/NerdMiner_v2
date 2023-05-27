@@ -132,6 +132,7 @@ bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass)
     return true;
 }
 
+
 stratum_method parse_mining_method(String line)
 {
     if(!verifyPayload(&line)) return STRATUM_PARSE_ERROR;
@@ -202,7 +203,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     id = getNextId(id);
     sprintf(payload, "{\"id\": %u, \"method\": \"mining.submit\", \"params\": [\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
         id,
-        "bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
+        mWorker.wName,//"bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
         mJob.job_id,
         mWorker.extranonce2,
         mJob.ntime,
@@ -236,20 +237,15 @@ bool parse_mining_set_difficulty(String line, float& difficulty)
     return true;
 }
 
-/*
-int suggest_difficulty(int socket, uint32_t difficulty)
+bool tx_suggest_difficulty(WiFiClient& client, const char * difficulty)
 {
-    char difficulty_msg[BUFFER_SIZE];
-    sprintf(difficulty_msg, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%d]}\n", send_uid++, difficulty);
-    ESP_LOGI(TAG, "-> %s", difficulty_msg);
-    write(socket, difficulty_msg, strlen(difficulty_msg));
-    char * line;
-    line = receive_jsonrpc_line(socket);
+    char payload[BUFFER] = {0};
 
-    ESP_LOGI(TAG, "Received result %s", line);
-
-    free(line);
-
-    return 1;
+    id = getNextId(id);
+    sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%s]}\n", id, difficulty);
+    
+    Serial.print("  Sending  : "); Serial.print(payload);
+    client.print(payload);
+    
+    return true;
 }
-*/

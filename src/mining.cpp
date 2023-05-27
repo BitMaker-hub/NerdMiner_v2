@@ -61,8 +61,9 @@ void runStratumWorker(void *name) {
     } 
 
     //Test vars:
-    strcpy(poolString, "testServerIP");
-    strcpy(btcString,"mybtcString");
+    strcpy(poolString, "rr");
+    portNumber = 3333;
+    strcpy(btcString,"rr");
 
     portNumber = 3002;
     if (!client.connected()) {
@@ -86,11 +87,15 @@ void runStratumWorker(void *name) {
         client.stop();
         continue; 
       }
-
-      //strcpy(mWorker.name, btcString);
-      //strcpy(mWorker.pass, "x");
+      
+      strcpy(mWorker.wName, btcString);
+      strcpy(mWorker.wPass, "x");
       // STEP 2: Pool authorize work (Block Info)
-      tx_mining_auth(client, btcString, "x"); //Don't verifies authoritzation, TODO
+      tx_mining_auth(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
+      //tx_mining_auth2(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
+
+      // STEP 3: Suggest pool difficulty
+      tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
 
       isMinerSuscribed=true;
     }

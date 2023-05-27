@@ -5,7 +5,7 @@
 // Mining
 #define MAX_NONCE       5000000U
 #define TARGET_NONCE    471136297U
-#define DEFAULT_DIFFICULTY 1e-9;
+#define DEFAULT_DIFFICULTY  "1e-9"
 
 #define TARGET_BUFFER_SIZE 64
 
