@@ -19,7 +19,7 @@ typedef struct{
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];
   uint8_t bytearray_blockheader[80];
-  float difficulty;
+  float poolDifficulty;
   bool inRun;
   bool newJob;
 }miner_data;

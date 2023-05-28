@@ -227,8 +227,8 @@ bool parse_mining_set_difficulty(String line, float& difficulty)
     if (error) return false;
     if (!doc.containsKey("params")) return false;
 
-    Serial.print("    difficulty: "); Serial.println((const char *)doc["params"][0]);
-    //difficulty = (float) doc["params"][0];
+    Serial.print("    difficulty: "); Serial.println((float)doc["params"][0],12);
+    difficulty = (float)doc["params"][0];
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(job_id);

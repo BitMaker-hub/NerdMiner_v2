@@ -50,6 +50,7 @@ void runStratumWorker(void *name) {
   // connect to pool
   
   IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
+  float currentPoolDifficulty = atof(DEFAULT_DIFFICULTY);
 
   bool isMinerSuscribed = false;
 
@@ -61,11 +62,10 @@ void runStratumWorker(void *name) {
     } 
 
     //Test vars:
-    strcpy(poolString, "rr");
-    portNumber = 3333;
+    strcpy(poolString, "rr"); 
+    portNumber = 3002;
     strcpy(btcString,"rr");
 
-    portNumber = 3002;
     if (!client.connected()) {
       isMinerSuscribed = false;
       Serial.println("Client not connected, trying to connect..."); 
@@ -118,17 +118,14 @@ void runStratumWorker(void *name) {
                                           mMiner.inRun = false;
                                           //Prepare data for new job
                                           mMiner=calculateMiningData(mWorker,mJob);
+                                          mMiner.poolDifficulty = currentPoolDifficulty;
                                           mMiner.newJob = true;
                                           //Give new job to miner
 
                                       }
                                       break;
-          case MINING_SET_DIFFICULTY: if(parse_mining_set_difficulty(line, mMiner.difficulty)){
-                                        //Calculate new target
-                                        //TODO
-                                        //Give new target to workers
-                                        //TODO
-                                      }
+          case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
+                                      mMiner.poolDifficulty = currentPoolDifficulty;
                                       break;
           default:                    Serial.println("  Parsed JSON: unknown"); break;
 
@@ -205,10 +202,11 @@ void runMiner(void * name){
       //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
       //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
       double diff_hash = diff_from_target(hash);
-      if(hash[29] <= 0x3B)//(diff_hash > 1e-9)
+      if(diff_hash > mMiner.poolDifficulty)//(hash[29] <= 0x3B)//(diff_hash > 1e-9)
       {
         tx_mining_submit(client, mWorker, mJob, nonce);
-        Serial.print("   - Current diff share: "); Serial.println(diff_hash);
+        Serial.print("   - Current diff share: "); Serial.println(diff_hash,12);
+        Serial.print("   - Current pool diff : "); Serial.println(mMiner.poolDifficulty,12);
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
