@@ -59,13 +59,7 @@ void check_turn_off_screen() {
   }
 
   unsigned long currentTime = millis();
-  unsigned long elapsedTime;
-
-  if (currentTime >= lastInteraction) {
-    elapsedTime = currentTime - lastInteraction;
-  } else {
-    elapsedTime = (ULONG_MAX - lastInteraction) + currentTime + 1;
-  }
+  unsigned long elapsedTime = currentTime - lastInteraction;
 
   if (displayTimeout > 0 && elapsedTime >= displayTimeout) {
     int screen_state= digitalRead(TFT_BL);
