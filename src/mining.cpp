@@ -62,9 +62,19 @@ void runStratumWorker(void *name) {
     } 
 
     //Test vars:
-    strcpy(poolString, "rr"); 
+    //************
+    //Nerdminerpool
+    strcpy(poolString, "nerdminerPool"); 
     portNumber = 3002;
-    strcpy(btcString,"rr");
+    strcpy(btcString,"test");
+    //Braiins
+    //strcpy(poolString, "eu.stratum.braiins.com");
+    //portNumber = 3333;
+    //strcpy(btcString,"Bitmaker.01");
+    //CKpool
+    //strcpy(poolString, "solo.ckpool.org");
+    //portNumber = 3333;
+    //strcpy(btcString,"test");
 
     if (!client.connected()) {
       isMinerSuscribed = false;
