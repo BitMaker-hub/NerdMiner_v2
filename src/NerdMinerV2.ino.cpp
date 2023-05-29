@@ -35,7 +35,7 @@ void alternate_screen_state() {
   int screen_state= digitalRead(TFT_BL);
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
   Serial.println("Switching display state");
-  digitalWrite(TFT_BL, !screen_state);
+  digitalWrite(TFT_BL, !screen_state);                                                                      
 }
 
 void alternate_screen_rotation() {

@@ -46,6 +46,7 @@ void runStratumWorker(void *name) {
   #ifdef DEBUG_MEMORY
   Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
   #endif
+  Serial.printf("### Connecting to : %s:%d \n     wallet: %s \n", poolString, portNumber, btcString);
 
   // connect to pool
   
@@ -61,11 +62,11 @@ void runStratumWorker(void *name) {
     } 
 
     //Test vars:
-    strcpy(poolString, "rr");
-    portNumber = 3333;
-    strcpy(btcString,"rr");
+    // strcpy(poolString, "rr");
+    // portNumber = 3333;
+    // strcpy(btcString,"rr");
 
-    portNumber = 3002;
+    // portNumber = 3002;
     if (!client.connected()) {
       isMinerSuscribed = false;
       Serial.println("Client not connected, trying to connect..."); 
@@ -207,7 +208,7 @@ void runMiner(void * name){
       double diff_hash = diff_from_target(hash);
       if(hash[29] <= 0x3B)//(diff_hash > 1e-9)
       {
-        tx_mining_submit(client, mWorker, mJob, nonce);
+        // tx_mining_submit(client, mWorker, mJob, nonce);
         Serial.print("   - Current diff share: "); Serial.println(diff_hash);
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
