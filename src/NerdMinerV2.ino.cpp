@@ -19,6 +19,7 @@
 OneButton button1(PIN_BUTTON_1);
 OneButton button2(PIN_BUTTON_2);
 
+extern int screenAPO;
 
 OpenFontRender render;
 
@@ -33,7 +34,8 @@ TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 //static int valids = 0; // increased if blockhash <= target
 
 int oldStatus = 0;
-unsigned long start = millis();
+unsigned long lastInteraction = millis();
+unsigned long displayTimeout = 2UL * 60UL * 1000UL;
 const char* ntpServer = "pool.ntp.org";
 
 //void runMonitor(void *name);
@@ -43,14 +45,38 @@ void alternate_screen_state() {
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
   Serial.println("Switching display state");
   digitalWrite(TFT_BL, !screen_state);
+  lastInteraction = millis();
 }
 
 void alternate_screen_rotation() {
   tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
-
+  lastInteraction = millis();
 }
 
+void check_turn_off_screen() {
+  if (displayTimeout == 0) {
+    return;
+  }
 
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime;
+
+  if (currentTime >= lastInteraction) {
+    elapsedTime = currentTime - lastInteraction;
+  } else {
+    elapsedTime = (ULONG_MAX - lastInteraction) + currentTime + 1;
+  }
+
+  if (displayTimeout > 0 && elapsedTime >= displayTimeout) {
+    int screen_state= digitalRead(TFT_BL);
+    if (screen_state == HIGH) {
+      Serial.print("Turning off display after ");
+      Serial.print(screenAPO);
+      Serial.println(" minutes.");
+      digitalWrite(TFT_BL, LOW);
+    }
+  }
+}
 
 /********* INIT *****/
 void setup()
@@ -110,6 +136,8 @@ void setup()
   /******** INIT WIFI ************/
   init_WifiManager();
 
+  displayTimeout = screenAPO * 60UL * 1000UL;
+
   /******** CREATE TASK TO PRINT SCREEN *****/
   //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   // Higher prio monitor task
@@ -147,7 +175,9 @@ void loop() {
   // keep watching the push buttons:
   button1.tick();
   button2.tick();
-  
+
+  check_turn_off_screen();
+
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
   
   int newStatus = WiFi.status();

@@ -18,11 +18,13 @@
 // Flag for saving data
 bool shouldSaveConfig = false;
 
+#define DEF_SCR_APO_TIME 2;
+
 // Variables to hold data from custom textboxes
 char poolString[80] = "solo.ckpool.org";
 int portNumber = 3333;
 char btcString[80] = "yourBtcAddress";
-
+int screenAPO = DEF_SCR_APO_TIME;
 
 // Define WiFiManager Object
 WiFiManager wm;
@@ -40,6 +42,7 @@ void saveConfigFile()
   json["poolString"] = poolString;
   json["portNumber"] = portNumber;
   json["btcString"] = btcString;
+  json["screenAPO"] = screenAPO;
 
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -92,6 +95,12 @@ bool loadConfigFile()
           strcpy(poolString, json["poolString"]);
           strcpy(btcString, json["btcString"]);
           portNumber = json["portNumber"].as<int>();
+          if (json.containsKey("screenAPO")) {
+            screenAPO = json["screenAPO"].as<int>();
+          }
+          else {
+            screenAPO = DEF_SCR_APO_TIME;
+          }
 
           return true;
         }
@@ -190,10 +199,16 @@ void init_WifiManager()
   // Text box (String) - 80 characters maximum
   WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", btcString, 80);
 
+  sprintf(convertedValue, "%d", screenAPO); 
+  // Text box (Number) - 3 characters maximum
+  WiFiManagerParameter screenapo_text_box_num("ScreenAPO", "Display auto poweroff (in minutes. 0=always on)", convertedValue, 3); 
+
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
   wm.addParameter(&addr_text_box);
+  wm.addParameter(&screenapo_text_box_num);
+
 
   Serial.println("AllDone: ");
   if (forceConfig)
@@ -256,6 +271,11 @@ void init_WifiManager()
     strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
     Serial.print("btcString: ");
     Serial.println(btcString);
+
+    //Convert the number value
+    screenAPO = atoi(screenapo_text_box_num.getValue());
+    Serial.print("screenAPO: ");
+    Serial.println(screenAPO);
   }
   
   // Save the custom parameters to FS
