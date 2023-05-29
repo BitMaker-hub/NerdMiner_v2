@@ -18,12 +18,14 @@
 // Flag for saving data
 bool shouldSaveConfig = false;
 
+#define DEF_SCR_APO_TIME 2;
+
 // Variables to hold data from custom textboxes
 char poolString[80] = "solo.ckpool.org";
 int portNumber = 3333;
 char btcString[80] = "yourBtcAddress";
 int GMTzone = 2; //Currently selected in spain
-
+int screenAPO = DEF_SCR_APO_TIME;
 
 // Define WiFiManager Object
 WiFiManager wm;
@@ -42,6 +44,7 @@ void saveConfigFile()
   json["portNumber"] = portNumber;
   json["btcString"] = btcString;
   json["gmtZone"] = GMTzone;
+  json["screenAPO"] = screenAPO;
 
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -95,6 +98,13 @@ bool loadConfigFile()
           strcpy(btcString, json["btcString"]);
           portNumber = json["portNumber"].as<int>();
           GMTzone = json["gmtZone"].as<int>();
+          if (json.containsKey("screenAPO")) {
+            screenAPO = json["screenAPO"].as<int>();
+          }
+          else {
+            screenAPO = DEF_SCR_APO_TIME;
+          }
+
           return true;
         }
         else
@@ -203,11 +213,18 @@ void init_WifiManager()
   sprintf(charZone, "%d", GMTzone); 
   WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3); 
 
+  // Text box (Number) - 3 characters maximum
+  char charAPO[6];
+  sprintf(charAPO, "%d", screenAPO); 
+  WiFiManagerParameter screenapo_text_box_num("ScreenAPO", "Display auto poweroff (in minutes. 0=always on)", charAPO, 3); 
+
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
   wm.addParameter(&addr_text_box);
   wm.addParameter(&time_text_box_num);
+  wm.addParameter(&screenapo_text_box_num);
+
 
   Serial.println("AllDone: ");
   if (forceConfig)
@@ -253,6 +270,7 @@ void init_WifiManager()
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
+
     // Lets deal with the user config values
   
     // Copy the string value
@@ -274,6 +292,11 @@ void init_WifiManager()
     GMTzone = atoi(time_text_box_num.getValue());
     Serial.print("TimeZone fromUTC: ");
     Serial.println(GMTzone);
+
+    //Convert the number value
+    screenAPO = atoi(screenapo_text_box_num.getValue());
+    Serial.print("screenAPO: ");
+    Serial.println(screenAPO);
   }
   
   // Save the custom parameters to FS
