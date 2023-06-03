@@ -58,7 +58,7 @@ Optional you can select other pool:
 | Pool URL                 | Port | URL |
 |---                       |---   |---  | 
 | solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
-| btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
+| btc.zsolo.bid            | 6056 | https://zsolo.bid/en/btc-solo-mining-pool |
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
 ### Buttons
