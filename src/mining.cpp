@@ -9,6 +9,7 @@
 #include "mbedtls/sha256.h"
 #include "OpenFontRender.h"
 #include "mining.h"
+#include "rtc_tempsensor.h"
 
 #define TARGET_BUFFER_SIZE 64
 #define BUFFER_JSON_DOC 4096
@@ -580,6 +581,7 @@ void runMiner(void){
 void runMonitor(void *name){
 
   Serial.println("[MONITOR] started");
+  float   temp;
   
   unsigned long mLastCheck = 0;
 
@@ -631,20 +633,19 @@ void runMonitor(void *name){
     //Valid Blocks
     render.setFontSize(48);
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
+    
     //Print Temp
-    //background.setTextColor(TFT_BLACK);
-    //background.setFreeFont(FF0);
-    //background.drawString("30", 230, 4);
-    //Print Hour
-    //background.drawString("22:10", 250, 4);
-
-    //Print Temp
-    temp = String(temperatureRead(), 0);
-    render.setFontSize(20);
-    render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
-
-    render.setFontSize(7);
-    render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
+    static char temp_str[10];
+    if (temperatureRead_fix(&temp) == ESP_OK)
+    {
+      sprintf(temp_str, "%.0f", temp);
+      //Print Temperature
+      render.setFontSize(20);
+      render.rdrawString(temp_str, 236, 1, TFT_BLACK);
+      //print the degree simbol
+      render.setFontSize(7);
+      render.rdrawString(String(0).c_str(), 241, 3, TFT_BLACK);
+    }
 
     //Print Hour
     render.setFontSize(20);
