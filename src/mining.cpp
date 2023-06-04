@@ -36,6 +36,24 @@ static miner_data mMiner; //Global miner data (Create a miner class TODO)
 mining_subscribe mWorker;
 mining_job mJob;
 
+void checkPoolConnection(bool* isMinerSuscribed) {
+  
+  if (client.connected()) {
+    return;
+  }
+  
+  *isMinerSuscribed = false;
+  Serial.println("Client not connected, trying to connect..."); 
+  IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
+  WiFi.hostByName(poolString, serverIP);
+  Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+  if (!client.connect(poolString, portNumber)) {
+    Serial.println("Imposible to connect to : " + String(poolString));
+    WiFi.hostByName(poolString, serverIP);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+
 void runStratumWorker(void *name) {
 
 // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
@@ -49,7 +67,6 @@ void runStratumWorker(void *name) {
 
   // connect to pool
   
-  IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
   float currentPoolDifficulty = atof(DEFAULT_DIFFICULTY);
 
   bool isMinerSuscribed = false;
@@ -64,9 +81,9 @@ void runStratumWorker(void *name) {
     //Test vars:
     //************
     //Nerdminerpool
-    strcpy(poolString, "nerdminerPool"); 
-    portNumber = 3002;
-    strcpy(btcString,"test");
+    // strcpy(poolString, "nerdminerPool"); 
+    // portNumber = 3002;
+    // strcpy(btcString,"test");
     //Braiins
     //strcpy(poolString, "eu.stratum.braiins.com");
     //portNumber = 3333;
@@ -76,17 +93,7 @@ void runStratumWorker(void *name) {
     //portNumber = 3333;
     //strcpy(btcString,"test");
 
-    if (!client.connected()) {
-      isMinerSuscribed = false;
-      Serial.println("Client not connected, trying to connect..."); 
-      if (!client.connect(serverIP, portNumber)) {
-        Serial.println("Imposible to connect to : " + String(poolString));
-        WiFi.hostByName(poolString, serverIP);
-        Serial.print("Resolved DNS got : "); Serial.println(serverIP);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        continue;
-      } 
-    }
+    checkPoolConnection(&isMinerSuscribed);
 
     if(!isMinerSuscribed){
 
@@ -109,11 +116,9 @@ void runStratumWorker(void *name) {
 
       isMinerSuscribed=true;
     }
-  
-    
 
     //Read pending messages from pool
-    while(client.available()){
+    while(client.connected() && client.available()){
 
       Serial.println("  Received message from pool");
       String line = client.readStringUntil('\n');
