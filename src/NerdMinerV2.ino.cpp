@@ -154,7 +154,4 @@ void loop() {
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
 
-  //Run miner on main core when there is time --Currently on test
-  // runMiner();
-
 }
