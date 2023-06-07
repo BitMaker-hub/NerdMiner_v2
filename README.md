@@ -63,7 +63,8 @@ Optional you can select other pool:
 
 ### Buttons
 With the USB-C port to the right:
-- The top button allows you to **reset the configurations and reboot** your NerdMiner. Just hold it for 5 seconds.
+- Hold top right button and power up to enter **configuration mode** and edit current config via Wifi.
+- During normal operation hold 5 seconds top right button to **reset the configurations and reboot** your NerdMiner. 
 - Click the bottom button once to turn the screen off and on again
 - Double click to change the orientation (default is USB-C to the right)
 
@@ -84,7 +85,7 @@ With the USB-C port to the right:
 - [x]  Bug Reboots when received JSON contains some null values
 - [x]  Implement midstate sha256
 - [x]  Bug Wificlient DNS unresolved on Wifi.h
-- [ ]  Code refactoring
+- [x]  Code refactoring
 - [ ]  Add blockHeight to screen
 - [ ]  Add clock to show current time
 - [ ]  Add new screen with global mining stats

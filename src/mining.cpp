@@ -11,16 +11,17 @@
 #include "stratum.h"
 #include "mining.h"
 #include "utils.h"
+#include "monitor.h"
 
-static unsigned long templates = 0;
-static unsigned long hashes= 0;
-static unsigned long Mhashes = 0;
-static unsigned long totalKHashes = 0;
-static String temp;
+unsigned long templates = 0;
+unsigned long hashes= 0;
+unsigned long Mhashes = 0;
+unsigned long totalKHashes = 0;
+unsigned long elapsedKHs = 0;
 
-static int halfshares; // increase if blockhash has 16 bits of zeroes
-static int shares; // increase if blockhash has 32 bits of zeroes
-static int valids; // increased if blockhash <= target
+unsigned long halfshares; // increase if blockhash has 16 bits of zeroes
+unsigned int shares; // increase if blockhash has 32 bits of zeroes
+unsigned int valids; // increased if blockhash <= target
 
 // Variables to hold data from custom textboxes
 extern char poolString[80];
@@ -35,6 +36,9 @@ static WiFiClient client;
 static miner_data mMiner; //Global miner data (Create a miner class TODO)
 mining_subscribe mWorker;
 mining_job mJob;
+monitor_data mMonitor;
+
+bool isMinerSuscribed = false;
 
 void checkPoolConnection(bool* isMinerSuscribed) {
   
@@ -54,6 +58,25 @@ void checkPoolConnection(bool* isMinerSuscribed) {
   }
 }
 
+//Checks if pool is not sending any data and reconnects again
+//verifies it even connection is alive, because pool could be stopped sending NOTIFY
+unsigned long mStart0Hashrate = 0;
+bool checkPoolInactivity(unsigned long inactivityTime){
+
+    unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
+    unsigned long elapsedKHs = currentKHashes - totalKHashes; 
+
+    if(elapsedKHs == 0){
+      //Check if hashrate is 0 during inactivityTIme
+      if(mStart0Hashrate == 0) mStart0Hashrate  = millis(); 
+      if((millis()-mStart0Hashrate) > inactivityTime) { mStart0Hashrate=0; return true;}
+      return false;
+    }
+
+  mStart0Hashrate = 0;
+  return false;
+}
+
 void runStratumWorker(void *name) {
 
 // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
@@ -68,8 +91,6 @@ void runStratumWorker(void *name) {
   // connect to pool
   
   float currentPoolDifficulty = atof(DEFAULT_DIFFICULTY);
-
-  bool isMinerSuscribed = false;
 
   while(true) {
       
@@ -89,8 +110,8 @@ void runStratumWorker(void *name) {
     //portNumber = 3333;
     //strcpy(btcString,"Bitmaker.01");
     //CKpool
-    //strcpy(poolString, "solo.ckpool.org");
-    //portNumber = 3333;
+    strcpy(poolString, "solo.ckpool.org");
+    portNumber = 3333;
     //strcpy(btcString,"test");
 
     checkPoolConnection(&isMinerSuscribed);
@@ -115,6 +136,15 @@ void runStratumWorker(void *name) {
       tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
 
       isMinerSuscribed=true;
+    }
+
+    //Check if pool is down for almost 5minutes and then restart connection with pool (5min=300000ms)
+    if(checkPoolInactivity(120000)){
+      //Restart connection
+      Serial.println("  Detected more than 2 min without data form stratum server. Closing socket and reopening...");
+      client.stop();
+      isMinerSuscribed=false;
+      continue; 
     }
 
     //Read pending messages from pool
@@ -249,8 +279,12 @@ void runMiner(void * name){
     mbedtls_sha256_free(&ctx);
     mbedtls_sha256_free(midstate);
 
-    // TODO Pending doub 
-    if(hashes>=MAX_NONCE) { Mhashes=Mhashes+MAX_NONCE/1000000; hashes=hashes-MAX_NONCE;}
+    mMiner.inRun = false;
+
+    if(hashes>=MAX_NONCE) { 
+      Mhashes=Mhashes+MAX_NONCE/1000000; 
+      hashes=hashes-MAX_NONCE;
+    }
 
     uint32_t duration = micros() - startT;
   }
@@ -263,87 +297,27 @@ void runMonitor(void *name){
   unsigned long mLastCheck = 0;
 
   while(1){
-    background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen); 
+    
     
     unsigned long mElapsed = millis()-mLastCheck;
     mLastCheck = millis();
     unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
-    unsigned long elapsedKHs = currentKHashes - totalKHashes; 
+    elapsedKHs = currentKHashes - totalKHashes; 
     totalKHashes = currentKHashes;
-    //Serial.println("[runMonitor Task] -> Printing results on screen ");
     
-     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %.3f KH/s\n",
-      shares, totalKHashes, (1.0*(elapsedKHs*1000))/mElapsed);
-
-    //Hashrate
-    render.setFontSize(70);
-    render.setCursor(19, 118);
-    render.setFontColor(TFT_BLACK);
-    char tmp[10] = {0};
-    sprintf(tmp, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
-    render.rdrawString(tmp, 118, 114, TFT_BLACK);
-    //Total hashes
-    render.setFontSize(36);
-    render.rdrawString(String(Mhashes).c_str(), 268, 138, TFT_BLACK);
-    //Block templates
-    render.setFontSize(36);
-    render.drawString(String(templates).c_str(), 186, 20, 0xDEDB);
-    //16Bit shares
-    render.setFontSize(36);
-    render.drawString(String(halfshares).c_str(), 186, 48, 0xDEDB);
-    //32Bit shares
-    render.setFontSize(36);
-    render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
-    //Hores
-    unsigned long secElapsed=millis()/1000;
-    int hr = secElapsed/3600;                                                        //Number of seconds in an hour
-    int mins = (secElapsed-(hr*3600))/60;                                              //Remove the number of hours and calculate the minutes.
-    int sec = secElapsed-(hr*3600)-(mins*60);   
-    render.setFontSize(36);
-    render.rdrawString(String(hr).c_str(), 208, 99, 0xDEDB);
-    //Minutss
-    render.setFontSize(36);
-    render.rdrawString(String(mins).c_str(), 253, 99, 0xDEDB);
-    //Segons
-    render.setFontSize(36);
-    render.rdrawString(String(sec).c_str(), 298, 99, 0xDEDB);
-    //Valid Blocks
-    render.setFontSize(48);
-    render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
-    //Print Temp
-    //background.setTextColor(TFT_BLACK);
-    //background.setFreeFont(FF0);
-    //background.drawString("30", 230, 4);
-    //Print Hour
-    //background.drawString("22:10", 250, 4);
-
-    //Print Temp
-    temp = String(temperatureRead(), 0);
-    render.setFontSize(20);
-    render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
-
-    render.setFontSize(7);
-    render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
-
-    //Print Hour
-    render.setFontSize(20);
-    render.rdrawString(String(printLocalTime()).c_str(), 286, 1, TFT_BLACK);
-
-    //Push prepared background to screen
-    background.pushSprite(0,0);
+    switch(mMonitor.screen){
+      case SCREEN_MINING: show_MinerScreen(mElapsed); break;
+    }
     
+    //Monitor state when hashrate is 0.0
+    if(elapsedKHs == 0) {
+      Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
+      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false", 
+      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+    }
+
     // Pause the task for 5000ms
     vTaskDelay(2000 / portTICK_PERIOD_MS);
   }
 }
-String printLocalTime(){
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return "00:00";
-  }
-  char LocalHour[80];
-  strftime (LocalHour, 80, "%H:%M", &timeinfo); //4 digit year, 2 digit month
-  String mystring(LocalHour); 
-  return LocalHour;
-}
+
