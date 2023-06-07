@@ -5,6 +5,8 @@
 #include "media/images.h"
 #include "mbedtls/md.h"
 #include "OpenFontRender.h"
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -23,6 +25,21 @@ extern OpenFontRender render;
 extern TFT_eSprite background;
 extern monitor_data mMonitor;
 
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
+
+void setup_monitor(void){
+    /******** TIME ZONE SETTING *****/
+
+    timeClient.begin();
+    
+    // Adjust offset depending on your zone
+    // GMT +2 in seconds (zona horaria de Europa Central)
+    timeClient.setTimeOffset(7200);
+
+    Serial.println("TimeClient setup done");
+}
+
 String printLocalTime(){
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
@@ -32,6 +49,36 @@ String printLocalTime(){
   char LocalHour[80];
   strftime (LocalHour, 80, "%H:%M", &timeinfo); //4 digit year, 2 digit month
   String mystring(LocalHour); 
+  return LocalHour;
+}
+
+unsigned long mTriggerUpdate = 0;
+unsigned long initialMillis = millis();
+unsigned long initialTime = 0;
+
+String getTime(void){
+  
+  //Check if need an NTP call to check current time
+  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 1000)){
+    if(WiFi.status() != WL_CONNECTED) return "";
+    timeClient.update(); //NTP call to get current time
+    mTriggerUpdate = millis();
+    initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
+    Serial.print("TimeClient NTPupdateTime ");
+  }
+
+  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+
+  // convierte la hora actual en horas, minutos y segundos
+  unsigned long currentHours = currentTime % 86400 / 3600;
+  unsigned long currentMinutes = currentTime % 3600 / 60;
+  unsigned long currentSeconds = currentTime % 60;
+
+  char LocalHour[10];
+  sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
+  
+  String mystring(LocalHour);
   return LocalHour;
 }
 
@@ -82,12 +129,6 @@ void show_MinerScreen(unsigned long mElapsed){
     //Valid Blocks
     render.setFontSize(48);
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
-    //Print Temp
-    //background.setTextColor(TFT_BLACK);
-    //background.setFreeFont(FF0);
-    //background.drawString("30", 230, 4);
-    //Print Hour
-    //background.drawString("22:10", 250, 4);
 
     //Print Temp
     String temp = String(temperatureRead(), 0);
@@ -99,7 +140,7 @@ void show_MinerScreen(unsigned long mElapsed){
 
     //Print Hour
     render.setFontSize(20);
-    render.rdrawString(String(printLocalTime()).c_str(), 286, 1, TFT_BLACK);
+    render.rdrawString(getTime().c_str(), 286, 1, TFT_BLACK);
 
     //Push prepared background to screen
     background.pushSprite(0,0);

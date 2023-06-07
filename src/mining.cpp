@@ -27,6 +27,7 @@ unsigned int valids; // increased if blockhash <= target
 extern char poolString[80];
 extern int portNumber;
 extern char btcString[80];
+IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 
 extern OpenFontRender render;
 extern TFT_eSprite background;
@@ -37,34 +38,55 @@ static miner_data mMiner; //Global miner data (Create a miner class TODO)
 mining_subscribe mWorker;
 mining_job mJob;
 monitor_data mMonitor;
-
 bool isMinerSuscribed = false;
+unsigned long mLastTXtoPool = millis();
 
-void checkPoolConnection(bool* isMinerSuscribed) {
+void checkPoolConnection(void) {
   
   if (client.connected()) {
     return;
   }
   
-  *isMinerSuscribed = false;
+  isMinerSuscribed = false;
+
   Serial.println("Client not connected, trying to connect..."); 
-  IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
-  WiFi.hostByName(poolString, serverIP);
-  Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
-  if (!client.connect(poolString, portNumber)) {
+  
+  //Resolve first time pool DNS and save IP
+  if(serverIP == IPAddress(1,1,1,1)) {
+    WiFi.hostByName(poolString, serverIP);
+    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
+  }
+
+  //Try connecting pool IP
+  if (!client.connect(serverIP, portNumber)) {
     Serial.println("Imposible to connect to : " + String(poolString));
     WiFi.hostByName(poolString, serverIP);
+    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
-//Checks if pool is not sending any data and reconnects again
-//verifies it even connection is alive, because pool could be stopped sending NOTIFY
+//Implements a socketKeepAlive function and 
+//checks if pool is not sending any data to reconnect again.
+//Even connection could be alive, pool could stop sending new job NOTIFY
 unsigned long mStart0Hashrate = 0;
-bool checkPoolInactivity(unsigned long inactivityTime){
+bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTime){ 
 
     unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
     unsigned long elapsedKHs = currentKHashes - totalKHashes; 
+
+    // If no shares sent to pool
+    // send something to pool to hold socket oppened
+    if(millis() - mLastTXtoPool > keepAliveTime){
+      mLastTXtoPool = millis();
+      Serial.println("  Sending  : KeepAlive suggest_difficulty");
+      //if (client.print("{}\n") == 0) {
+        tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
+      /*if(tx_suggest_difficulty(client, DEFAULT_DIFFICULTY)){
+        Serial.println("  Sending keepAlive to pool -> Detected client disconnected");
+        return true;
+      }*/
+    }
 
     if(elapsedKHs == 0){
       //Check if hashrate is 0 during inactivityTIme
@@ -114,7 +136,7 @@ void runStratumWorker(void *name) {
     portNumber = 3333;
     //strcpy(btcString,"test");
 
-    checkPoolConnection(&isMinerSuscribed);
+    checkPoolConnection();
 
     if(!isMinerSuscribed){
 
@@ -136,10 +158,11 @@ void runStratumWorker(void *name) {
       tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
 
       isMinerSuscribed=true;
+      mLastTXtoPool = millis();
     }
 
-    //Check if pool is down for almost 5minutes and then restart connection with pool (5min=300000ms)
-    if(checkPoolInactivity(120000)){
+    //Check if pool is down for almost 5minutes and then restart connection with pool (1min=600000ms)
+    if(checkPoolInactivity(KEEPALIVE_TIME_ms, POOLINACTIVITY_TIME_ms)){
       //Restart connection
       Serial.println("  Detected more than 2 min without data form stratum server. Closing socket and reopening...");
       client.stop();
@@ -255,7 +278,8 @@ void runMiner(void * name){
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println("");   
+        Serial.println(""); 
+        mLastTXtoPool = millis();  
       }
       
       // check if 32bit share
@@ -280,6 +304,7 @@ void runMiner(void * name){
     mbedtls_sha256_free(midstate);
 
     mMiner.inRun = false;
+    Serial.print(">>> Finished job waiting new data from pool");
 
     if(hashes>=MAX_NONCE) { 
       Mhashes=Mhashes+MAX_NONCE/1000000; 

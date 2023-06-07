@@ -245,7 +245,6 @@ bool tx_suggest_difficulty(WiFiClient& client, const char * difficulty)
     sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%s]}\n", id, difficulty);
     
     Serial.print("  Sending  : "); Serial.print(payload);
-    client.print(payload);
-    
-    return true;
+    return client.print(payload);
+
 }

@@ -8,6 +8,9 @@
 #define SCREEN_CLOCK    1
 #define SCREEN_BLOCK    2
 
+//Time update period
+#define UPDATE_PERIOD_h   5
+
 typedef struct{
   uint8_t screen;
   bool rotation;
@@ -23,6 +26,7 @@ typedef struct{
   */
 }monitor_data;
 
+void setup_monitor(void);
 void show_MinerScreen(unsigned long mElapsed);
 
 #endif //MONITOR_API_H

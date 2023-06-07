@@ -13,6 +13,7 @@
 #include "OpenFontRender.h"
 #include "wManager.h"
 #include "mining.h"
+#include "monitor.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -131,9 +132,9 @@ void setup()
   //Serial.printf("Starting %s %s!\n", "1", res3 == pdPASS? "successful":"failed");
   
 
-  /******** TIME ZONE SETTING *****/
-  configTime(0, 0, ntpServer);
-  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+  /******** MONITOR SETUP *****/
+  setup_monitor();
+  
 }
 
 void app_error_fault_handler(void *arg) {
