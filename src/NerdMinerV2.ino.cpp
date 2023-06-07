@@ -68,7 +68,7 @@ void setup()
 
   // Button 2 (GPIO14)
   button2.setPressTicks(5000);
-  // button2.attachClick();
+  button2.attachClick(changeScreen);
   // button2.attachDoubleClick([]{Serial.println("Button 2 was double clicked");});
   button2.attachLongPressStart(reset_configurations);
   // button2.attachLongPressStop(reset_configurations);

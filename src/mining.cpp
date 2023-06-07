@@ -320,6 +320,7 @@ void runMonitor(void *name){
   Serial.println("[MONITOR] started");
   
   unsigned long mLastCheck = 0;
+  mMonitor.screen = SCREEN_CLOCK;
 
   while(1){
     
@@ -332,6 +333,7 @@ void runMonitor(void *name){
     
     switch(mMonitor.screen){
       case SCREEN_MINING: show_MinerScreen(mElapsed); break;
+      case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
     }
     
     //Monitor state when hashrate is 0.0
@@ -341,8 +343,8 @@ void runMonitor(void *name){
       client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
     }
 
-    // Pause the task for 5000ms
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    // Pause the task for 1000ms
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
