@@ -30,6 +30,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 unsigned int bitcoin_price=0;
 String current_block = "793261";
+global_data gData;
 
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
@@ -41,6 +42,81 @@ void setup_monitor(void){
     timeClient.setTimeOffset(7200);
 
     Serial.println("TimeClient setup done");
+}
+
+unsigned long mGlobalUpdate =0;
+
+void updateGlobalData(void){
+    
+    if((mGlobalUpdate == 0) || (millis() - mGlobalUpdate > UPDATE_Global_min * 60 * 1000)){
+    
+        if (WiFi.status() != WL_CONNECTED) return;
+            
+        //Make first API call to get global hash and current difficulty
+        HTTPClient http;
+        http.begin(getGlobalHash);
+        int httpCode = http.GET();
+
+        if (httpCode > 0) {
+            String payload = http.getString();
+            
+            DynamicJsonDocument doc(1024);
+            deserializeJson(doc, payload);
+            String temp = "";
+            if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
+            if(temp.length()>18 + 3) //Exahashes more than 18 digits + 3 digits decimals
+              gData.globalHash = temp.substring(0,temp.length()-18 - 3);
+            if (doc.containsKey("currentDifficulty")) temp = String(doc["currentDifficulty"].as<float>());
+            if(temp.length()>10 + 3){ //Terahash more than 10 digits + 3 digit decimals
+              temp = temp.substring(0,temp.length()-10 - 3);
+              gData.difficulty = temp.substring(0,temp.length()-2) + "." + temp.substring(temp.length()-2,temp.length()) + "T";
+            }
+            doc.clear();
+
+            mGlobalUpdate = millis();
+        }
+        http.end();
+
+        //Make second API call to get remaining Blocks
+        http.begin(getDifficulty);
+        httpCode = http.GET();
+
+        if (httpCode > 0) {
+            String payload = http.getString();
+            
+            DynamicJsonDocument doc(1024);
+            deserializeJson(doc, payload);
+            String temp = "";
+            if (doc.containsKey("progressPercent")) gData.progressPercent = doc["progressPercent"].as<float>();
+            if (doc.containsKey("remainingBlocks")) gData.remainingBlocks = doc["remainingBlocks"].as<int>();
+
+            doc.clear();
+
+            mGlobalUpdate = millis();
+        }
+        
+        http.end();
+
+        //Make third API call to get fees
+        http.begin(getFees);
+        httpCode = http.GET();
+
+        if (httpCode > 0) {
+            String payload = http.getString();
+            
+            DynamicJsonDocument doc(1024);
+            deserializeJson(doc, payload);
+            String temp = "";
+            if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
+
+            doc.clear();
+
+            mGlobalUpdate = millis();
+        }
+        
+        http.end();
+
+    }
 }
 
 unsigned long mHeightUpdate = 0;
@@ -135,7 +211,7 @@ String getTime(void){
 
 void changeScreen(void){
     mMonitor.screen++;
-    if(mMonitor.screen> SCREEN_CLOCK) mMonitor.screen = SCREEN_MINING;
+    if(mMonitor.screen> SCREEN_GLOBAL) mMonitor.screen = SCREEN_MINING;
 }
 void show_MinerScreen(unsigned long mElapsed){
 
@@ -227,6 +303,7 @@ void show_ClockScreen(unsigned long mElapsed){
     //render.drawString(getBTCprice().c_str(), 202, 3, TFT_BLACK);
     background.setFreeFont(FSSB9);
     background.setTextSize(1);
+    background.setTextDatum(TL_DATUM);
     background.setTextColor(TFT_BLACK);
     background.drawString(getBTCprice().c_str(), 202, 3, GFXFF);
 
@@ -244,6 +321,75 @@ void show_ClockScreen(unsigned long mElapsed){
     //render.setFontColor(TFT_WHITE);
     //render.setFontSize(110);
     //render.rdrawString(getTime().c_str(), 290, 40, TFT_WHITE);
+
+    //Push prepared background to screen
+    background.pushSprite(0,0);
+}
+
+void show_GlobalHashScreen(unsigned long mElapsed){
+
+    //Print background screen
+    background.pushImage(0, 0, globalHashWidth, globalHashHeight, globalHashScreen); 
+
+    char CurrentHashrate[10] = {0};
+    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
+
+    //Serial.println("[runMonitor Task] -> Printing results on screen ");
+    
+     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
+      shares, totalKHashes, CurrentHashrate);
+
+    //Hashrate
+    updateGlobalData(); //Update gData vars asking mempool APIs
+    
+    //Print BTC Price
+    background.setFreeFont(FSSB9);
+    background.setTextSize(1);
+    background.setTextDatum(TL_DATUM);
+    background.setTextColor(TFT_BLACK);
+    background.drawString(getBTCprice().c_str(), 198, 3, GFXFF);
+
+    //Print Hour
+    background.setFreeFont(FSSB9);
+    background.setTextSize(1);
+    background.setTextDatum(TL_DATUM);
+    background.setTextColor(TFT_BLACK);
+    background.drawString(getTime().c_str(), 268, 3, GFXFF);
+
+    //Print Last Pool Block
+    background.setFreeFont(FSS9);
+    background.setTextDatum(TR_DATUM);
+    background.setTextColor(0x9C92);
+    String temp = String(gData.halfHourFee) + " sat/vB";
+    background.drawString(temp.c_str(), 302, 52, GFXFF);
+
+    //Print Difficulty
+    background.setFreeFont(FSS9);
+    background.setTextDatum(TR_DATUM);
+    background.setTextColor(0x9C92);
+    background.drawString(gData.difficulty.c_str(), 302, 88, GFXFF);
+
+    //Print Global Hashrate
+    render.setFontSize(34);
+    render.rdrawString(gData.globalHash.c_str(), 274, 145, TFT_BLACK);
+
+    //Print BlockHeight
+    render.setFontSize(55);
+    render.rdrawString(getBlockHeight().c_str(), 140, 104, 0xDEDB);
+
+    //Draw percentage rectangle
+    //width percent bar 140 - 2
+    int x2 = 2 + (138*gData.progressPercent/100);
+    background.fillRect(2, 149, x2, 168, 0xDEDB);
+
+    //Print Remaining BLocks
+    //background.setFreeFont(FSSB9);
+    background.setTextFont(FONT2);
+    background.setTextSize(1);
+    background.setTextDatum(MC_DATUM);
+    background.setTextColor(TFT_BLACK);
+    temp = String(gData.remainingBlocks) + " BLOCKS";
+    background.drawString(temp.c_str(), 72, 159, FONT2);//GFXFF);
 
     //Push prepared background to screen
     background.pushSprite(0,0);

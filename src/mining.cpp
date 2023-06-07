@@ -320,7 +320,7 @@ void runMonitor(void *name){
   Serial.println("[MONITOR] started");
   
   unsigned long mLastCheck = 0;
-  mMonitor.screen = SCREEN_CLOCK;
+  mMonitor.screen = SCREEN_GLOBAL;
 
   while(1){
     
@@ -334,6 +334,7 @@ void runMonitor(void *name){
     switch(mMonitor.screen){
       case SCREEN_MINING: show_MinerScreen(mElapsed); break;
       case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
+      case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
     }
     
     //Monitor state when hashrate is 0.0
