@@ -74,10 +74,13 @@ Optional you can select other pool:
 
 ### Buttons
 With the USB-C port to the right:
-- Hold top right button and power up to enter **configuration mode** and edit current config via Wifi.
-- During normal operation hold 5 seconds top right button to **reset the configurations and reboot** your NerdMiner. 
-- Click the bottom button once to turn the screen off and on again
-- Double click to change the orientation (default is USB-C to the right)
+**TOP BUTTON**
+- One click > change screen.
+- Hold 5 seconds > top right button to **reset the configurations and reboot** your NerdMiner. 
+- Hold and power up > enter **configuration mode** and edit current config via Wifi. You could change your settings or verify them.
+**BOTTOM BUTTON**
+- One Click > turn the screen off and on again
+- Double click > change orientation (default is USB-C to the right)
 
 #### Build video
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
