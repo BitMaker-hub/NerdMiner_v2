@@ -123,8 +123,25 @@ void setup()
     sprintf(name, "(%d)", i);
 
     // Start mining tasks
-    BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
-    Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
+    /* ***start of Dual core mining enable. by jir8taiwan */
+    TaskHandle_t worker0TaskHandle;
+    TaskHandle_t worker1TaskHandle;
+    Serial.printf("Starting Worker0");
+    BaseType_t res0 = xTaskCreatePinnedToCore(runWorker, "Worker0", 30000, (void*)"Worker0", 1, &worker0TaskHandle, 0);
+    vTaskPrioritySet(worker0TaskHandle, 0);
+    Serial.printf("Starting Worker1");
+    BaseType_t res1 = xTaskCreatePinnedToCore(runWorker, "Worker1", 30000, (void*)"Worker1", 1, &worker1TaskHandle, 1);
+    vTaskPrioritySet(worker1TaskHandle, 2);
+    // Original code:
+    //BaseType_t res = xTaskCreate(runWorker, name, 30000, (void*)name, 1, NULL);
+    
+    Serial.printf("Starting %s %s!\n", name, res0 == pdPASS? "successful":"failed");
+    delay(1000);
+    Serial.printf("Starting %s %s!\n", name, res1 == pdPASS? "successful":"failed");
+    delay(1000);
+    // Original code:
+    //Serial.printf("Starting %s %s!\n", name, res == pdPASS? "successful":"failed");
+    /* ***end of modification. by jir8taiwan */
   }
 
   /******** TIME ZONE SETTING *****/
