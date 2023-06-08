@@ -74,6 +74,7 @@ Optional you can select other pool:
 
 ### Buttons
 With the USB-C port to the right:
+
 **TOP BUTTON**
 - One click > change screen.
 - Hold 5 seconds > top right button to **reset the configurations and reboot** your NerdMiner. 
