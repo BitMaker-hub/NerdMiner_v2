@@ -111,11 +111,11 @@ void setup()
   Serial.println("Initiating tasks...");
   char *name = (char*) malloc(32);
   sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 5000, (void*)name, 4, NULL,0);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 5000, (void*)name, 4, NULL,1);
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 20000, (void*)name, 3, NULL,0);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 20000, (void*)name, 3, NULL,1);
 
 
   /******** CREATE MINER TASKS *****/
@@ -126,7 +126,7 @@ void setup()
   // Start stratum tasks
   sprintf(name, "(%s)", "Miner0");
   //BaseType_t res = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1, NULL, 0);
-  BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 1);
+  BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 0);
   //sprintf(name, "(%s)", "Miner1");
   //BaseType_t res4 = xTaskCreatePinnedToCore(runMiner, "1", 10000, (void*)name, 1,NULL, 0);
   //Serial.printf("Starting %s %s!\n", "1", res3 == pdPASS? "successful":"failed");
@@ -155,5 +155,5 @@ void loop() {
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
 
-  vTaskDelay(100 / portTICK_PERIOD_MS);
+  vTaskDelay(50 / portTICK_PERIOD_MS);
 }
