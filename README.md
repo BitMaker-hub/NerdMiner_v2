@@ -17,9 +17,17 @@ Original project https://github.com/valerio-vaccaro/HAN
 ### Project description
 **ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with ckpool.
 
-This project is using ESP32-S3, uses WifiManager to modify miner settings and save them to SPIFF. 
+This project is using ESP32-S3, uses WifiManager to modify miner settings and save them to SPIFF.
+The microMiner comes with several screens to monitor it's working procedure and also to show you network mining stats.
+Currently includes:
+- NerdMiner Screen > Mining data of Nerdminer
+- ClockMiner Screen > Fashion style clock miner
+- GlobalStats Screen > Global minery stats and relevant data
 
-This miner is multicore and multithreads, each thread mine a different block template. After 1,000,000 trials the block in refreshed in order to avoid mining on old template.
+This miner is multicore and multithreads, one thread is used to mine and other is implementing stratum work and wifi stuff. 
+Every time an stratum job notification is received miner update its current work to not create stale shares. 
+
+**IMPORTANT** Miner is not seen by pools due to its low share difficulty. You can check miner work seeing logs via UART or mainly setting up your own pool with a low difficulty rate as 1e-9
 
 ***Current project is still in developement and more features will be added***
 
@@ -37,6 +45,9 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 1. Go to ESPtool online: https://espressif.github.io/esptool-js/
 1. Load the firmware with the binaries from the src/bin folder.
 1. Plug your board and select each file from src/bin with its address 
+
+### Update firmware
+Update NerdMiner firmware following same flashing steps but only adding 0x10000_firmware file.
 
 #### Build troubleshooting
 1. Online ESPtool works with chrome, chromium, brave
@@ -86,9 +97,9 @@ With the USB-C port to the right:
 - [x]  Implement midstate sha256
 - [x]  Bug Wificlient DNS unresolved on Wifi.h
 - [x]  Code refactoring
-- [ ]  Add blockHeight to screen
-- [ ]  Add clock to show current time
-- [ ]  Add new screen with global mining stats
+- [x]  Add blockHeight to screen
+- [x]  Add clock to show current time
+- [x]  Add new screen with global mining stats
 - [ ]  Add support to control BM1397
 
 ### Donations/Project contributions
