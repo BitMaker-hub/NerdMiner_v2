@@ -79,7 +79,10 @@ With the USB-C port to the right:
 - One click > change screen.
 - Hold 5 seconds > top right button to **reset the configurations and reboot** your NerdMiner. 
 - Hold and power up > enter **configuration mode** and edit current config via Wifi. You could change your settings or verify them.
+
+
 **BOTTOM BUTTON**
+
 - One Click > turn the screen off and on again
 - Double click > change orientation (default is USB-C to the right)
 
