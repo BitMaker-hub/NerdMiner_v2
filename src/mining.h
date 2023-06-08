@@ -24,6 +24,7 @@ typedef struct{
   float poolDifficulty;
   bool inRun;
   bool newJob;
+  bool newJob2;
 }miner_data;
 
 

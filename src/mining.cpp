@@ -132,8 +132,8 @@ void runStratumWorker(void *name) {
     //portNumber = 3333;
     //strcpy(btcString,"Bitmaker.01");
     //CKpool
-    strcpy(poolString, "solo.ckpool.org");
-    portNumber = 3333;
+    //strcpy(poolString, "solo.ckpool.org");
+    //portNumber = 3333;
     //strcpy(btcString,"test");
 
     checkPoolConnection();
@@ -200,7 +200,7 @@ void runStratumWorker(void *name) {
       }
     }
 
-    vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
+    vTaskDelay(500 / portTICK_PERIOD_MS); //Small delay
     
   }
   
@@ -320,7 +320,7 @@ void runMonitor(void *name){
   Serial.println("[MONITOR] started");
   
   unsigned long mLastCheck = 0;
-  mMonitor.screen = SCREEN_GLOBAL;
+  mMonitor.screen = SCREEN_MINING;
 
   while(1){
     
