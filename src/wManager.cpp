@@ -22,6 +22,7 @@ bool shouldSaveConfig = false;
 char poolString[80] = "solo.ckpool.org";
 int portNumber = 3333;
 char btcString[80] = "yourBtcAddress";
+int GMTzone = 2; //Currently selected in spain
 
 
 // Define WiFiManager Object
@@ -40,6 +41,7 @@ void saveConfigFile()
   json["poolString"] = poolString;
   json["portNumber"] = portNumber;
   json["btcString"] = btcString;
+  json["gmtZone"] = GMTzone;
 
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -92,7 +94,7 @@ bool loadConfigFile()
           strcpy(poolString, json["poolString"]);
           strcpy(btcString, json["btcString"]);
           portNumber = json["portNumber"].as<int>();
-
+          GMTzone = json["gmtZone"].as<int>();
           return true;
         }
         else
@@ -118,6 +120,7 @@ void saveConfigCallback()
 {
   Serial.println("Should save config");
   shouldSaveConfig = true;
+  //wm.setConfigPortalBlocking(false);
 }
 
 void configModeCallback(WiFiManager *myWiFiManager)
@@ -144,13 +147,16 @@ void init_WifiManager()
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
   // Check if button2 is pressed to enter configMode with actual configuration
-  if(!digitalRead(PIN_BUTTON_2)) forceConfig = true;
- 
+  if(!digitalRead(PIN_BUTTON_2)){
+    forceConfig = true;
+    wm.setBreakAfterConfig(true); //Set to detect config edition and save
+ }
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
     Serial.println(F("Forcing config mode as there is no saved config"));
     forceConfig = true;
+    
   }
 
   // Explicitly set WiFi mode
@@ -190,12 +196,18 @@ void init_WifiManager()
   WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7); 
 
   // Text box (String) - 80 characters maximum
-  WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", btcString, 80);
+  WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", btcString, 80); 
+
+  // Text box (Number) - 2 characters maximum
+  char charZone[6];
+  sprintf(charZone, "%d", GMTzone); 
+  WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3); 
 
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
   wm.addParameter(&addr_text_box);
+  wm.addParameter(&time_text_box_num);
 
   Serial.println("AllDone: ");
   if (forceConfig)
@@ -207,6 +219,12 @@ void init_WifiManager()
     if (!wm.startConfigPortal("NerdMinerAP","MineYourCoins"))
     {
       Serial.println("failed to connect and hit timeout");
+      //Could be break forced after edditing, so save new config
+      strncpy(poolString, pool_text_box.getValue(), sizeof(poolString));
+      portNumber = atoi(port_text_box_num.getValue());
+      strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
+      GMTzone = atoi(time_text_box_num.getValue());
+      saveConfigFile();
       delay(3000);
       //reset and try again, or maybe put it to deep sleep
       ESP.restart();
@@ -235,13 +253,6 @@ void init_WifiManager()
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    // If we get here, we are connected to the WiFi
-
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-  
     // Lets deal with the user config values
   
     // Copy the string value
@@ -258,6 +269,11 @@ void init_WifiManager()
     strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
     Serial.print("btcString: ");
     Serial.println(btcString);
+
+    //Convert the number value
+    GMTzone = atoi(time_text_box_num.getValue());
+    Serial.print("TimeZone fromUTC: ");
+    Serial.println(GMTzone);
   }
   
   // Save the custom parameters to FS

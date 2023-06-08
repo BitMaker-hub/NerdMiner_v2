@@ -26,6 +26,8 @@ extern OpenFontRender render;
 extern TFT_eSprite background;
 extern monitor_data mMonitor;
 
+extern int GMTzone; //Gotten from saved config
+
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 unsigned int bitcoin_price=0;
@@ -39,7 +41,7 @@ void setup_monitor(void){
     
     // Adjust offset depending on your zone
     // GMT +2 in seconds (zona horaria de Europa Central)
-    timeClient.setTimeOffset(7200);
+    timeClient.setTimeOffset(3600 * GMTzone);
 
     Serial.println("TimeClient setup done");
 }
