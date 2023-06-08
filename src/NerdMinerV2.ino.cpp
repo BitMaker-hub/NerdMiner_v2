@@ -21,7 +21,6 @@ OneButton button1(PIN_BUTTON_1);
 OneButton button2(PIN_BUTTON_2);
 
 extern int screenAPO;
-extern int screenAPO;
 
 OpenFontRender render;
 
