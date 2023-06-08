@@ -122,13 +122,24 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
   return true;  
 }
 
-void runWorker(void *name) {
-
+// Original code:
+//void runWorker(void *name) {
+/* ** start to Dual core mining indentify. by jir8taiwan  */
+void runWorker(void *parameter) {
+  char* name = (char*)parameter;
+	
 // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
   Serial.println("");
-  Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
-
+  // Original code:
+  //Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
+    if (strcmp(name, "Worker0") == 0) {
+    // Add delay for Worker0 for other compute load usages
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+  Serial.printf("\n[WORKER] Started. Running %s on core %d\n", name, xPortGetCoreID());
+  /* ** end to modifiy. by jir8taiwan */
+	
   #ifdef DEBUG_MEMORY
   Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
   #endif
