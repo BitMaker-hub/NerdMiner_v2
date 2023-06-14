@@ -43,8 +43,8 @@ If you want you can compile the entire project using Arduino, PlatformIO or Expr
 1. Get a TTGO T-display S3
 1. Download this repository
 1. Go to ESPtool online: https://espressif.github.io/esptool-js/
-1. Load the firmware with the binaries from the src/bin folder.
-1. Plug your board and select each file from src/bin with its address 
+1. Load the firmware with the binaries from the /bin folder.
+1. Plug your board and select each file from /bin with its address 
 
 ### Update firmware
 Update NerdMiner firmware following same flashing steps but only adding 0x10000_firmware file.
@@ -69,7 +69,7 @@ Optional you can select other pool:
 | Pool URL                 | Port | URL |
 |---                       |---   |---  | 
 | solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
-| btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
+| btc.zsolo.bid            | 6056 | https://zsolo.bid/en/btc-solo-mining-pool |
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
 ### Buttons
