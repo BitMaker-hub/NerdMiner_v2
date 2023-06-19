@@ -11,6 +11,7 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "rtc_tempsensor.h"
 
 extern unsigned long templates;
 extern unsigned long hashes;
@@ -264,12 +265,18 @@ void show_MinerScreen(unsigned long mElapsed){
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
 
     //Print Temp
-    String temp = String(temperatureRead(), 0);
-    render.setFontSize(20);
-    render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
-
-    render.setFontSize(7);
-    render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
+    static char temp_str[10];
+    float temp;
+    if (temperatureRead_fix(&temp) == ESP_OK)
+    {
+      sprintf(temp_str, "%.0f", temp);
+      //Print Temperature
+      render.setFontSize(20);
+      render.rdrawString(temp_str, 236, 1, TFT_BLACK);
+      //print the degree simbol
+      render.setFontSize(7);
+      render.rdrawString(String(0).c_str(), 241, 3, TFT_BLACK);
+    }
 
     //Print Hour
     render.setFontSize(20);
