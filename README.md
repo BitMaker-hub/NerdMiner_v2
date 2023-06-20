@@ -70,7 +70,7 @@ Optional you can select other pool:
 |---                       |---     |---                                        |---  |
 | solo.ckpool.org          | 3333   | https://solo.ckpool.org/                  |  |
 | eu.stratum.slushpool.com | 3333   | https://braiins.com/pool                  |  |
-| ~btc.zsolo.bid~          | ~6056~ | ~https://zsolo.bid/en/btc-solo-mining-pool~ | No longer supported https://github.com/BitMaker-hub/NerdMiner_v2/issues/63#issuecomment-1597505493 |
+| ~btc.zsolo.bid~          | ~6056~ | ~https://zsolo.bid/en/btc-solo-mining-pool~ | [No longer supported](https://github.com/BitMaker-hub/NerdMiner_v2/issues/63#issuecomment-1597505493) |
 
 ### Buttons
 With the USB-C port to the right:
