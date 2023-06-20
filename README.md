@@ -66,11 +66,11 @@ After programming, you will only need to setup your Wifi and BTC address.
 
 Optional you can select other pool:
 
-| Pool URL                 | Port | URL |
-|---                       |---   |---  | 
-| solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
-| btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
-| eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
+| Pool URL                 | Port   | URL                                       | Comment |
+|---                       |---     |---                                        |---  |
+| solo.ckpool.org          | 3333   | https://solo.ckpool.org/                  |  |
+| eu.stratum.slushpool.com | 3333   | https://braiins.com/pool                  |  |
+| ~btc.zsolo.bid~          | ~6056~ | ~https://zsolo.bid/en/btc-solo-mining-pool~ | No longer supported https://github.com/BitMaker-hub/NerdMiner_v2/issues/63#issuecomment-1597505493 |
 
 ### Buttons
 With the USB-C port to the right:
@@ -91,7 +91,7 @@ With the USB-C port to the right:
 
 ## Developers
 ### Project guidelines
-- Current project was addapted to work with PlatformIO
+- Current project was adapted to work with PlatformIO
 - Current project works with ESP32-S3 but any ESP32 can be used.
 - Partition squeme should be build as huge app
 - All libraries needed shown on platform.ini
