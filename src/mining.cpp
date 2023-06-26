@@ -3,10 +3,9 @@
 #include <WiFi.h>
 #include <algorithm>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
+#include <wolfssl/wolfcrypt/sha256.h>
 #include "media/Free_Fonts.h"
 #include "media/images.h"
-#include "mbedtls/md.h"
-#include "mbedtls/sha256.h"
 #include "OpenFontRender.h"
 #include "stratum.h"
 #include "mining.h"
@@ -225,14 +224,13 @@ void runMiner(void * name){
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
-    mbedtls_sha256_context midstate[32];
+    Sha256 midstate[32];
     unsigned char hash[32];
-    mbedtls_sha256_context ctx;
+    Sha256 sha256;
 
     //Calcular midstate
-    mbedtls_sha256_init(midstate); 
-    mbedtls_sha256_starts_ret(midstate, 0);
-    mbedtls_sha256_update_ret(midstate, mMiner.bytearray_blockheader, 64);
+    wc_InitSha256(midstate);
+    wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
 
     // search a valid nonce
     unsigned long nonce = TARGET_NONCE - MAX_NONCE;
@@ -244,14 +242,13 @@ void runMiner(void * name){
 
       //Con midstate
       // Primer SHA-256
-      mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
-      mbedtls_sha256_update_ret(&ctx, header64, 16);
-      mbedtls_sha256_finish_ret(&ctx, hash);
+      wc_Sha256Copy(midstate, &sha256);
+      wc_Sha256Update(&sha256, header64, 16);
+      wc_Sha256Final(&sha256, hash);
 
       // Segundo SHA-256
-      mbedtls_sha256_starts_ret(&ctx, 0);
-      mbedtls_sha256_update_ret(&ctx, hash, 32);
-      mbedtls_sha256_finish_ret(&ctx, hash);
+      wc_Sha256Update(&sha256, hash, 32);
+      wc_Sha256Final(&sha256, hash);
       /*for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
         Serial.println("");   */
@@ -300,8 +297,8 @@ void runMiner(void * name){
       }    
     } // exit if found a valid result or nonce > MAX_NONCE
 
-    mbedtls_sha256_free(&ctx);
-    mbedtls_sha256_free(midstate);
+    wc_Sha256Free(&sha256);
+    wc_Sha256Free(midstate);
 
     mMiner.inRun = false;
     Serial.print(">>> Finished job waiting new data from pool");
