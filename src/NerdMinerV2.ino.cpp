@@ -126,11 +126,15 @@ void setup()
   // Start stratum tasks
   sprintf(name, "(%s)", "Miner0");
   //BaseType_t res = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1, NULL, 0);
-  BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 0);
+  //BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 0);
   //sprintf(name, "(%s)", "Miner1");
   //BaseType_t res4 = xTaskCreatePinnedToCore(runMiner, "1", 10000, (void*)name, 1,NULL, 0);
   //Serial.printf("Starting %s %s!\n", "1", res3 == pdPASS? "successful":"failed");
-  
+
+  // Start mining tasks
+  //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
+  xTaskCreate(runMiner, "Miner0", 15000, NULL, 1, NULL);
+  //xTaskCreate(runMiner, "Miner1", 15000, NULL, 1, NULL);
 
   /******** MONITOR SETUP *****/
   setup_monitor();

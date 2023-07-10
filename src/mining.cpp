@@ -187,6 +187,7 @@ void runStratumWorker(void *name) {
                                           mMiner=calculateMiningData(mWorker,mJob);
                                           mMiner.poolDifficulty = currentPoolDifficulty;
                                           mMiner.newJob = true;
+                                          mMiner.newJob2 = true;
                                           //Give new job to miner
 
                                       }
@@ -210,17 +211,21 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
+#include "shaTests/jadeSHA256.h"
+#include "shaTests/customSHA256.h"
+#include "mbedtls/sha256.h"
 void runMiner(void * name){
   
   while(1){
 
     //Wait new job
     while(1){
-      if(mMiner.newJob==true) break;
+      if(mMiner.newJob==true || mMiner.newJob2==true) break;
       vTaskDelay(100 / portTICK_PERIOD_MS); //Small delay
     }
 
-    mMiner.newJob = false; //Clear newJob flag
+    if(mMiner.newJob) mMiner.newJob = false; //Clear newJob flag
+    else if(mMiner.newJob2) mMiner.newJob2 = false; //Clear newJob flag
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
@@ -228,30 +233,45 @@ void runMiner(void * name){
     unsigned char hash[32];
     Sha256 sha256;
 
-    //Calcular midstate
+    //Calcular midstate WOLF
     wc_InitSha256(midstate);
     wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
 
+
+    /*Serial.println("Blockheader:");
+    for (size_t i = 0; i < 80; i++)
+            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+    
+    Serial.println("Midstate:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate[i]);
+        Serial.println("");   
+    */
     // search a valid nonce
     unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     uint32_t startT = micros();
     unsigned char *header64 = mMiner.bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      //memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
       wc_Sha256Copy(midstate, &sha256);
       wc_Sha256Update(&sha256, header64, 16);
       wc_Sha256Final(&sha256, hash);
-
+ 
       // Segundo SHA-256
       wc_Sha256Update(&sha256, hash, 32);
       wc_Sha256Final(&sha256, hash);
+
       /*for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println("");   */
+        Serial.println("");  
+
+      for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate_jade.buffer[i]);
+        Serial.println("");  */
       
       hashes++;
       if (nonce++> TARGET_NONCE) break; //exit

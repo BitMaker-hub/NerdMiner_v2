@@ -84,6 +84,9 @@ void updateGlobalData(void){
         http.begin(getDifficulty);
         httpCode = http.GET();
 
+        //TODO -> current data is giving new difficulty event 
+        //     -> add halving table and calculate blocks to next event
+        //     -> calculate percentage to nearest event
         if (httpCode > 0) {
             String payload = http.getString();
             
