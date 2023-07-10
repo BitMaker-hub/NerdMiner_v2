@@ -181,9 +181,9 @@ void runStratumWorker(void *name) {
           case MINING_NOTIFY:         if(parse_mining_notify(line, mJob)){
                                           //Increse templates readed
                                           templates++;
-                                          //Stop miner current job
+                                          //Stop miner current jobs
                                           mMiner.inRun = false;
-                                          //Prepare data for new job
+                                          //Prepare data for new jobs
                                           mMiner=calculateMiningData(mWorker,mJob);
                                           mMiner.poolDifficulty = currentPoolDifficulty;
                                           mMiner.newJob = true;
@@ -215,7 +215,9 @@ void runStratumWorker(void *name) {
 #include "shaTests/customSHA256.h"
 #include "mbedtls/sha256.h"
 void runMiner(void * name){
-  
+  unsigned long nonce;
+  unsigned long max_nonce;
+
   while(1){
 
     //Wait new job
@@ -223,9 +225,18 @@ void runMiner(void * name){
       if(mMiner.newJob==true || mMiner.newJob2==true) break;
       vTaskDelay(100 / portTICK_PERIOD_MS); //Small delay
     }
+    vTaskDelay(10 / portTICK_PERIOD_MS); //Small delay to join both mining threads
 
-    if(mMiner.newJob) mMiner.newJob = false; //Clear newJob flag
-    else if(mMiner.newJob2) mMiner.newJob2 = false; //Clear newJob flag
+    if(mMiner.newJob) { 
+      mMiner.newJob = false; //Clear newJob flag
+      nonce = 0;
+      max_nonce = MAX_NONCE;
+    }
+    else if(mMiner.newJob2){
+      mMiner.newJob2 = false; //Clear newJob flag
+      nonce = TARGET_NONCE - MAX_NONCE;
+      max_nonce = TARGET_NONCE;
+    } 
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
@@ -248,12 +259,11 @@ void runMiner(void * name){
         Serial.println("");   
     */
     // search a valid nonce
-    unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     uint32_t startT = micros();
     unsigned char *header64 = mMiner.bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      //memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
@@ -274,7 +284,7 @@ void runMiner(void * name){
         Serial.println("");  */
       
       hashes++;
-      if (nonce++> TARGET_NONCE) break; //exit
+      if (nonce++> max_nonce) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share

@@ -10,10 +10,13 @@
 #include "mbedtls/md.h"
 #include "media/images.h"
 #include "media/myFonts.h"
+#include "media/Free_Fonts.h"
 #include "OpenFontRender.h"
 #include "wManager.h"
 #include "mining.h"
 #include "monitor.h"
+
+#define CURRENT_VERSION "V1.5.2"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -98,7 +101,8 @@ void setup()
   /******** PRINT INIT SCREEN *****/
   tft.fillScreen(TFT_BLACK);
   tft.pushImage(0, 0, initWidth, initHeight, initScreen);
-
+  tft.setTextColor(TFT_BLACK);
+  tft.drawString(CURRENT_VERSION, 24, 130, FONT2);
   delay(2000);
 
   /******** INIT WIFI ************/
@@ -134,7 +138,7 @@ void setup()
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   xTaskCreate(runMiner, "Miner0", 15000, NULL, 1, NULL);
-  //xTaskCreate(runMiner, "Miner1", 15000, NULL, 1, NULL);
+  xTaskCreate(runMiner, "Miner1", 15000, NULL, 1, NULL);
 
   /******** MONITOR SETUP *****/
   setup_monitor();
