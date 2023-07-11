@@ -1,12 +1,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-#include <algorithm>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
+#include <wolfssl/wolfcrypt/sha256.h>
 #include "media/Free_Fonts.h"
 #include "media/images.h"
-#include "mbedtls/md.h"
-#include "mbedtls/sha256.h"
 #include "OpenFontRender.h"
 #include "stratum.h"
 #include "mining.h"
@@ -182,12 +180,13 @@ void runStratumWorker(void *name) {
           case MINING_NOTIFY:         if(parse_mining_notify(line, mJob)){
                                           //Increse templates readed
                                           templates++;
-                                          //Stop miner current job
+                                          //Stop miner current jobs
                                           mMiner.inRun = false;
-                                          //Prepare data for new job
+                                          //Prepare data for new jobs
                                           mMiner=calculateMiningData(mWorker,mJob);
                                           mMiner.poolDifficulty = currentPoolDifficulty;
                                           mMiner.newJob = true;
+                                          mMiner.newJob2 = true;
                                           //Give new job to miner
 
                                       }
@@ -211,31 +210,54 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
+#include "shaTests/jadeSHA256.h"
+#include "shaTests/customSHA256.h"
+#include "mbedtls/sha256.h"
 void runMiner(void * name){
-  
+  unsigned long nonce;
+  unsigned long max_nonce;
+
   while(1){
 
     //Wait new job
     while(1){
-      if(mMiner.newJob==true) break;
+      if(mMiner.newJob==true || mMiner.newJob2==true) break;
       vTaskDelay(100 / portTICK_PERIOD_MS); //Small delay
     }
+    vTaskDelay(10 / portTICK_PERIOD_MS); //Small delay to join both mining threads
 
-    mMiner.newJob = false; //Clear newJob flag
+    if(mMiner.newJob) { 
+      mMiner.newJob = false; //Clear newJob flag
+      nonce = 0;
+      max_nonce = MAX_NONCE;
+    }
+    else if(mMiner.newJob2){
+      mMiner.newJob2 = false; //Clear newJob flag
+      nonce = TARGET_NONCE - MAX_NONCE;
+      max_nonce = TARGET_NONCE;
+    } 
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
-    mbedtls_sha256_context midstate[32];
+    Sha256 midstate[32];
     unsigned char hash[32];
-    mbedtls_sha256_context ctx;
+    Sha256 sha256;
 
-    //Calcular midstate
-    mbedtls_sha256_init(midstate); 
-    mbedtls_sha256_starts_ret(midstate, 0);
-    mbedtls_sha256_update_ret(midstate, mMiner.bytearray_blockheader, 64);
+    //Calcular midstate WOLF
+    wc_InitSha256(midstate);
+    wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
 
+
+    /*Serial.println("Blockheader:");
+    for (size_t i = 0; i < 80; i++)
+            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+    
+    Serial.println("Midstate:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate[i]);
+        Serial.println("");   
+    */
     // search a valid nonce
-    unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     uint32_t startT = micros();
     unsigned char *header64 = mMiner.bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
@@ -244,20 +266,24 @@ void runMiner(void * name){
 
       //Con midstate
       // Primer SHA-256
-      mbedtls_sha256_clone(&ctx, midstate); //Clonamos el contexto anterior para continuar el SHA desde allí
-      mbedtls_sha256_update_ret(&ctx, header64, 16);
-      mbedtls_sha256_finish_ret(&ctx, hash);
-
+      wc_Sha256Copy(midstate, &sha256);
+      wc_Sha256Update(&sha256, header64, 16);
+      wc_Sha256Final(&sha256, hash);
+ 
       // Segundo SHA-256
-      mbedtls_sha256_starts_ret(&ctx, 0);
-      mbedtls_sha256_update_ret(&ctx, hash, 32);
-      mbedtls_sha256_finish_ret(&ctx, hash);
+      wc_Sha256Update(&sha256, hash, 32);
+      wc_Sha256Final(&sha256, hash);
+
       /*for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println("");   */
+        Serial.println("");  
+
+      for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate_jade.buffer[i]);
+        Serial.println("");  */
       
       hashes++;
-      if (nonce++> TARGET_NONCE) break; //exit
+      if (nonce++> max_nonce) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
@@ -300,8 +326,8 @@ void runMiner(void * name){
       }    
     } // exit if found a valid result or nonce > MAX_NONCE
 
-    mbedtls_sha256_free(&ctx);
-    mbedtls_sha256_free(midstate);
+    wc_Sha256Free(&sha256);
+    wc_Sha256Free(midstate);
 
     mMiner.inRun = false;
     Serial.print(">>> Finished job waiting new data from pool");

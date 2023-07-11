@@ -25,6 +25,8 @@
 #define getFees "https://mempool.space/api/v1/fees/recommended"
 #define UPDATE_Global_min 2
 
+#define NEXT_HALVING_EVENT 840000
+#define HALVING_BLOCKS 210000
 
 typedef struct{
   uint8_t screen;
@@ -33,7 +35,7 @@ typedef struct{
 
 typedef struct{
   String globalHash; //hexahashes
-  String lastBlock;
+  String currentBlock;
   String difficulty;
   String blocksHalving;
   float progressPercent;

@@ -37,7 +37,14 @@ Every time an stratum job notification is received miner update its current work
 - 3D BOX
 
 ### Flash firmware
-Create your own miner using the online tool **ESPtool** and the **binary files** that you will find in the src/bin folder.
+#### microMiners Flashtool [Recommended]
+Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
+
+1. Get a TTGO T-display S3
+1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
+
+#### Standard tool
+Create your own miner using the online firwmare flash tool **ESPtool** and the **binary files** that you will find in the src/bin folder.
 If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
 
 1. Get a TTGO T-display S3

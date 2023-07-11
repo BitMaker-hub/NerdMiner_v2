@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "monitor.h"
 
+extern char poolString[80];
 extern unsigned long templates;
 extern unsigned long hashes;
 extern unsigned long Mhashes;
@@ -79,7 +80,9 @@ void updateGlobalData(void){
         }
         http.end();
 
-        //Make second API call to get remaining Blocks
+        
+        //OLD code gets remaining blocks to next difficulty ajustment
+        /*//Make second API call to get remaining Blocks
         http.begin(getDifficulty);
         httpCode = http.GET();
 
@@ -97,7 +100,7 @@ void updateGlobalData(void){
             mGlobalUpdate = millis();
         }
         
-        http.end();
+        http.end();*/
 
         //Make third API call to get fees
         http.begin(getFees);
@@ -247,18 +250,17 @@ void show_MinerScreen(unsigned long mElapsed){
     render.setFontSize(36);
     render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
     //Hores
-    unsigned long secElapsed=millis()/1000;
-    int hr = secElapsed/3600;                                                        //Number of seconds in an hour
-    int mins = (secElapsed-(hr*3600))/60;                                              //Remove the number of hours and calculate the minutes.
-    int sec = secElapsed-(hr*3600)-(mins*60);   
-    render.setFontSize(36);
-    render.rdrawString(String(hr).c_str(), 208, 99, 0xDEDB);
-    //Minutss
-    render.setFontSize(36);
-    render.rdrawString(String(mins).c_str(), 253, 99, 0xDEDB);
-    //Segons
-    render.setFontSize(36);
-    render.rdrawString(String(sec).c_str(), 298, 99, 0xDEDB);
+    char timeMining[15]; 
+
+    unsigned long secElapsed = millis() / 1000;
+    int days = secElapsed / 86400; 
+    int hours = (secElapsed - (days * 86400)) / 3600;                                                        //Number of seconds in an hour
+    int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60;                                              //Remove the number of hours and calculate the minutes.
+    int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
+    sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
+    render.setFontSize(27);
+    render.rdrawString(String(timeMining).c_str(), 315, 104, 0xDEDB);
+
     //Valid Blocks
     render.setFontSize(48);
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
@@ -274,6 +276,12 @@ void show_MinerScreen(unsigned long mElapsed){
     //Print Hour
     render.setFontSize(20);
     render.rdrawString(getTime().c_str(), 286, 1, TFT_BLACK);
+
+    // pool url
+    /*background.setTextSize(1);
+    background.setTextDatum(MC_DATUM);
+    background.setTextColor(0xDEDB);
+    background.drawString(String(poolString), 59, 85, FONT2);*/
 
     //Push prepared background to screen
     background.pushSprite(0,0);
@@ -377,10 +385,14 @@ void show_GlobalHashScreen(unsigned long mElapsed){
 
     //Print BlockHeight
     render.setFontSize(55);
-    render.rdrawString(getBlockHeight().c_str(), 140, 104, 0xDEDB);
+    gData.currentBlock = getBlockHeight();
+    render.rdrawString(gData.currentBlock.c_str(), 140, 104, 0xDEDB);
 
     //Draw percentage rectangle
     //width percent bar 140 - 2
+    unsigned long cBlock = gData.currentBlock.toInt();
+    gData.remainingBlocks = (((cBlock / HALVING_BLOCKS)+1) * HALVING_BLOCKS) - cBlock;
+    gData.progressPercent = (HALVING_BLOCKS-gData.remainingBlocks)*100/HALVING_BLOCKS;
     int x2 = 2 + (138*gData.progressPercent/100);
     background.fillRect(2, 149, x2, 168, 0xDEDB);
 
