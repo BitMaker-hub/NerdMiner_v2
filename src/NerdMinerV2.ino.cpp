@@ -141,8 +141,8 @@ void setup()
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
-  xTaskCreate(runMiner, "Miner0", 15000, NULL, 1, &minerTask1);
-  xTaskCreate(runMiner, "Miner1", 15000, NULL, 1, &minerTask2);
+  xTaskCreate(runMiner, "Miner0", 15000, (void*)0, 1, &minerTask1);
+  xTaskCreate(runMiner, "Miner1", 15000, (void*)1, 1, &minerTask2);
   esp_task_wdt_add(minerTask1);
   esp_task_wdt_add(minerTask2);
 

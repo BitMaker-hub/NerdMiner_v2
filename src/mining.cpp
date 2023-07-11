@@ -214,9 +214,9 @@ void runStratumWorker(void *name) {
 #include "shaTests/jadeSHA256.h"
 #include "shaTests/customSHA256.h"
 #include "mbedtls/sha256.h"
-void runMiner(void * name){
-  unsigned long nonce;
-  unsigned long max_nonce;
+void runMiner(void * task_id) {
+
+  unsigned int miner_id = (uint32_t)task_id;
 
   while(1){
 
@@ -227,16 +227,10 @@ void runMiner(void * name){
     }
     vTaskDelay(10 / portTICK_PERIOD_MS); //Small delay to join both mining threads
 
-    if(mMiner.newJob) { 
+    if(mMiner.newJob)
       mMiner.newJob = false; //Clear newJob flag
-      nonce = 0;
-      max_nonce = MAX_NONCE;
-    }
-    else if(mMiner.newJob2){
+    else if(mMiner.newJob2)
       mMiner.newJob2 = false; //Clear newJob flag
-      nonce = TARGET_NONCE - MAX_NONCE;
-      max_nonce = TARGET_NONCE;
-    } 
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
@@ -259,6 +253,9 @@ void runMiner(void * name){
         Serial.println("");   
     */
     // search a valid nonce
+    unsigned long nonce = TARGET_NONCE - MAX_NONCE;
+    // split up odd/even nonces between miner tasks
+    nonce += miner_id;
     uint32_t startT = micros();
     unsigned char *header64 = mMiner.bytearray_blockheader + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
@@ -284,7 +281,8 @@ void runMiner(void * name){
         Serial.println("");  */
       
       hashes++;
-      if (nonce++> max_nonce) break; //exit
+      nonce += 2;
+      if (nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
@@ -315,9 +313,9 @@ void runMiner(void * name){
 
         // check if valid header
       if(checkValid(hash, mMiner.bytearray_target)){
-        Serial.printf("[WORKER] %s CONGRATULATIONS! Valid completed with nonce: %d | 0x%x\n", (char *)name, nonce, nonce);
+        Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
         valids++;
-        Serial.printf("[WORKER]  %s  Submiting work valid!\n", (char *)name);
+        Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
         // STEP 3: Submit mining job
         tx_mining_submit(client, mWorker, mJob, nonce);
         client.stop();
