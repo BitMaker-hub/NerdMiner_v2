@@ -37,8 +37,7 @@ Every time an stratum job notification is received miner update its current work
 - 3D BOX
 
 ### Flash firmware
-#### microMiners Flashtool
-**Recommended flasher**
+#### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3
