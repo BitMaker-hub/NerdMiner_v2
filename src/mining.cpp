@@ -116,7 +116,9 @@ void runStratumWorker(void *name) {
   while(true) {
       
     if(WiFi.status() != WL_CONNECTED){
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      // WiFi is disconnected, so reconnect now
+      WiFi.reconnect();
+      vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
     } 
 
