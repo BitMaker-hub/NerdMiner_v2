@@ -32,14 +32,25 @@ TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
 unsigned long start = millis();
 const char* ntpServer = "pool.ntp.org";
+byte brightness = 255;
 
 //void runMonitor(void *name);
 
 void alternate_screen_state() {
-  int screen_state= digitalRead(TFT_BL);
+  //  int screen_state= digitalRead(TFT_BL);
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
-  Serial.println("Switching display state");
-  digitalWrite(TFT_BL, !screen_state);
+  // Serial.println("Switching display state");
+  // digitalWrite(TFT_BL, !screen_state);
+  if (brightness == 255) {
+    brightness = 0;
+  } else if (brightness == 250) {
+    brightness = 255;
+  } else {
+    brightness += 50;
+  }
+  ledcSetup(0, 10000, 8);
+  ledcAttachPin(38, 0);
+  ledcWrite(0, brightness);
 }
 
 void alternate_screen_rotation() {
@@ -62,7 +73,7 @@ void setup()
 
   // Setup the buttons
   // Button 1 (Boot)
-  button1.setPressTicks(5000);
+  button1.setPressTicks(2000);
   button1.attachClick(alternate_screen_state);
   button1.attachDoubleClick(alternate_screen_rotation);
   // button1.attachLongPressStart([]{Serial.println("Button 1 started a long press");});
@@ -70,7 +81,7 @@ void setup()
   // button1.attachDuringLongPress([]{Serial.println("Button 1 is being held down");});
 
   // Button 2 (GPIO14)
-  button2.setPressTicks(5000);
+  button2.setPressTicks(2000);
   button2.attachClick(changeScreen);
   // button2.attachDoubleClick([]{Serial.println("Button 2 was double clicked");});
   button2.attachLongPressStart(reset_configurations);
@@ -143,6 +154,10 @@ void setup()
   /******** MONITOR SETUP *****/
   setup_monitor();
   
+  // brightness
+  ledcSetup(0, 10000, 8);
+  ledcAttachPin(38, 0);
+  ledcWrite(0, brightness);
 }
 
 void app_error_fault_handler(void *arg) {
