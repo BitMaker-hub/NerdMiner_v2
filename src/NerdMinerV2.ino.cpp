@@ -43,14 +43,15 @@ void alternate_screen_state() {
   // digitalWrite(TFT_BL, !screen_state);
   if (brightness == 255) {
     brightness = 0;
-  } else if (brightness == 250) {
+  } else if (brightness == 200) {
     brightness = 255;
   } else {
     brightness += 50;
   }
+  Serial.printf("+++ Brightness %d\n", brightness);
   ledcSetup(0, 10000, 8);
   ledcAttachPin(38, 0);
-  ledcWrite(0, brightness);
+  ledcWrite(0, int(brightness));
 }
 
 void alternate_screen_rotation() {
