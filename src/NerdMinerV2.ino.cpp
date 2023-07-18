@@ -43,10 +43,10 @@ void alternate_screen_state() {
   // digitalWrite(TFT_BL, !screen_state);
   if (brightness == 255) {
     brightness = 0;
-  } else if (brightness == 200) {
+  } else if (brightness == 254) {
     brightness = 255;
   } else {
-    brightness += 50;
+    brightness += 51;
   }
   Serial.printf("+++ Brightness %d\n", brightness);
   ledcSetup(0, 10000, 8);
