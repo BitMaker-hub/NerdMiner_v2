@@ -216,7 +216,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     return true;
 }
 
-bool parse_mining_set_difficulty(String line, float& difficulty)
+bool parse_mining_set_difficulty(String line, double& difficulty)
 {
     Serial.println("    Parsing Method [SET DIFFICULTY]");
     if(!verifyPayload(&line)) return false;
@@ -226,8 +226,8 @@ bool parse_mining_set_difficulty(String line, float& difficulty)
     if (error) return false;
     if (!doc.containsKey("params")) return false;
 
-    Serial.print("    difficulty: "); Serial.println((float)doc["params"][0],12);
-    difficulty = (float)doc["params"][0];
+    Serial.print("    difficulty: "); Serial.println((double)doc["params"][0],12);
+    difficulty = (double)doc["params"][0];
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(job_id);
@@ -236,12 +236,12 @@ bool parse_mining_set_difficulty(String line, float& difficulty)
     return true;
 }
 
-bool tx_suggest_difficulty(WiFiClient& client, const char * difficulty)
+bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
 {
     char payload[BUFFER] = {0};
 
     id = getNextId(id);
-    sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%s]}\n", id, difficulty);
+    sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%.10g]}\n", id, difficulty);
     
     Serial.print("  Sending  : "); Serial.print(payload);
     return client.print(payload);
