@@ -176,15 +176,15 @@ bool parse_mining_notify(String line, mining_job& mJob)
     mJob.clean_jobs = doc["params"][8]; //bool
 
     #ifdef DEBUG_MINING
-    Serial.print("    job_id: "); Serial.println(job_id);
-    Serial.print("    prevhash: "); Serial.println(prev_block_hash);
-    Serial.print("    coinb1: "); Serial.println(coinb1);
-    Serial.print("    coinb2: "); Serial.println(coinb2);
-    Serial.print("    merkle_branch size: "); Serial.println(merkle_branches.size());
-    Serial.print("    version: "); Serial.println(version);
-    Serial.print("    nbits: "); Serial.println(nbits);
-    Serial.print("    ntime: "); Serial.println(ntime);
-    Serial.print("    clean_jobs: "); Serial.println(clean_jobs);
+    Serial.print("    job_id: "); Serial.println(mJob.job_id);
+    Serial.print("    prevhash: "); Serial.println(mJob.prev_block_hash);
+    Serial.print("    coinb1: "); Serial.println(mJob.coinb1);
+    Serial.print("    coinb2: "); Serial.println(mJob.coinb2);
+    Serial.print("    merkle_branch size: "); Serial.println(mJob.merkle_branch.size());
+    Serial.print("    version: "); Serial.println(mJob.version);
+    Serial.print("    nbits: "); Serial.println(mJob.nbits);
+    Serial.print("    ntime: "); Serial.println(mJob.ntime);
+    Serial.print("    clean_jobs: "); Serial.println(mJob.clean_jobs);
     #endif
     //Check if parameters where correctly received
     if (checkError(doc)) {
@@ -228,10 +228,6 @@ bool parse_mining_set_difficulty(String line, double& difficulty)
 
     Serial.print("    difficulty: "); Serial.println((double)doc["params"][0],12);
     difficulty = (double)doc["params"][0];
-
-    #ifdef DEBUG_MINING
-    Serial.print("    job_id: "); Serial.println(job_id);
-    #endif
 
     return true;
 }
