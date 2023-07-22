@@ -259,10 +259,19 @@ void runMiner(void * task_id) {
     // split up odd/even nonces between miner tasks
     nonce += miner_id;
     uint32_t startT = micros();
-    unsigned char *header64 = mMiner.bytearray_blockheader + 64;
+    unsigned char *header64;
+    // each miner thread needs to track its own blockheader template
+    memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
+    if (miner_id == 0)
+      header64 = mMiner.bytearray_blockheader + 64;
+    else
+      header64 = mMiner.bytearray_blockheader2 + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      if (miner_id == 0)
+        memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      else
+        memcpy(mMiner.bytearray_blockheader2 + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
@@ -283,12 +292,15 @@ void runMiner(void * task_id) {
         Serial.println("");  */
       
       hashes++;
-      nonce += 2;
       if (nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
-      if(hash[31] !=0 || hash[30] !=0) continue;
+      if(hash[31] !=0 || hash[30] !=0) {
+        // increment nonce
+        nonce += 2;
+        continue;
+      }
       halfshares++;
       
       //Check target to submit
@@ -305,12 +317,24 @@ void runMiner(void * task_id) {
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println(""); 
+        #ifdef DEBUG_MINING
+        Serial.println("");
+        Serial.print("   - Current nonce: "); Serial.println(nonce);
+        Serial.print("   - Current block header: ");
+        for (size_t i = 0; i < 80; i++) {
+            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+        }
+        #endif
+        Serial.println("");
         mLastTXtoPool = millis();  
       }
       
       // check if 32bit share
-      if(hash[29] !=0 || hash[28] !=0) continue;
+      if(hash[29] !=0 || hash[28] !=0) {
+        // increment nonce
+        nonce += 2;
+        continue;
+      }
       shares++;
 
         // check if valid header
@@ -324,7 +348,9 @@ void runMiner(void * task_id) {
         // exit 
         nonce = MAX_NONCE;
         break;
-      }    
+      }
+      // increment nonce
+      nonce += 2;
     } // exit if found a valid result or nonce > MAX_NONCE
 
     wc_Sha256Free(&sha256);
