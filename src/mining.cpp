@@ -213,9 +213,9 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
-#include "shaTests/jadeSHA256.h"
-#include "shaTests/customSHA256.h"
-#include "mbedtls/sha256.h"
+//#include "shaTests/jadeSHA256.h"
+//#include "shaTests/customSHA256.h"
+//#include "mbedtls/sha256.h"
 void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
