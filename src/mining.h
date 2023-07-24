@@ -5,7 +5,7 @@
 // Mining
 #define MAX_NONCE       5000000U
 #define TARGET_NONCE    471136297U
-#define DEFAULT_DIFFICULTY  "1e-9"
+#define DEFAULT_DIFFICULTY  1e-4
 #define KEEPALIVE_TIME_ms       30000
 #define POOLINACTIVITY_TIME_ms  60000
 
@@ -21,7 +21,8 @@ typedef struct{
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];
   uint8_t bytearray_blockheader[80];
-  float poolDifficulty;
+  uint8_t bytearray_blockheader2[80];
+  double poolDifficulty;
   bool inRun;
   bool newJob;
   bool newJob2;

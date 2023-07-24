@@ -20,6 +20,8 @@
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
+//120 seconds WDT for miner task
+#define WDT_MINER_TIMEOUT 120
 OneButton button1(PIN_BUTTON_1);
 OneButton button2(PIN_BUTTON_2);
 
@@ -56,6 +58,7 @@ void setup()
   Serial.setTimeout(0);
   delay(100);
 
+  esp_task_wdt_init(WDT_MINER_TIMEOUT, true);
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
   //disableCore1WDT();
@@ -137,8 +140,11 @@ void setup()
 
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
-  xTaskCreate(runMiner, "Miner0", 15000, NULL, 1, NULL);
-  xTaskCreate(runMiner, "Miner1", 15000, NULL, 1, NULL);
+  TaskHandle_t minerTask1, minerTask2 = NULL;
+  xTaskCreate(runMiner, "Miner0", 15000, (void*)0, 1, &minerTask1);
+  xTaskCreate(runMiner, "Miner1", 15000, (void*)1, 1, &minerTask2);
+  esp_task_wdt_add(minerTask1);
+  esp_task_wdt_add(minerTask2);
 
   /******** MONITOR SETUP *****/
   setup_monitor();
