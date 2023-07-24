@@ -78,6 +78,7 @@ Optional you can select other pool:
 | solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
 | btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
+| pool.nerdminer.io | 3333 | https://nerdminer.io |
 
 ### Buttons
 With the USB-C port to the right:
