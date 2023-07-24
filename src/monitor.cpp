@@ -23,6 +23,8 @@ extern unsigned long halfshares; // increase if blockhash has 16 bits of zeroes
 extern unsigned int shares; // increase if blockhash has 32 bits of zeroes
 extern unsigned int valids; // increased if blockhash <= targethalfshares
 
+extern double best_diff; // track best diff
+
 extern OpenFontRender render;
 extern TFT_eSprite background;
 extern monitor_data mMonitor;
@@ -243,9 +245,11 @@ void show_MinerScreen(unsigned long mElapsed){
     //Block templates
     render.setFontSize(36);
     render.drawString(String(templates).c_str(), 186, 20, 0xDEDB);
-    //16Bit shares
+    //Best diff
+    char best_diff_string[8] = {0};
+    sprintf(best_diff_string, "%.4f", best_diff);
     render.setFontSize(36);
-    render.drawString(String(halfshares).c_str(), 186, 48, 0xDEDB);
+    render.drawString(String(best_diff_string).c_str(), 186, 48, 0xDEDB);
     //32Bit shares
     render.setFontSize(36);
     render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
