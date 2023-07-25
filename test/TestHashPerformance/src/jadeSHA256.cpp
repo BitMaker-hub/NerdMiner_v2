@@ -16,8 +16,6 @@
 
 #define HASH_SIZE 32
 
-#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-
 #ifndef PUT_UINT32_BE
 #define PUT_UINT32_BE(n, data, offset)                                                                                 \
     {                                                                                                                  \
@@ -105,6 +103,8 @@ static const uint32_t K[] = {
 };
 
 #define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
+//#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
+#define ROTR(x, n) (SHR(x, n) | ((x) << (32 - (n))))
 
 #define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
 #define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
@@ -188,7 +188,12 @@ IRAM_ATTR void calc_midstate(uint8_t* buf_ptr, _sha256_context* midstate)
     uint32_t A[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
 
     uint32_t temp1, temp2, W[64];
+    uint8_t i;
 
+    /*for (i = 0; i < 16; i++) {
+        W[i] = GET_UINT32_BE(buf_ptr, 4 * i);
+    }*/
+    
     W[0] = GET_UINT32_BE(buf_ptr, 0);
     W[1] = GET_UINT32_BE(buf_ptr, 4);
     W[2] = GET_UINT32_BE(buf_ptr, 8);
@@ -205,7 +210,51 @@ IRAM_ATTR void calc_midstate(uint8_t* buf_ptr, _sha256_context* midstate)
     W[13] = GET_UINT32_BE(buf_ptr, 52);
     W[14] = GET_UINT32_BE(buf_ptr, 56);
     W[15] = GET_UINT32_BE(buf_ptr, 60);
+    
 
+    
+    for (i = 0; i < 16; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], W[i+0], K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], W[i+1], K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], W[i+2], K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], W[i+3], K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], W[i+4], K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], W[i+5], K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], W[i+6], K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], W[i+7], K[i+7]);
+    }
+
+    for (i = 16; i < 64; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], R(i+0), K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], R(i+1), K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], R(i+2), K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], R(i+3), K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], R(i+4), K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], R(i+5), K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], R(i+6), K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], R(i+7), K[i+7]);
+    }
+
+    for (i = 0; i < 8; i++) {
+        midstate->state[i] += A[i];
+    }
+    /*
     P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
     P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
     P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
@@ -271,15 +320,16 @@ IRAM_ATTR void calc_midstate(uint8_t* buf_ptr, _sha256_context* midstate)
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
 
-    midstate->state[0] = A[0];// 0x6A09E667 + A[0];
-    midstate->state[1] = A[1];// 0xBB67AE85 + A[1];
-    midstate->state[2] = A[2];// 0x3C6EF372 + A[2];
-    midstate->state[3] = A[3];// 0xA54FF53A + A[3];
-    midstate->state[4] = A[4];// 0x510E527F + A[4];
-    midstate->state[5] = A[5];// 0x9B05688C + A[5];
-    midstate->state[6] = A[6];// 0x1F83D9AB + A[6];
-    midstate->state[7] = A[7];// 0x5BE0CD19 + A[7];
-    midstate->buffer[16] = 0x80;
+    midstate->state[0] = 0x6A09E667 + A[0];
+    midstate->state[1] = 0xBB67AE85 + A[1];
+    midstate->state[2] = 0x3C6EF372 + A[2];
+    midstate->state[3] = 0xA54FF53A + A[3];
+    midstate->state[4] = 0x510E527F + A[4];
+    midstate->state[5] = 0x9B05688C + A[5];
+    midstate->state[6] = 0x1F83D9AB + A[6];
+    midstate->state[7] = 0x5BE0CD19 + A[7];
+    */
+    //midstate->buffer[16] = 0x80;
     memcpy(midstate->buffer, buf_ptr + 64, 12);
 }
 
@@ -289,18 +339,59 @@ IRAM_ATTR bool make_double_sha(_sha256_context* midstate)
     uint8_t temp3, temp4;
 
     uint32_t W[64] = { GET_UINT32_BE(midstate->buffer, 0), GET_UINT32_BE(midstate->buffer, 4),
-        GET_UINT32_BE(midstate->buffer, 8), GET_UINT32_BE(midstate->buffer, 12), 2147483648, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        GET_UINT32_BE(midstate->buffer, 8), GET_UINT32_BE(midstate->buffer, 12), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 640, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     uint32_t A[8] = { midstate->state[0], midstate->state[1], midstate->state[2], midstate->state[3],
         midstate->state[4], midstate->state[5], midstate->state[6], midstate->state[7] };
-//2147483648
+//0x80000000
     union {
         uint32_t num;
         uint8_t b[4];
     } u;
     uint8_t* p = NULL;
 
+    uint8_t i;
+
+    for (i = 0; i < 16; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], W[i+0], K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], W[i+1], K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], W[i+2], K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], W[i+3], K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], W[i+4], K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], W[i+5], K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], W[i+6], K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], W[i+7], K[i+7]);
+    }
+
+    for (i = 16; i < 64; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], R(i+0), K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], R(i+1), K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], R(i+2), K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], R(i+3), K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], R(i+4), K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], R(i+5), K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], R(i+6), K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], R(i+7), K[i+7]);
+    }
+
+    /*
     P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
     P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
     P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
@@ -365,6 +456,7 @@ IRAM_ATTR bool make_double_sha(_sha256_context* midstate)
     P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
+    */
 
     PUT_UINT32_BE(midstate->state[0] + A[0], midstate->buffer, 0);
     PUT_UINT32_BE(midstate->state[1] + A[1], midstate->buffer, 4);
@@ -403,6 +495,45 @@ IRAM_ATTR bool make_double_sha(_sha256_context* midstate)
     W[14] = 0;
     W[15] = 256;
 
+    for (i = 0; i < 16; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], W[i+0], K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], W[i+1], K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], W[i+2], K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], W[i+3], K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], W[i+4], K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], W[i+5], K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], W[i+6], K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], W[i+7], K[i+7]);
+    }
+
+    for (i = 16; i < 64; i += 8) {
+        P(A[0], A[1], A[2], A[3], A[4],
+          A[5], A[6], A[7], R(i+0), K[i+0]);
+        P(A[7], A[0], A[1], A[2], A[3],
+          A[4], A[5], A[6], R(i+1), K[i+1]);
+        P(A[6], A[7], A[0], A[1], A[2],
+          A[3], A[4], A[5], R(i+2), K[i+2]);
+        P(A[5], A[6], A[7], A[0], A[1],
+          A[2], A[3], A[4], R(i+3), K[i+3]);
+        P(A[4], A[5], A[6], A[7], A[0],
+          A[1], A[2], A[3], R(i+4), K[i+4]);
+        P(A[3], A[4], A[5], A[6], A[7],
+          A[0], A[1], A[2], R(i+5), K[i+5]);
+        P(A[2], A[3], A[4], A[5], A[6],
+          A[7], A[0], A[1], R(i+6), K[i+6]);
+        P(A[1], A[2], A[3], A[4], A[5],
+          A[6], A[7], A[0], R(i+7), K[i+7]);
+    }
+
+    /*
     P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
     P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
     P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
@@ -471,7 +602,7 @@ IRAM_ATTR bool make_double_sha(_sha256_context* midstate)
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     //CHECK_BYTES(0x9B05688C, A[5], 8);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
-
+    */
     /*CHECK_BYTES(0x510E527F, A[4], 12);
     CHECK_BYTES(0xA54FF53A, A[3], 16);
     CHECK_BYTES(0x3C6EF372, A[2], 20);
