@@ -38,6 +38,7 @@ typedef struct {
 } mining_job;
 
 typedef enum {
+    STRATUM_SUCCESS,
     STRATUM_UNKNOWN,
     STRATUM_PARSE_ERROR,
     MINING_NOTIFY,
