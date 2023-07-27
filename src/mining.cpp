@@ -141,6 +141,8 @@ void runStratumWorker(void *name) {
 
     if(!isMinerSuscribed){
 
+      //Stop miner current jobs
+      mMiner.inRun = false;
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
