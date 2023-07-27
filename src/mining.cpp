@@ -197,6 +197,7 @@ void runStratumWorker(void *name) {
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
                                       mMiner.poolDifficulty = currentPoolDifficulty;
                                       break;
+          case STRATUM_SUCCESS:       Serial.println("  Parsed JSON: Success"); break;
           default:                    Serial.println("  Parsed JSON: unknown"); break;
 
       }

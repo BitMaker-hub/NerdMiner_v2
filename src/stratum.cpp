@@ -142,8 +142,13 @@ stratum_method parse_mining_method(String line)
 
     if (error || checkError(doc)) return STRATUM_PARSE_ERROR;
 
-    if (!doc.containsKey("method")) return STRATUM_UNKNOWN;
-    
+    if (!doc.containsKey("method")) {
+      // "error":null means success
+      if (doc["error"].isNull())
+        return STRATUM_SUCCESS;
+      else
+        return STRATUM_UNKNOWN;
+    }
     stratum_method result = STRATUM_UNKNOWN;
 
     if (strcmp("mining.notify", (const char*) doc["method"]) == 0) {
