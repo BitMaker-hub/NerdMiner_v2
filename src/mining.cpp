@@ -3,8 +3,8 @@
 #include <WiFi.h>
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-#include <wolfssl/wolfcrypt/sha256.h>
-//#include "ShaTests/nerdSHA256.h"
+//#include <wolfssl/wolfcrypt/sha256.h>
+#include "ShaTests/nerdSHA256.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "OpenFontRender.h"
@@ -240,15 +240,15 @@ void runMiner(void * task_id) {
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
-    Sha256 midstate[32];
-    //nerd_sha256 nerdMidstate;
+    //Sha256 midstate[32];
+    nerd_sha256 nerdMidstate;
     uint8_t hash[32];
-    Sha256 sha256;
+    //Sha256 sha256;
 
     //Calcular midstate WOLF
-    wc_InitSha256(midstate);
-    wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
-    //nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
+    //wc_InitSha256(midstate);
+    //wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
+    nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
 
 
     /*Serial.println("Blockheader:");
@@ -281,14 +281,14 @@ void runMiner(void * task_id) {
 
       //Con midstate
       // Primer SHA-256
-      wc_Sha256Copy(midstate, &sha256);
+      /*wc_Sha256Copy(midstate, &sha256);
       wc_Sha256Update(&sha256, header64, 16);
       wc_Sha256Final(&sha256, hash);
  
       // Segundo SHA-256
       wc_Sha256Update(&sha256, hash, 32);
-      wc_Sha256Final(&sha256, hash);
-      //nerd_double_sha(&nerdMidstate, header64, hash);
+      wc_Sha256Final(&sha256, hash);*/
+      nerd_double_sha(&nerdMidstate, header64, hash);
 
       /*for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
