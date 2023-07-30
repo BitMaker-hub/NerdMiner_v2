@@ -27,7 +27,7 @@ Currently includes:
 This miner is multicore and multithreads, one thread is used to mine and other is implementing stratum work and wifi stuff. 
 Every time an stratum job notification is received miner update its current work to not create stale shares. 
 
-**IMPORTANT** Miner is not seen by pools due to its low share difficulty. You can check miner work seeing logs via UART or mainly setting up your own pool with a low difficulty rate as 1e-9
+**IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
 
 ***Current project is still in developement and more features will be added***
 
@@ -73,15 +73,15 @@ After programming, you will only need to setup your Wifi and BTC address.
 
 Recommended low difficulty share pools:
 
-| Pool URL                 | Port  | URL | Status |
+| Pool URL                 | Port  | Web URL | Status |
 |---                       |---    |---  |---      |
 | public-pool.airdns.org   | 21496 | https://public-pool.airdns.org:37273/ | Check your stats. Supporting open source miners discord group |
-| nerdminers.org           |       |     | Currently pointing to th Open Source Solo Bitcoin Mining Pool |
+| nerdminers.org           |       | https://nerdminers.org | Team future pool - Currently pointing to the Open Source Solo Bitcoin Mining Pool |
 | nerdminer.io             | 3333  | https://nerdminer.io | Mantained by CHMEX |
 
 Other standard pools not compatible with low difficulty share:
 
-| Pool URL                 | Port | URL |
+| Pool URL                 | Port | Web URL |
 |---                       |---   |---  | 
 | solo.ckpool.org          | 3333 | https://solo.ckpool.org/ |
 | btc.zsolo.bid            | 6057 | https://zsolo.bid/en/btc-solo-mining-pool |
