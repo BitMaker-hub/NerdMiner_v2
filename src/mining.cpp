@@ -360,8 +360,8 @@ void runMiner(void * task_id) {
       nonce += 2;
     } // exit if found a valid result or nonce > MAX_NONCE
 
-    wc_Sha256Free(&sha256);
-    wc_Sha256Free(midstate);
+    //wc_Sha256Free(&sha256);
+    //wc_Sha256Free(midstate);
 
     mMiner.inRun = false;
     Serial.print(">>> Finished job waiting new data from pool");
