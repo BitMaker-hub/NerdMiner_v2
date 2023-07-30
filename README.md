@@ -75,8 +75,8 @@ Recommended low difficulty share pools:
 
 | Pool URL                 | Port  | Web URL | Status |
 |---                       |---    |---  |---      |
-| public-pool.airdns.org   | 21496 | https://public-pool.airdns.org:37273/ | Check your stats. Supporting open source miners discord group |
-| nerdminers.org           |       | https://nerdminers.org | Team future pool - Currently pointing to the Open Source Solo Bitcoin Mining Pool |
+| public-pool.airdns.org   | 21496 | https://public-pool.airdns.org:37273/ | Open Source Solo Bitcoin Mining Pool supporting open source miners |
+| nerdminers.org           |       | https://nerdminers.org | Team domain for future pool - Currently pointing to public-pool.airdns.org  |
 | nerdminer.io             | 3333  | https://nerdminer.io | Mantained by CHMEX |
 
 Other standard pools not compatible with low difficulty share:
