@@ -5,6 +5,7 @@
 
 #include "jadeSHA256.h"
 #include "customSHA256.h"
+#include "nerdSHA256.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
 #include <wolfssl/wolfcrypt/sha256.h>
@@ -65,15 +66,20 @@ void loop() {
     Serial.println("");
     
     //Test WOLF
-    Sha256 midstate[32];
+    Sha256 midstate;
     Sha256 sha256;
     uint8_t hash2[32];
-    wc_InitSha256(midstate);
-    wc_Sha256Update(midstate, blockheader, 64);
+    wc_InitSha256(&midstate);
+    wc_Sha256Update(&midstate, blockheader, 64);  
+    Serial.print("Wolf midstate: ");
+    for (size_t i = 0; i < 8; i++)
+            Serial.printf("%02x", midstate.digest[i]);
+    Serial.println(""); 
+    
     // Mining starts here
     //Primer sha
     startT = micros();
-    wc_Sha256Copy(midstate, &sha256);
+    wc_Sha256Copy(&midstate, &sha256);
     wc_Sha256Update(&sha256, blockheader+64, 16);
     wc_Sha256Final(&sha256, hash2);
     // Segundo SHA-256
@@ -94,6 +100,13 @@ void loop() {
     mbedtls_sha256_init(&midstate3); 
     mbedtls_sha256_starts_ret(&midstate3, 0);
     mbedtls_sha256_update_ret(&midstate3, blockheader, 64);
+    Serial.println("Mbed midstate:");
+    for (size_t i = 0; i < 8; i++)
+            Serial.printf("%02x", midstate3.state[i]);
+    Serial.println(""); 
+     for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate3.buffer[i]);
+    Serial.println(""); 
     
     // Mining starts here
     // Primer SHA-256
@@ -115,7 +128,15 @@ void loop() {
     
     //Test Jade SHA
     _sha256_context midstate_cached = { 0 };
+    memcpy(midstate_cached.buffer, blockheader, 64);
     calc_midstate(blockheader, &midstate_cached);
+    Serial.println("Jade midstate:");
+    for (size_t i = 0; i < 8; i++)
+            Serial.printf("%02x", midstate_cached.state[i]);
+    Serial.println(""); 
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", midstate_cached.buffer[i]);
+    Serial.println(""); 
     *((uint32_t*)&midstate_cached.buffer[12]) = 0xFFFFFFFF;//nonce;
     // Mining starts here
     startT = micros();
@@ -125,5 +146,23 @@ void loop() {
     for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", midstate_cached.buffer[i]);
     Serial.println("");
+
+     //Test nerdSHA
+    nerd_sha256 nerdMidstate;
+    uint8_t nerdHash[32];
+    nerd_midstate(&nerdMidstate, blockheader, 64);
+    Serial.print("Nerd midstate: ");
+    for (size_t i = 0; i < 8; i++)
+            Serial.printf("%02x", nerdMidstate.digest[i]);
+    Serial.println(""); 
     
-}
+    //Mining starts here
+    startT = micros();
+    nerd_double_sha(&nerdMidstate, blockheader+64,nerdHash);
+    expired = micros() - startT;
+    Serial.println("Nerd double SHA[" + String(expired) + "us]:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", nerdHash[i]);
+    Serial.println("");
+    
+}       

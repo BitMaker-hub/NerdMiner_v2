@@ -38,6 +38,7 @@ typedef struct {
 } mining_job;
 
 typedef enum {
+    STRATUM_SUCCESS,
     STRATUM_UNKNOWN,
     STRATUM_PARSE_ERROR,
     MINING_NOTIFY,
@@ -62,8 +63,8 @@ bool parse_mining_notify(String line, mining_job& mJob);
 bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce);
 
 //Difficulty Methods 
-bool tx_suggest_difficulty(WiFiClient& client, const char * difficulty);
-bool parse_mining_set_difficulty(String line, float& difficulty);
+bool tx_suggest_difficulty(WiFiClient& client, double difficulty);
+bool parse_mining_set_difficulty(String line, double& difficulty);
 
 
 #endif // STRATUM_API_H

@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include <wolfssl/wolfcrypt/sha256.h>
+//#include "ShaTests/nerdSHA256.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "OpenFontRender.h"
@@ -110,12 +112,14 @@ void runStratumWorker(void *name) {
 
   // connect to pool
   
-  float currentPoolDifficulty = atof(DEFAULT_DIFFICULTY);
+  double currentPoolDifficulty = DEFAULT_DIFFICULTY;
 
   while(true) {
       
     if(WiFi.status() != WL_CONNECTED){
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      // WiFi is disconnected, so reconnect now
+      WiFi.reconnect();
+      vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
     } 
 
@@ -138,6 +142,8 @@ void runStratumWorker(void *name) {
 
     if(!isMinerSuscribed){
 
+      //Stop miner current jobs
+      mMiner.inRun = false;
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
@@ -194,6 +200,7 @@ void runStratumWorker(void *name) {
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
                                       mMiner.poolDifficulty = currentPoolDifficulty;
                                       break;
+          case STRATUM_SUCCESS:       Serial.println("  Parsed JSON: Success"); break;
           default:                    Serial.println("  Parsed JSON: unknown"); break;
 
       }
@@ -210,12 +217,12 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
-#include "shaTests/jadeSHA256.h"
-#include "shaTests/customSHA256.h"
-#include "mbedtls/sha256.h"
-void runMiner(void * name){
-  unsigned long nonce;
-  unsigned long max_nonce;
+//#include "shaTests/jadeSHA256.h"
+//#include "shaTests/customSHA256.h"
+//#include "mbedtls/sha256.h"
+void runMiner(void * task_id) {
+
+  unsigned int miner_id = (uint32_t)task_id;
 
   while(1){
 
@@ -226,26 +233,22 @@ void runMiner(void * name){
     }
     vTaskDelay(10 / portTICK_PERIOD_MS); //Small delay to join both mining threads
 
-    if(mMiner.newJob) { 
+    if(mMiner.newJob)
       mMiner.newJob = false; //Clear newJob flag
-      nonce = 0;
-      max_nonce = MAX_NONCE;
-    }
-    else if(mMiner.newJob2){
+    else if(mMiner.newJob2)
       mMiner.newJob2 = false; //Clear newJob flag
-      nonce = TARGET_NONCE - MAX_NONCE;
-      max_nonce = TARGET_NONCE;
-    } 
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
     Sha256 midstate[32];
-    unsigned char hash[32];
+    //nerd_sha256 nerdMidstate;
+    uint8_t hash[32];
     Sha256 sha256;
 
     //Calcular midstate WOLF
     wc_InitSha256(midstate);
     wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
+    //nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
 
 
     /*Serial.println("Blockheader:");
@@ -258,11 +261,23 @@ void runMiner(void * name){
         Serial.println("");   
     */
     // search a valid nonce
+    unsigned long nonce = TARGET_NONCE - MAX_NONCE;
+    // split up odd/even nonces between miner tasks
+    nonce += miner_id;
     uint32_t startT = micros();
-    unsigned char *header64 = mMiner.bytearray_blockheader + 64;
+    unsigned char *header64;
+    // each miner thread needs to track its own blockheader template
+    memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
+    if (miner_id == 0)
+      header64 = mMiner.bytearray_blockheader + 64;
+    else
+      header64 = mMiner.bytearray_blockheader2 + 64;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
-      memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      if (miner_id == 0)
+        memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
+      else
+        memcpy(mMiner.bytearray_blockheader2 + 76, &nonce, 4);
 
       //Con midstate
       // Primer SHA-256
@@ -273,6 +288,7 @@ void runMiner(void * name){
       // Segundo SHA-256
       wc_Sha256Update(&sha256, hash, 32);
       wc_Sha256Final(&sha256, hash);
+      //nerd_double_sha(&nerdMidstate, header64, hash);
 
       /*for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
@@ -283,11 +299,15 @@ void runMiner(void * name){
         Serial.println("");  */
       
       hashes++;
-      if (nonce++> max_nonce) break; //exit
+      if (nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
-      if(hash[31] !=0 || hash[30] !=0) continue;
+      if(hash[31] !=0 || hash[30] !=0) {
+        // increment nonce
+        nonce += 2;
+        continue;
+      }
       halfshares++;
       
       //Check target to submit
@@ -304,26 +324,40 @@ void runMiner(void * name){
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println(""); 
+        #ifdef DEBUG_MINING
+        Serial.println("");
+        Serial.print("   - Current nonce: "); Serial.println(nonce);
+        Serial.print("   - Current block header: ");
+        for (size_t i = 0; i < 80; i++) {
+            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+        }
+        #endif
+        Serial.println("");
         mLastTXtoPool = millis();  
       }
       
       // check if 32bit share
-      if(hash[29] !=0 || hash[28] !=0) continue;
+      if(hash[29] !=0 || hash[28] !=0) {
+        // increment nonce
+        nonce += 2;
+        continue;
+      }
       shares++;
 
         // check if valid header
       if(checkValid(hash, mMiner.bytearray_target)){
-        Serial.printf("[WORKER] %s CONGRATULATIONS! Valid completed with nonce: %d | 0x%x\n", (char *)name, nonce, nonce);
+        Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
         valids++;
-        Serial.printf("[WORKER]  %s  Submiting work valid!\n", (char *)name);
+        Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
         // STEP 3: Submit mining job
         tx_mining_submit(client, mWorker, mJob, nonce);
         client.stop();
         // exit 
         nonce = MAX_NONCE;
         break;
-      }    
+      }
+      // increment nonce
+      nonce += 2;
     } // exit if found a valid result or nonce > MAX_NONCE
 
     wc_Sha256Free(&sha256);
@@ -338,6 +372,8 @@ void runMiner(void * name){
     }
 
     uint32_t duration = micros() - startT;
+    if (esp_task_wdt_reset() == ESP_OK)
+      Serial.print(">>> Resetting watchdog timer");
   }
 }
 

@@ -83,16 +83,16 @@ double le256todouble(const void *target)
 	double dcut64;
 
 	data64 = (uint64_t *)(target + 24);
-	dcut64 = bswap64(*data64) * 6277101735386680763835789423207666416102355444464034512896.0;
+	dcut64 = *data64 * 6277101735386680763835789423207666416102355444464034512896.0;
 
 	data64 = (uint64_t *)(target + 16);
-	dcut64 += bswap64(*data64) * 340282366920938463463374607431768211456.0;
+	dcut64 += *data64 * 340282366920938463463374607431768211456.0;
 
 	data64 = (uint64_t *)(target + 8);
-	dcut64 += bswap64(*data64) * 18446744073709551616.0;
+	dcut64 += *data64 * 18446744073709551616.0;
 
 	data64 = (uint64_t *)(target);
-	dcut64 += bswap64(*data64);
+	dcut64 += *data64;
 
 	return dcut64;
 }
@@ -100,7 +100,6 @@ double le256todouble(const void *target)
 double diff_from_target(void *target)
 {
 	double d64, dcut64;
-    //reverse_bytes((uint8_t *) target, 32);
 
 	d64 = truediffone;
 	dcut64 = le256todouble(target);
@@ -155,7 +154,7 @@ miner_data init_miner_data(void){
   
   miner_data newMinerData;
 
-  newMinerData.poolDifficulty = atof(DEFAULT_DIFFICULTY);
+  newMinerData.poolDifficulty = DEFAULT_DIFFICULTY;
   newMinerData.inRun = false;
   newMinerData.newJob = false;
   
@@ -201,7 +200,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     size_t res = to_byte_array(coinbase.c_str(), str_len*2, bytearray);
 
     #ifdef DEBUG_MINING
-    Serial.print("    extranonce2: "); Serial.println(extranonce2);
+    Serial.print("    extranonce2: "); Serial.println(mWorker.extranonce2);
     Serial.print("    coinbase: "); Serial.println(coinbase);
     Serial.print("    coinbase bytes - size: "); Serial.println(res);
     for (size_t i = 0; i < res; i++)
@@ -271,7 +270,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
         #ifdef DEBUG_MINING
         Serial.print("    merkle sha         : ");
         for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", merkle_result[i]);
+            Serial.printf("%02x", mMiner.merkle_result[i]);
         Serial.println("");
         #endif
     }
@@ -285,22 +284,23 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     }
     merkle_root[65] = 0;
     Serial.println("");
-    
+
     // calculate blockheader
     // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])
-    String blockheader = mJob.version + mJob.prev_block_hash + String(merkle_root) + mJob.ntime + mJob.nbits + "00000000"; 
+    String blockheader = mJob.version + mJob.prev_block_hash + String(merkle_root) + mJob.ntime + mJob.nbits + "00000000";
     str_len = blockheader.length()/2;
     
     //uint8_t bytearray_blockheader[str_len];
     res = to_byte_array(blockheader.c_str(), str_len*2, mMiner.bytearray_blockheader);
 
     #ifdef DEBUG_MINING
+    Serial.println("    blockheader: "); Serial.print(blockheader);
     Serial.println("    blockheader bytes "); Serial.print(str_len); Serial.print(" -> ");
     #endif
 
     // reverse version
     uint8_t buff;
-    size_t bsize, boffset;
+    size_t bword, bsize, boffset;
     boffset = 0;
     bsize = 4;
     for (size_t j = boffset; j < boffset + (bsize/2); j++) {
@@ -309,14 +309,42 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
         mMiner.bytearray_blockheader[2 * boffset + bsize - 1 - j] = buff;
     }
 
-    // reverse merkle 
-    boffset = 36;
+    // reverse prev hash (4-byte word swap)
+    boffset = 4;
+    bword = 4;
     bsize = 32;
+    for (size_t i = 1; i <= bsize / bword; i++) {
+        for (size_t j = boffset; j < boffset + bword / 2; j++) {
+            buff = mMiner.bytearray_blockheader[j];
+            mMiner.bytearray_blockheader[j] = mMiner.bytearray_blockheader[2 * boffset + bword - 1 - j];
+            mMiner.bytearray_blockheader[2 * boffset + bword - 1 - j] = buff;
+        }
+        boffset += bword;
+    }
+
+/*
+    // reverse merkle (4-byte word swap)
+    boffset = 36;
+    bword = 4;
+    bsize = 32;
+    for (size_t i = 1; i <= bsize / bword; i++) {
+        for (size_t j = boffset; j < boffset + bword / 2; j++) {
+            buff = mMiner.bytearray_blockheader[j];
+            mMiner.bytearray_blockheader[j] = mMiner.bytearray_blockheader[2 * boffset + bword - 1 - j];
+            mMiner.bytearray_blockheader[2 * boffset + bword - 1 - j] = buff;
+        }
+        boffset += bword;
+    }
+*/
+    // reverse ntime
+    boffset = 68;
+    bsize = 4;
     for (size_t j = boffset; j < boffset + (bsize/2); j++) {
         buff = mMiner.bytearray_blockheader[j];
         mMiner.bytearray_blockheader[j] = mMiner.bytearray_blockheader[2 * boffset + bsize - 1 - j];
         mMiner.bytearray_blockheader[2 * boffset + bsize - 1 - j] = buff;
     }
+
     // reverse difficulty
     boffset = 72;
     bsize = 4;
@@ -330,35 +358,35 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     #ifdef DEBUG_MINING
     Serial.print(" >>> bytearray_blockheader     : "); 
     for (size_t i = 0; i < 4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.print("version     ");
     for (size_t i = 0; i < 4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.print("prev hash   ");
     for (size_t i = 4; i < 4+32; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.print("merkle root ");
     for (size_t i = 36; i < 36+32; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+    Serial.println("");
+    Serial.print("ntime       ");
+    for (size_t i = 68; i < 68+4; i++)
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.print("nbits       ");
-    for (size_t i = 68; i < 68+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
-    Serial.println("");
-    Serial.print("difficulty  ");
     for (size_t i = 72; i < 72+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.print("nonce       ");
     for (size_t i = 76; i < 76+4; i++)
-        Serial.printf("%02x", bytearray_blockheader[i]);
+        Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");
     Serial.println("bytearray_blockheader: ");
     for (size_t i = 0; i < str_len; i++) {
-      Serial.printf("%02x", bytearray_blockheader[i]);
+      Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     }
     Serial.println("");
     #endif

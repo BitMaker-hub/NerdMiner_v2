@@ -19,8 +19,8 @@
 bool shouldSaveConfig = false;
 
 // Variables to hold data from custom textboxes
-char poolString[80] = "solo.ckpool.org";
-int portNumber = 3333;
+char poolString[80] = "public-pool.airdns.org";
+int portNumber = 21496;//3333;
 char btcString[80] = "yourBtcAddress";
 int GMTzone = 2; //Currently selected in spain
 
