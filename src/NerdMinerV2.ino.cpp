@@ -16,7 +16,7 @@
 #include "mining.h"
 #include "monitor.h"
 
-#define CURRENT_VERSION "V1.5.2"
+#define CURRENT_VERSION "V1.6.0"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
