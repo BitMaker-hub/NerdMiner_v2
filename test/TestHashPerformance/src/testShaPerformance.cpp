@@ -5,6 +5,7 @@
 
 #include "jadeSHA256.h"
 #include "customSHA256.h"
+#include "nerdSHA256.h"
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
 #include <wolfssl/wolfcrypt/sha256.h>
@@ -69,11 +70,12 @@ void loop() {
     Sha256 sha256;
     uint8_t hash2[32];
     wc_InitSha256(&midstate);
-    wc_Sha256Update(&midstate, blockheader, 64);
-    Serial.println("Wolf midstate:");
+    wc_Sha256Update(&midstate, blockheader, 64);  
+    Serial.print("Wolf midstate: ");
     for (size_t i = 0; i < 8; i++)
             Serial.printf("%02x", midstate.digest[i]);
     Serial.println(""); 
+    
     // Mining starts here
     //Primer sha
     startT = micros();
@@ -144,5 +146,23 @@ void loop() {
     for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", midstate_cached.buffer[i]);
     Serial.println("");
+
+     //Test nerdSHA
+    nerd_sha256 nerdMidstate;
+    uint8_t nerdHash[32];
+    nerd_midstate(&nerdMidstate, blockheader, 64);
+    Serial.print("Nerd midstate: ");
+    for (size_t i = 0; i < 8; i++)
+            Serial.printf("%02x", nerdMidstate.digest[i]);
+    Serial.println(""); 
     
-}
+    //Mining starts here
+    startT = micros();
+    nerd_double_sha(&nerdMidstate, blockheader+64,nerdHash);
+    expired = micros() - startT;
+    Serial.println("Nerd double SHA[" + String(expired) + "us]:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", nerdHash[i]);
+    Serial.println("");
+    
+}       

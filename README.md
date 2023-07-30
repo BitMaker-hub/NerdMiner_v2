@@ -71,7 +71,15 @@ After programming, you will only need to setup your Wifi and BTC address.
 1. Setup your Wifi Network
 1. Add your BTCaddress
 
-Optional you can select other pool:
+Recommended low difficulty share pools:
+
+| Pool URL                 | Port  | URL | Status |
+|---                       |---    |---  |---      |
+| public-pool.airdns.org   | 21496 | https://public-pool.airdns.org:37273/ | Check your stats. Supporting open source miners discord group |
+| nerdminers.org           |       |     | Currently pointing to th Open Source Solo Bitcoin Mining Pool |
+| nerdminer.io             | 3333  | https://nerdminer.io | Mantained by CHMEX |
+
+Other standard pools not compatible with low difficulty share:
 
 | Pool URL                 | Port | URL |
 |---                       |---   |---  | 
