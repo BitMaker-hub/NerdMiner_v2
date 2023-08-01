@@ -113,15 +113,18 @@ double diff_from_target(void *target)
 
 bool checkValid(unsigned char* hash, unsigned char* target) {
   bool valid = true;
+  unsigned char diff_target[32];
+  memcpy(diff_target, &target, 32);
+  //convert target to little endian for comparison
+  reverse_bytes(diff_target, 32);
+
   for(uint8_t i=31; i>=0; i--) {
-    if(hash[i] > target[i]) {
+    if(hash[i] > diff_target[i]) {
       valid = false;
-      break;
-    } else if (hash[i] < target[i]) {
-      valid = true;
       break;
     }
   }
+
   #ifdef DEBUG_MINING
   if (valid) {
     Serial.print("\tvalid : ");

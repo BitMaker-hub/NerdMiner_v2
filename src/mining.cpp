@@ -340,16 +340,12 @@ void runMiner(void * task_id) {
       }
       shares++;
 
-        // check if valid header
+      // check if valid header
       if(checkValid(hash, mMiner.bytearray_target)){
         Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
         valids++;
         Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
-        // STEP 3: Submit mining job
-        tx_mining_submit(client, mWorker, mJob, nonce);
-        client.stop();
-        // exit 
-        nonce = MAX_NONCE;
+        // wait for new job
         break;
       }
       // increment nonce
