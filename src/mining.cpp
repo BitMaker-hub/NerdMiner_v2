@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-#include <wolfssl/wolfcrypt/sha256.h>
+//#include <wolfssl/wolfcrypt/sha256.h>
 #include "ShaTests/nerdSHA256.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
@@ -43,10 +43,10 @@ monitor_data mMonitor;
 bool isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
 
-void checkPoolConnection(void) {
+bool checkPoolConnection(void) {
   
   if (client.connected()) {
-    return;
+    return true;
   }
   
   isMinerSuscribed = false;
@@ -65,7 +65,10 @@ void checkPoolConnection(void) {
     WiFi.hostByName(poolString, serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    return true;
   }
+
+  return false;
 }
 
 //Implements a socketKeepAlive function and 
@@ -140,7 +143,9 @@ void runStratumWorker(void *name) {
     //portNumber = 3333;
     //strcpy(btcString,"test");
 
-    checkPoolConnection();
+    if(!checkPoolConnection())
+      //If server not reachable add 5sec delay bettween connection petitions
+      vTaskDelay(5000 / portTICK_PERIOD_MS); 
 
     if(!isMinerSuscribed){
 
