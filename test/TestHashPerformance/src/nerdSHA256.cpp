@@ -13,6 +13,32 @@
 
 #define HASH_SIZE 32
 
+//------------- JADE
+#define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
+
+#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
+
+#define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
+#define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
+
+#define S2(x) (ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22))
+#define S3(x) (ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25))
+
+#define F0(x, y, z) ((x & y) | (z & (x | y)))
+#define F1(x, y, z) (z ^ (x & (y ^ z)))
+
+#define RJ(t) (W[t] = S1(W[t - 2]) + W[t - 7] + S0(W[t - 15]) + W[t - 16])
+
+#define P(a, b, c, d, e, f, g, h, x, K)                                                                                \
+    {                                                                                                                  \
+        temp1 = h + S3(e) + F1(e, f, g) + K + x;                                                                       \
+        temp2 = S2(a) + F0(a, b, c);                                                                                   \
+        d += temp1;                                                                                                    \
+        h = temp1 + temp2;                                                                                             \
+    }
+
+//--------------
+
 IRAM_ATTR static inline uint32_t rotlFixed(uint32_t x, uint32_t y)
     {
         return (x << y) | (x >> (sizeof(y) * 8 - y));
@@ -25,7 +51,7 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
 #define Ch(x,y,z)       ((z) ^ ((x) & ((y) ^ (z))))
 #define Maj(x,y,z)      ((((x) | (y)) & (z)) | ((x) & (y)))
 
-//#define R(x, n)         (((x) & 0xFFFFFFFFU) >> (n))
+#define R(x, n)         (((x) & 0xFFFFFFFFU) >> (n))
 
 #define S(x, n)         rotrFixed(x, n)
 #define Sigma0(x)       (S(x, 2)  ^ S(x, 13) ^ S(x, 22))
@@ -56,43 +82,16 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
     )
 
 #define RND1(j) \
-      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[i+j] + SCHED1(j); \
+      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[j] + SCHED1(j); \
       t1 = Sigma0(a(j)) + Maj(a(j), b(j), c(j)); \
       d(j) += t0; \
       h(j)  = t0 + t1
-#define RNDN(j) \
-      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[i+j] + SCHED(j); \
+#define RND(j) \
+      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[j] + SCHED(j); \
       t1 = Sigma0(a(j)) + Maj(a(j), b(j), c(j)); \
       d(j) += t0; \
       h(j)  = t0 + t1
 
-#define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
-//#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-#define ROTR(x, n) (SHR(x, n) | ((x) << (32 - (n))))
-
-#define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
-#define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
-
-#define S2(x) (ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22))
-#define S3(x) (ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25))
-
-#define F0(x, y, z) ((x & y) | (z & (x | y)))
-#define F1(x, y, z) (z ^ (x & (y ^ z)))
-
-#define R(t) (W[t] = S1(W[t - 2]) + W[t - 7] + S0(W[t - 15]) + W[t - 16])
-
-#define P(a, b, c, d, e, f, g, h, x, K)                                                                                \
-    {                                                                                                                  \
-        temp1 = h + S3(e) + F1(e, f, g) + K + x;                                                                       \
-        temp2 = S2(a) + F0(a, b, c);                                                                                   \
-        d += temp1;                                                                                                    \
-        h = temp1 + temp2;                                                                                             \
-    }
-#define GET_UINT32_BE(b, i)                                                                                            \
-    (((uint32_t)(b)[(i)] << 24) | ((uint32_t)(b)[(i) + 1] << 16) | ((uint32_t)(b)[(i) + 2] << 8)                       \
-        | ((uint32_t)(b)[(i) + 3]))
-
-//DRAM_ATTR static const uint32_t K[] = {
 DRAM_ATTR static const uint32_t K[64] = {
         0x428A2F98L, 0x71374491L, 0xB5C0FBCFL, 0xE9B5DBA5L, 0x3956C25BL,
         0x59F111F1L, 0x923F82A4L, 0xAB1C5ED5L, 0xD807AA98L, 0x12835B01L,
@@ -109,36 +108,26 @@ DRAM_ATTR static const uint32_t K[64] = {
         0x90BEFFFAL, 0xA4506CEBL, 0xBEF9A3F7L, 0xC67178F2L
     };
 
-/*
-IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* buf_ptr)
+IRAM_ATTR bool doSHA(nerd_sha256* midstate)
 {
+    uint32_t temp1, temp2;
+    uint8_t temp3, temp4;
 
-    uint32_t A[8] = {0 };
+    uint32_t W[64] = { midstate->buffer[0], midstate->buffer[1], midstate->buffer[2], 
+        midstate->buffer[3], midstate->buffer[4], midstate->buffer[5], 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 640, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint32_t A[8] = { midstate->digest[0], midstate->digest[1], midstate->digest[2], midstate->digest[3],
+        midstate->digest[4], midstate->digest[5], midstate->digest[6], midstate->digest[7] };
+//0x80000000
+    union {
+        uint32_t num;
+        uint8_t b[4];
+    } u;
+    uint8_t* p = NULL;
 
-    uint32_t temp1, temp2, W[64];
-    int i=0;
-
-    for (i = 0; i < 8; i++) {
-        A[i] = sha256->digest[i];
-    }
-
-    W[0] = GET_UINT32_BE(buf_ptr, 0);
-    W[1] = GET_UINT32_BE(buf_ptr, 4);
-    W[2] = GET_UINT32_BE(buf_ptr, 8);
-    W[3] = GET_UINT32_BE(buf_ptr, 12);
-    W[4] = GET_UINT32_BE(buf_ptr, 16);
-    W[5] = GET_UINT32_BE(buf_ptr, 20);
-    W[6] = GET_UINT32_BE(buf_ptr, 24);
-    W[7] = GET_UINT32_BE(buf_ptr, 28);
-    W[8] = GET_UINT32_BE(buf_ptr, 32);
-    W[9] = GET_UINT32_BE(buf_ptr, 36);
-    W[10] = GET_UINT32_BE(buf_ptr, 40);
-    W[11] = GET_UINT32_BE(buf_ptr, 44);
-    W[12] = GET_UINT32_BE(buf_ptr, 48);
-    W[13] = GET_UINT32_BE(buf_ptr, 52);
-    W[14] = GET_UINT32_BE(buf_ptr, 56);
-    W[15] = GET_UINT32_BE(buf_ptr, 60); 
-
+    uint8_t i;
+    
     for (i = 0; i < 16; i += 8) {
         P(A[0], A[1], A[2], A[3], A[4],
           A[5], A[6], A[7], W[i+0], K[i+0]);
@@ -160,36 +149,109 @@ IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* buf_pt
 
     for (i = 16; i < 64; i += 8) {
         P(A[0], A[1], A[2], A[3], A[4],
-          A[5], A[6], A[7], R(i+0), K[i+0]);
+          A[5], A[6], A[7], RJ(i+0), K[i+0]);
         P(A[7], A[0], A[1], A[2], A[3],
-          A[4], A[5], A[6], R(i+1), K[i+1]);
+          A[4], A[5], A[6], RJ(i+1), K[i+1]);
         P(A[6], A[7], A[0], A[1], A[2],
-          A[3], A[4], A[5], R(i+2), K[i+2]);
+          A[3], A[4], A[5], RJ(i+2), K[i+2]);
         P(A[5], A[6], A[7], A[0], A[1],
-          A[2], A[3], A[4], R(i+3), K[i+3]);
+          A[2], A[3], A[4], RJ(i+3), K[i+3]);
         P(A[4], A[5], A[6], A[7], A[0],
-          A[1], A[2], A[3], R(i+4), K[i+4]);
+          A[1], A[2], A[3], RJ(i+4), K[i+4]);
         P(A[3], A[4], A[5], A[6], A[7],
-          A[0], A[1], A[2], R(i+5), K[i+5]);
+          A[0], A[1], A[2], RJ(i+5), K[i+5]);
         P(A[2], A[3], A[4], A[5], A[6],
-          A[7], A[0], A[1], R(i+6), K[i+6]);
+          A[7], A[0], A[1], RJ(i+6), K[i+6]);
         P(A[1], A[2], A[3], A[4], A[5],
-          A[6], A[7], A[0], R(i+7), K[i+7]);
+          A[6], A[7], A[0], RJ(i+7), K[i+7]);
     }
 
-    for (i = 0; i < 8; i++) {
-        sha256->digest[i] += A[i];
-    }
+    /*
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[3], K[3]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[4], K[4]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[5], K[5]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[6], K[6]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[7], K[7]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[8], K[8]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[9], K[9]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[10], K[10]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[11], K[11]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[12], K[12]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[13], K[13]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[14], K[14]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[15], K[15]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(16), K[16]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(17), K[17]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(18), K[18]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(19), K[19]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(20), K[20]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(21), K[21]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(22), K[22]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(23), K[23]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(24), K[24]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(25), K[25]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(26), K[26]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(27), K[27]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(28), K[28]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(29), K[29]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(30), K[30]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(31), K[31]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(32), K[32]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(33), K[33]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(34), K[34]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(35), K[35]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(36), K[36]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(37), K[37]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(38), K[38]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(39), K[39]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(40), K[40]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(41), K[41]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(42), K[42]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(43), K[43]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(44), K[44]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(45), K[45]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(46), K[46]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(47), K[47]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(48), K[48]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(49), K[49]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(50), K[50]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(51), K[51]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(52), K[52]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(53), K[53]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(54), K[54]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(55), K[55]);
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], RJ(56), K[56]);
+    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], RJ(57), K[57]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], RJ(58), K[58]);
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], RJ(59), K[59]);
+    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], RJ(60), K[60]);
+    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], RJ(61), K[61]);
+    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], RJ(62), K[62]);
+    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], RJ(63), K[63]);
+    */
+
+    midstate->digest[0] += A[0];
+    midstate->digest[1] += A[1];
+    midstate->digest[2] += A[2];
+    midstate->digest[3] += A[3];
+    midstate->digest[4] += A[4];
+    midstate->digest[5] += A[5];
+    midstate->digest[6] += A[6];
+    midstate->digest[7] += A[7];
+
+    return true;
 }
-*/
 
-IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
+IRAM_ATTR inline static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
 {
-    uint32_t S[8], t0, t1;
+    IRAM_DATA_ATTR uint32_t S[8], t0, t1;
     int i;
-    uint32_t W[NERD_BLOCK_SIZE/sizeof(uint32_t)];
+    IRAM_DATA_ATTR uint32_t W[NERD_BLOCK_SIZE/sizeof(uint32_t)];
 
-    // Copy digest to working vars 
+    /* Copy digest to working vars */
     S[0] = sha256->digest[0];
     S[1] = sha256->digest[1];
     S[2] = sha256->digest[2];
@@ -199,20 +261,31 @@ IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
     S[6] = sha256->digest[6];
     S[7] = sha256->digest[7];
 
-    i = 0;
     RND1( 0); RND1( 1); RND1( 2); RND1( 3);
     RND1( 4); RND1( 5); RND1( 6); RND1( 7);
     RND1( 8); RND1( 9); RND1(10); RND1(11);
     RND1(12); RND1(13); RND1(14); RND1(15);
-    // 64 operations, partially loop unrolled 
-    for (i = 16; i < 64; i += 16) {
+    /* 64 operations, partially loop unrolled */
+    /*for (i = 16; i < 64; i += 16) {
         RNDN( 0); RNDN( 1); RNDN( 2); RNDN( 3);
         RNDN( 4); RNDN( 5); RNDN( 6); RNDN( 7);
         RNDN( 8); RNDN( 9); RNDN(10); RNDN(11);
         RNDN(12); RNDN(13); RNDN(14); RNDN(15);
-    }
+    }*/
+    RND(16); RND(17); RND(18); RND(19);
+    RND(20); RND(21); RND(22); RND(23);
+    RND(24); RND(25); RND(26); RND(27);
+    RND(28); RND(29); RND(30); RND(31);
+    RND(32); RND(33); RND(34); RND(35);
+    RND(36); RND(37); RND(38); RND(39);
+    RND(40); RND(41); RND(42); RND(43);
+    RND(44); RND(45); RND(46); RND(47);
+    RND(48); RND(49); RND(50); RND(51);
+    RND(52); RND(53); RND(54); RND(55);
+    RND(56); RND(57); RND(58); RND(59);
+    RND(60); RND(61); RND(62); RND(63);
 
-    // Add the working vars back into digest 
+    /* Add the working vars back into digest */
     sha256->digest[0] += S[0];
     sha256->digest[1] += S[1];
     sha256->digest[2] += S[2];
@@ -238,7 +311,7 @@ IRAM_ATTR static void ByteReverseWords(uint32_t* out, const uint32_t* in, uint32
 }
 
 
-IRAM_ATTR static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t len)
+static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t len)
 {
     int ret = 0;
     uint32_t blocksLen;
@@ -298,48 +371,8 @@ IRAM_ATTR static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t le
     return ret;
 }
 
-IRAM_ATTR static int nerd_finishSHA(nerd_sha256* sha256, uint8_t* hash){
-      
-    int ret;
-    uint8_t* local;
 
-    local = (uint8_t*)sha256->buffer;
-    local[sha256->buffLen++] = 0x80; // add 1 
-    //Padd with zeros
-    if (sha256->buffLen > NERD_PAD_SIZE) {
-            
-        XMEMSET(&local[sha256->buffLen], 0, NERD_BLOCK_SIZE - sha256->buffLen);
-        sha256->buffLen += NERD_BLOCK_SIZE - sha256->buffLen;
-
-        ByteReverseWords(sha256->buffer, sha256->buffer, NERD_BLOCK_SIZE);
-        XTRANSFORM(sha256, (const uint8_t*)local);
-
-        sha256->buffLen = 0;
-    }
-
-    XMEMSET(&local[sha256->buffLen], 0, NERD_PAD_SIZE - sha256->buffLen);
-
-    // put lengths in bits 
-    sha256->hiLen = (sha256->loLen >> (8 * sizeof(sha256->loLen) - 3)) + (sha256->hiLen << 3);
-    sha256->loLen = sha256->loLen << 3;
-
-    ByteReverseWords(sha256->buffer, sha256->buffer, NERD_BLOCK_SIZE);
-
-    // ! length ordering dependent on digest endian type ! 
-    XMEMCPY(&local[NERD_PAD_SIZE], &sha256->hiLen, sizeof(uint32_t));
-    XMEMCPY(&local[NERD_PAD_SIZE + sizeof(uint32_t)], &sha256->loLen, sizeof(uint32_t));
-
-    XTRANSFORM(sha256, (const uint8_t*)local);
-
-    ByteReverseWords(sha256->digest, sha256->digest, NERD_DIGEST_SIZE);
-    
-    //Copy temp hash
-    XMEMCPY(hash, sha256->digest, NERD_DIGEST_SIZE);
-
-    return 0;
-}
-
-IRAM_ATTR int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
+int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
 {
     int ret = 0;
     uint32_t blocksLen;
@@ -366,43 +399,6 @@ IRAM_ATTR int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
     return 0;
 }
 
-/*
-IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash)
-{
-    nerd_sha256 sha256;
-    int ret = 0;
-    uint8_t hash[32];
-
-    //Copy current context
-    XMEMCPY(&sha256, midstate, sizeof(nerd_sha256));
-
-    // ------ First SHA ------
-    nerd_update(&sha256,data,16); //Pending 16 bytes from 80 of blockheader
-    nerd_finishSHA(&sha256,hash);
-    
-    // ------ Second SHA ------
-    //Init SHA context 
-    XMEMSET(sha256.digest, 0, sizeof(sha256.digest));
-    sha256.digest[0] = 0x6A09E667L;
-    sha256.digest[1] = 0xBB67AE85L;
-    sha256.digest[2] = 0x3C6EF372L;
-    sha256.digest[3] = 0xA54FF53AL;
-    sha256.digest[4] = 0x510E527FL;
-    sha256.digest[5] = 0x9B05688CL;
-    sha256.digest[6] = 0x1F83D9ABL;
-    sha256.digest[7] = 0x5BE0CD19L;
-
-    sha256.buffLen = 0;
-    sha256.loLen   = 0;
-    sha256.hiLen   = 0;
-    //endINIT Sha context
-    nerd_update(&sha256,hash,32);
-    nerd_finishSHA(&sha256,doubleHash);
-
-    return 0;
-}
-*/
-
 IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash)
 {
     IRAM_DATA_ATTR nerd_sha256 sha256;
@@ -410,38 +406,25 @@ IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* dou
     int ret = 0;
     uint32_t blocksLen;
     uint8_t* local;
-    uint8_t* local2;
-    uint8_t tmpHash[32];
-    uint8_t* hash;
 
     //Copy current context
-    XMEMCPY(&sha256, midstate, sizeof(nerd_sha256));
+    sha256 = *midstate;
 
     // ----- 1rst SHA ------------
     //*********** ShaUpdate ***********
-    uint32_t len = 16; //Pending bytes to make the sha256
-    uint32_t tmp = sha256.loLen;
-    if ((sha256.loLen += len) < tmp) {
-        sha256.hiLen++;                       
-    }
-
     local = (uint8_t*)sha256.buffer;
-    // save remainder 
-    if (ret == 0 && len > 0) {
-        XMEMCPY(local, data, len);
-        sha256.buffLen = len;
-    }
+    XMEMCPY(local, data, 16); //Pending bytes to make the sha256
     //*********** end update ***********
 
     //*********** Init SHA_finish ***********
 
-    local[sha256.buffLen++] = 0x80; // add 1 
-
-    XMEMSET(&local[sha256.buffLen], 0, NERD_PAD_SIZE - sha256.buffLen);
+    local[16] = 0x80; // add 1 
+    //ADD final zeros
+    XMEMSET(&local[17], 0, 39); //NERD_PAD_SIZE - sha256.buffLen);
 
     // put lengths in bits 
-    sha256.hiLen = (sha256.loLen >> (8 * sizeof(sha256.loLen) - 3)) + (sha256.hiLen << 3);
-    sha256.loLen = sha256.loLen << 3;
+    sha256.hiLen = 0;
+    sha256.loLen = 640;
 
     ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
 
@@ -450,118 +433,31 @@ IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* dou
     XMEMCPY(&local[NERD_PAD_SIZE + sizeof(uint32_t)], &sha256.loLen, sizeof(uint32_t));
 
     XTRANSFORM(&sha256, (const uint8_t*)local);
-
-    ByteReverseWords((uint32_t* )tmpHash, sha256.digest, NERD_DIGEST_SIZE);
-    
-    hash = tmpHash;
-
+    //doSHA(&sha256);
     //*********** end SHA_finish ***********
 
     // ----- 2nd SHA ------------
     //Init SHA context again
-    XMEMSET(sha256.digest, 0, sizeof(sha256.digest));
-    sha256.digest[0] = 0x6A09E667L;
-    sha256.digest[1] = 0xBB67AE85L;
-    sha256.digest[2] = 0x3C6EF372L;
-    sha256.digest[3] = 0xA54FF53AL;
-    sha256.digest[4] = 0x510E527FL;
-    sha256.digest[5] = 0x9B05688CL;
-    sha256.digest[6] = 0x1F83D9ABL;
-    sha256.digest[7] = 0x5BE0CD19L;
-
-    sha256.buffLen = 0;
-    sha256.loLen   = 0;
-    sha256.hiLen   = 0;
-    //endINIT Sha context
-
-    //*********** ShaUpdate ***********
-    len = 32; //Current hash size to make the 2nd sha256
-    tmp = sha256.loLen;
-    if ((sha256.loLen += len) < tmp) {
-        sha256.hiLen++;                       
-    }
+    IRAM_DATA_ATTR nerd_sha256 secondSha256 = {
+        // Init with initial sha data
+        .digest = {0x6A09E667L, 0xBB67AE85L, 0x3C6EF372L, 0xA54FF53AL, 0x510E527FL, 0x9B05688CL, 0x1F83D9ABL, 0x5BE0CD19L},    
+        // Init with past SHA done
+        .buffer = {sha256.digest[0],sha256.digest[1],sha256.digest[2],sha256.digest[3],sha256.digest[4],sha256.digest[5],sha256.digest[6],sha256.digest[7],
+                   0x80000000,0,0,0,0,0,0,0},    // Init with past hash and 0x80
+        .buffLen = 32,     // Bytes to hash
+        .loLen = 256,      // Init to 256 bits
+        .hiLen = 0,       // Inicializar a cero
+        .heap = NULL      // Inicializar a NULL
+    };
     
-    local2 = (uint8_t*)sha256.buffer;
-
-    // process any remainder from previous operation 
-    if (sha256.buffLen > 0) {
-        blocksLen = min(len, NERD_BLOCK_SIZE - sha256.buffLen);
-        XMEMCPY(&local2[sha256.buffLen], hash, blocksLen);
-
-        sha256.buffLen += blocksLen;
-        hash            += blocksLen;
-        len             -= blocksLen;
-
-        if (sha256.buffLen == NERD_BLOCK_SIZE) {
-        
-            ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
-
-            ret = XTRANSFORM(&sha256, (const uint8_t*)local2);
-
-            if (ret == 0)
-                sha256.buffLen = 0;
-            else
-                len = 0; // error 
-        }
-    }
-    
-    // process blocks 
-    while (len >= NERD_BLOCK_SIZE) {
-        uint32_t* local32 = sha256.buffer;
-        XMEMCPY(local32, hash, NERD_BLOCK_SIZE);
-
-        hash += NERD_BLOCK_SIZE;
-        len  -= NERD_BLOCK_SIZE;
-
-        ByteReverseWords(local32, local32, NERD_BLOCK_SIZE);
-    
-        ret = XTRANSFORM(&sha256, (const uint8_t*)local32);
-
-        if (ret != 0)
-            break;
-    }
-    // save remainder 
-    if (ret == 0 && len > 0) {
-        XMEMCPY(local2, hash, len);
-        sha256.buffLen = len;
-    }
-    //*********** end update ***********
-
-    //*********** Init SHA_finish ***********
-    
-    //local2 = (uint8_t*)sha256.buffer;
-    local2[sha256.buffLen++] = 0x80; // add 1 
-    //local2[33] = 0x80; // add 1 
- 
-    //Padd with zeros
-    
-    if (sha256.buffLen > NERD_PAD_SIZE) {
-            
-        XMEMSET(&local2[sha256.buffLen], 0, NERD_BLOCK_SIZE - sha256.buffLen);
-        sha256.buffLen += NERD_BLOCK_SIZE - sha256.buffLen;
-
-        //ByteReverseWords(sha256_2.buffer, sha256_2.buffer, NERD_BLOCK_SIZE);
-        XTRANSFORM(&sha256, (const uint8_t*)local2);
-
-        sha256.buffLen = 0;
-    }
-    
-    XMEMSET(&local2[sha256.buffLen], 0, NERD_PAD_SIZE - sha256.buffLen);
-
-    // put lengths in bits 
-    sha256.hiLen = (sha256.loLen >> (8 * sizeof(sha256.loLen) - 3)) + (sha256.hiLen << 3);
-    sha256.loLen = sha256.loLen << 3;
-
-    ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
+    local = (uint8_t*)secondSha256.buffer;
 
     // ! length ordering dependent on digest endian type ! 
-    XMEMCPY(&local2[NERD_PAD_SIZE], &sha256.hiLen, sizeof(uint32_t));
-    XMEMCPY(&local2[NERD_PAD_SIZE + sizeof(uint32_t)], &sha256.loLen, sizeof(uint32_t));
+    XMEMCPY(&local[NERD_PAD_SIZE + sizeof(uint32_t)], &secondSha256.loLen, sizeof(uint32_t));
 
-    XTRANSFORM(&sha256, (const uint8_t*)local2);
+    XTRANSFORM(&secondSha256, (const uint8_t*)local);
 
-    ByteReverseWords((uint32_t*)doubleHash, sha256.digest, NERD_DIGEST_SIZE);
+    ByteReverseWords((uint32_t*)doubleHash, secondSha256.digest, NERD_DIGEST_SIZE);
     
     return 0;
 }
-

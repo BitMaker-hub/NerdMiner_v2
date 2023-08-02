@@ -103,8 +103,8 @@ static const uint32_t K[] = {
 };
 
 #define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
-//#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-#define ROTR(x, n) (SHR(x, n) | ((x) << (32 - (n))))
+
+#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
 
 #define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
 #define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
@@ -329,7 +329,7 @@ IRAM_ATTR void calc_midstate(uint8_t* buf_ptr, _sha256_context* midstate)
     midstate->state[6] = 0x1F83D9AB + A[6];
     midstate->state[7] = 0x5BE0CD19 + A[7];
     */
-    //midstate->buffer[16] = 0x80;
+    midstate->buffer[16] = 0x80;
     memcpy(midstate->buffer, buf_ptr + 64, 12);
 }
 
@@ -339,7 +339,7 @@ IRAM_ATTR bool make_double_sha(_sha256_context* midstate)
     uint8_t temp3, temp4;
 
     uint32_t W[64] = { GET_UINT32_BE(midstate->buffer, 0), GET_UINT32_BE(midstate->buffer, 4),
-        GET_UINT32_BE(midstate->buffer, 8), GET_UINT32_BE(midstate->buffer, 12), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        GET_UINT32_BE(midstate->buffer, 8), GET_UINT32_BE(midstate->buffer, 12), 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 640, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     uint32_t A[8] = { midstate->state[0], midstate->state[1], midstate->state[2], midstate->state[3],

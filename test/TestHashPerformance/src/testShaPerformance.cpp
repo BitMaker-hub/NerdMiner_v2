@@ -138,6 +138,7 @@ void loop() {
             Serial.printf("%02x", midstate_cached.buffer[i]);
     Serial.println(""); 
     *((uint32_t*)&midstate_cached.buffer[12]) = 0xFFFFFFFF;//nonce;
+    
     // Mining starts here
     startT = micros();
     make_double_sha(&midstate_cached);
@@ -165,4 +166,34 @@ void loop() {
             Serial.printf("%02x", nerdHash[i]);
     Serial.println("");
     
+    //-------------- Check result with other nonce -------------- -------------------- <<<<
+    //Repeat tests with other value
+    
+    // WOLF TEST NEXT NONCE
+    blockheader[79]=1;
+    //Primer sha
+    startT = micros();
+    wc_Sha256Copy(&midstate, &sha256);
+    wc_Sha256Update(&sha256, blockheader+64, 16);
+    wc_Sha256Final(&sha256, hash2);
+    // Segundo SHA-256
+    wc_Sha256Update(&sha256, hash2, 32);
+    wc_Sha256Final(&sha256, hash2);
+    expired = micros() - startT;
+    Serial.println("Wolf next nonce[" + String(expired) + "us]:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", hash2[i]);
+    Serial.println("");
+    
+    //NERD TEST NEXT NONCE
+    //Mining starts here
+    startT = micros();
+    nerd_double_sha(&nerdMidstate, blockheader+64,nerdHash);
+    expired = micros() - startT;
+    Serial.println("Nerd next nonce[" + String(expired) + "us]:");
+    for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", nerdHash[i]);
+    Serial.println("");
+
+
 }       

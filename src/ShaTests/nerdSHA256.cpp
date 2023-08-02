@@ -66,7 +66,6 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
       d(j) += t0; \
       h(j)  = t0 + t1
 
-//DRAM_ATTR static const uint32_t K[] = {
 DRAM_ATTR static const uint32_t K[64] = {
         0x428A2F98L, 0x71374491L, 0xB5C0FBCFL, 0xE9B5DBA5L, 0x3956C25BL,
         0x59F111F1L, 0x923F82A4L, 0xAB1C5ED5L, 0xD807AA98L, 0x12835B01L,
@@ -83,11 +82,11 @@ DRAM_ATTR static const uint32_t K[64] = {
         0x90BEFFFAL, 0xA4506CEBL, 0xBEF9A3F7L, 0xC67178F2L
     };
 
-IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
+IRAM_ATTR inline static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
 {
     uint32_t S[8], t0, t1;
     int i;
-    uint32_t W[NERD_BLOCK_SIZE/sizeof(uint32_t)];
+    IRAM_DATA_ATTR uint32_t W[NERD_BLOCK_SIZE/sizeof(uint32_t)];
 
     /* Copy digest to working vars */
     S[0] = sha256->digest[0];
@@ -104,7 +103,6 @@ IRAM_ATTR static int Transform_Sha256(nerd_sha256* sha256, const uint8_t* data)
     RND1( 4); RND1( 5); RND1( 6); RND1( 7);
     RND1( 8); RND1( 9); RND1(10); RND1(11);
     RND1(12); RND1(13); RND1(14); RND1(15);
-    /* 64 operations, partially loop unrolled */
     for (i = 16; i < 64; i += 16) {
         RNDN( 0); RNDN( 1); RNDN( 2); RNDN( 3);
         RNDN( 4); RNDN( 5); RNDN( 6); RNDN( 7);
@@ -138,7 +136,7 @@ IRAM_ATTR static void ByteReverseWords(uint32_t* out, const uint32_t* in, uint32
 }
 
 
-IRAM_ATTR static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t len)
+static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t len)
 {
     int ret = 0;
     uint32_t blocksLen;
@@ -198,48 +196,8 @@ IRAM_ATTR static int nerd_update(nerd_sha256* sha256, uint8_t* data, uint32_t le
     return ret;
 }
 
-IRAM_ATTR static int nerd_finishSHA(nerd_sha256* sha256, uint8_t* hash){
-      
-    int ret;
-    uint8_t* local;
 
-    local = (uint8_t*)sha256->buffer;
-    local[sha256->buffLen++] = 0x80; // add 1 
-    //Padd with zeros
-    if (sha256->buffLen > NERD_PAD_SIZE) {
-            
-        XMEMSET(&local[sha256->buffLen], 0, NERD_BLOCK_SIZE - sha256->buffLen);
-        sha256->buffLen += NERD_BLOCK_SIZE - sha256->buffLen;
-
-        ByteReverseWords(sha256->buffer, sha256->buffer, NERD_BLOCK_SIZE);
-        XTRANSFORM(sha256, (const uint8_t*)local);
-
-        sha256->buffLen = 0;
-    }
-
-    XMEMSET(&local[sha256->buffLen], 0, NERD_PAD_SIZE - sha256->buffLen);
-
-    // put lengths in bits 
-    sha256->hiLen = (sha256->loLen >> (8 * sizeof(sha256->loLen) - 3)) + (sha256->hiLen << 3);
-    sha256->loLen = sha256->loLen << 3;
-
-    ByteReverseWords(sha256->buffer, sha256->buffer, NERD_BLOCK_SIZE);
-
-    // ! length ordering dependent on digest endian type ! 
-    XMEMCPY(&local[NERD_PAD_SIZE], &sha256->hiLen, sizeof(uint32_t));
-    XMEMCPY(&local[NERD_PAD_SIZE + sizeof(uint32_t)], &sha256->loLen, sizeof(uint32_t));
-
-    XTRANSFORM(sha256, (const uint8_t*)local);
-
-    ByteReverseWords(sha256->digest, sha256->digest, NERD_DIGEST_SIZE);
-    
-    //Copy temp hash
-    XMEMCPY(hash, sha256->digest, NERD_DIGEST_SIZE);
-
-    return 0;
-}
-
-IRAM_ATTR int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
+int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
 {
     int ret = 0;
     uint32_t blocksLen;
@@ -266,43 +224,6 @@ IRAM_ATTR int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
     return 0;
 }
 
-/*
-IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash)
-{
-    nerd_sha256 sha256;
-    int ret = 0;
-    uint8_t hash[32];
-
-    //Copy current context
-    XMEMCPY(&sha256, midstate, sizeof(nerd_sha256));
-
-    // ------ First SHA ------
-    nerd_update(&sha256,data,16); //Pending 16 bytes from 80 of blockheader
-    nerd_finishSHA(&sha256,hash);
-    
-    // ------ Second SHA ------
-    //Init SHA context 
-    XMEMSET(sha256.digest, 0, sizeof(sha256.digest));
-    sha256.digest[0] = 0x6A09E667L;
-    sha256.digest[1] = 0xBB67AE85L;
-    sha256.digest[2] = 0x3C6EF372L;
-    sha256.digest[3] = 0xA54FF53AL;
-    sha256.digest[4] = 0x510E527FL;
-    sha256.digest[5] = 0x9B05688CL;
-    sha256.digest[6] = 0x1F83D9ABL;
-    sha256.digest[7] = 0x5BE0CD19L;
-
-    sha256.buffLen = 0;
-    sha256.loLen   = 0;
-    sha256.hiLen   = 0;
-    //endINIT Sha context
-    nerd_update(&sha256,hash,32);
-    nerd_finishSHA(&sha256,doubleHash);
-
-    return 0;
-}
-*/
-
 IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash)
 {
     IRAM_DATA_ATTR nerd_sha256 sha256;
@@ -310,38 +231,25 @@ IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* dou
     int ret = 0;
     uint32_t blocksLen;
     uint8_t* local;
-    uint8_t* local2;
-    uint8_t tmpHash[32];
-    uint8_t* hash;
 
     //Copy current context
-    XMEMCPY(&sha256, midstate, sizeof(nerd_sha256));
+    sha256 = *midstate;
 
     // ----- 1rst SHA ------------
     //*********** ShaUpdate ***********
-    uint32_t len = 16; //Pending bytes to make the sha256
-    uint32_t tmp = sha256.loLen;
-    if ((sha256.loLen += len) < tmp) {
-        sha256.hiLen++;                       
-    }
-
     local = (uint8_t*)sha256.buffer;
-    // save remainder 
-    if (ret == 0 && len > 0) {
-        XMEMCPY(local, data, len);
-        sha256.buffLen = len;
-    }
+    XMEMCPY(local, data, 16); //Pending bytes to make the sha256
     //*********** end update ***********
 
     //*********** Init SHA_finish ***********
 
-    local[sha256.buffLen++] = 0x80; // add 1 
-
-    XMEMSET(&local[sha256.buffLen], 0, NERD_PAD_SIZE - sha256.buffLen);
+    local[16] = 0x80; // add 1 
+    //ADD final zeros
+    XMEMSET(&local[17], 0, 39); //NERD_PAD_SIZE - sha256.buffLen);
 
     // put lengths in bits 
-    sha256.hiLen = (sha256.loLen >> (8 * sizeof(sha256.loLen) - 3)) + (sha256.hiLen << 3);
-    sha256.loLen = sha256.loLen << 3;
+    sha256.hiLen = 0;
+    sha256.loLen = 640;
 
     ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
 
@@ -351,117 +259,30 @@ IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* dou
 
     XTRANSFORM(&sha256, (const uint8_t*)local);
 
-    ByteReverseWords((uint32_t* )tmpHash, sha256.digest, NERD_DIGEST_SIZE);
-    
-    hash = tmpHash;
-
     //*********** end SHA_finish ***********
 
     // ----- 2nd SHA ------------
     //Init SHA context again
-    XMEMSET(sha256.digest, 0, sizeof(sha256.digest));
-    sha256.digest[0] = 0x6A09E667L;
-    sha256.digest[1] = 0xBB67AE85L;
-    sha256.digest[2] = 0x3C6EF372L;
-    sha256.digest[3] = 0xA54FF53AL;
-    sha256.digest[4] = 0x510E527FL;
-    sha256.digest[5] = 0x9B05688CL;
-    sha256.digest[6] = 0x1F83D9ABL;
-    sha256.digest[7] = 0x5BE0CD19L;
-
-    sha256.buffLen = 0;
-    sha256.loLen   = 0;
-    sha256.hiLen   = 0;
-    //endINIT Sha context
-
-    //*********** ShaUpdate ***********
-    len = 32; //Current hash size to make the 2nd sha256
-    tmp = sha256.loLen;
-    if ((sha256.loLen += len) < tmp) {
-        sha256.hiLen++;                       
-    }
+    IRAM_DATA_ATTR nerd_sha256 secondSha256 = {
+        // Init with initial sha data
+        .digest = {0x6A09E667L, 0xBB67AE85L, 0x3C6EF372L, 0xA54FF53AL, 0x510E527FL, 0x9B05688CL, 0x1F83D9ABL, 0x5BE0CD19L},    
+        // Init with past SHA done
+        .buffer = {sha256.digest[0],sha256.digest[1],sha256.digest[2],sha256.digest[3],sha256.digest[4],sha256.digest[5],sha256.digest[6],sha256.digest[7],
+                   0x80000000,0,0,0,0,0,0,0},    // Init with past hash and 0x80
+        .buffLen = 32,     // Bytes to hash
+        .loLen = 256,      // Init to 256 bits
+        .hiLen = 0,       // Inicializar a cero
+        .heap = NULL      // Inicializar a NULL
+    };
     
-    local2 = (uint8_t*)sha256.buffer;
-
-    // process any remainder from previous operation 
-    if (sha256.buffLen > 0) {
-        blocksLen = min(len, NERD_BLOCK_SIZE - sha256.buffLen);
-        XMEMCPY(&local2[sha256.buffLen], hash, blocksLen);
-
-        sha256.buffLen += blocksLen;
-        hash            += blocksLen;
-        len             -= blocksLen;
-
-        if (sha256.buffLen == NERD_BLOCK_SIZE) {
-        
-            ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
-
-            ret = XTRANSFORM(&sha256, (const uint8_t*)local2);
-
-            if (ret == 0)
-                sha256.buffLen = 0;
-            else
-                len = 0; // error 
-        }
-    }
-    
-    // process blocks 
-    while (len >= NERD_BLOCK_SIZE) {
-        uint32_t* local32 = sha256.buffer;
-        XMEMCPY(local32, hash, NERD_BLOCK_SIZE);
-
-        hash += NERD_BLOCK_SIZE;
-        len  -= NERD_BLOCK_SIZE;
-
-        ByteReverseWords(local32, local32, NERD_BLOCK_SIZE);
-    
-        ret = XTRANSFORM(&sha256, (const uint8_t*)local32);
-
-        if (ret != 0)
-            break;
-    }
-    // save remainder 
-    if (ret == 0 && len > 0) {
-        XMEMCPY(local2, hash, len);
-        sha256.buffLen = len;
-    }
-    //*********** end update ***********
-
-    //*********** Init SHA_finish ***********
-    
-    //local2 = (uint8_t*)sha256.buffer;
-    local2[sha256.buffLen++] = 0x80; // add 1 
-    //local2[33] = 0x80; // add 1 
- 
-    //Padd with zeros
-    
-    if (sha256.buffLen > NERD_PAD_SIZE) {
-            
-        XMEMSET(&local2[sha256.buffLen], 0, NERD_BLOCK_SIZE - sha256.buffLen);
-        sha256.buffLen += NERD_BLOCK_SIZE - sha256.buffLen;
-
-        //ByteReverseWords(sha256_2.buffer, sha256_2.buffer, NERD_BLOCK_SIZE);
-        XTRANSFORM(&sha256, (const uint8_t*)local2);
-
-        sha256.buffLen = 0;
-    }
-    
-    XMEMSET(&local2[sha256.buffLen], 0, NERD_PAD_SIZE - sha256.buffLen);
-
-    // put lengths in bits 
-    sha256.hiLen = (sha256.loLen >> (8 * sizeof(sha256.loLen) - 3)) + (sha256.hiLen << 3);
-    sha256.loLen = sha256.loLen << 3;
-
-    ByteReverseWords(sha256.buffer, sha256.buffer, NERD_BLOCK_SIZE);
+    local = (uint8_t*)secondSha256.buffer;
 
     // ! length ordering dependent on digest endian type ! 
-    XMEMCPY(&local2[NERD_PAD_SIZE], &sha256.hiLen, sizeof(uint32_t));
-    XMEMCPY(&local2[NERD_PAD_SIZE + sizeof(uint32_t)], &sha256.loLen, sizeof(uint32_t));
+    XMEMCPY(&local[NERD_PAD_SIZE + sizeof(uint32_t)], &secondSha256.loLen, sizeof(uint32_t));
 
-    XTRANSFORM(&sha256, (const uint8_t*)local2);
+    XTRANSFORM(&secondSha256, (const uint8_t*)local);
 
-    ByteReverseWords((uint32_t*)doubleHash, sha256.digest, NERD_DIGEST_SIZE);
+    ByteReverseWords((uint32_t*)doubleHash, secondSha256.digest, NERD_DIGEST_SIZE);
     
     return 0;
 }
-
