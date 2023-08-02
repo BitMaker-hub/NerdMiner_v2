@@ -19,9 +19,11 @@ unsigned long Mhashes = 0;
 unsigned long totalKHashes = 0;
 unsigned long elapsedKHs = 0;
 
-unsigned long halfshares; // increase if blockhash has 16 bits of zeroes
 unsigned int shares; // increase if blockhash has 32 bits of zeroes
 unsigned int valids; // increased if blockhash <= target
+
+// Track best diff
+double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
 extern char poolString[80];
@@ -308,14 +310,18 @@ void runMiner(void * task_id) {
         nonce += 2;
         continue;
       }
-      halfshares++;
-      
+
       //Check target to submit
       //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
       //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
       //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
       //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
       double diff_hash = diff_from_target(hash);
+
+      // update best diff
+      if (diff_hash > best_diff)
+        best_diff = diff_hash;
+
       if(diff_hash > mMiner.poolDifficulty)//(hash[29] <= 0x3B)//(diff_hash > 1e-9)
       {
         tx_mining_submit(client, mWorker, mJob, nonce);
@@ -344,16 +350,12 @@ void runMiner(void * task_id) {
       }
       shares++;
 
-        // check if valid header
+      // check if valid header
       if(checkValid(hash, mMiner.bytearray_target)){
         Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
         valids++;
         Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
-        // STEP 3: Submit mining job
-        tx_mining_submit(client, mWorker, mJob, nonce);
-        client.stop();
-        // exit 
-        nonce = MAX_NONCE;
+        // wait for new job
         break;
       }
       // increment nonce
