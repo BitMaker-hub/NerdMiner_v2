@@ -39,6 +39,7 @@ mining_job mJob;
 monitor_data mMonitor;
 bool isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
+unsigned long mLastConnRetry = millis();
 
 void checkPoolConnection(void) {
   
@@ -50,18 +51,25 @@ void checkPoolConnection(void) {
 
   Serial.println("Client not connected, trying to connect..."); 
   
+  //Generate random interval between 0 and 30 secs
+  srand(millis());
+  unsigned int tdiff = (1 + rand() % 30) * 1000;
+
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
     WiFi.hostByName(poolString, serverIP);
     Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
   }
 
+  if (millis() > mLastConnRetry + tdiff) {
   //Try connecting pool IP
-  if (!client.connect(serverIP, portNumber)) {
-    Serial.println("Imposible to connect to : " + String(poolString));
-    WiFi.hostByName(poolString, serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    if (!client.connect(serverIP, portNumber)) {
+      Serial.println("Imposible to connect to : " + String(poolString));
+      WiFi.hostByName(poolString, serverIP);
+      Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+    mLastConnRetry = millis();
   }
 }
 
