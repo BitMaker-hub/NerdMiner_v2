@@ -65,10 +65,10 @@ bool checkPoolConnection(void) {
     WiFi.hostByName(poolString, serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    return true;
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 //Implements a socketKeepAlive function and 
@@ -144,8 +144,10 @@ void runStratumWorker(void *name) {
     //strcpy(btcString,"test");
 
     if(!checkPoolConnection())
-      //If server not reachable add 5sec delay bettween connection petitions
-      vTaskDelay(5000 / portTICK_PERIOD_MS); 
+      //If server is not reachable add random delay for connection retries
+      srand(millis());
+      //Generate value between 1 and 15 secs
+      vTaskDelay(((1 + rand() % 15) * 1000) / portTICK_PERIOD_MS);
 
     if(!isMinerSuscribed){
 
