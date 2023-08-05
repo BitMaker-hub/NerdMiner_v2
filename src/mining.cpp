@@ -375,9 +375,9 @@ void runMiner(void * task_id) {
     mMiner.inRun = false;
     Serial.print(">>> Finished job waiting new data from pool");
 
-    if(hashes>=MAX_NONCE) { 
-      Mhashes=Mhashes+MAX_NONCE/1000000; 
-      hashes=hashes-MAX_NONCE;
+    if(hashes>=MAX_NONCE_STEP) {
+      Mhashes=Mhashes+MAX_NONCE_STEP/1000000;
+      hashes=hashes-MAX_NONCE_STEP;
     }
 
     uint32_t duration = micros() - startT;
