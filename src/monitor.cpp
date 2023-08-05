@@ -233,24 +233,24 @@ void show_MinerScreen(unsigned long mElapsed){
       shares, totalKHashes, CurrentHashrate);
 
     //Hashrate
-    render.setFontSize(70);
+    render.setFontSize(35);
     render.setCursor(19, 118);
     render.setFontColor(TFT_BLACK);
     
     render.rdrawString(CurrentHashrate, 118, 114, TFT_BLACK);
     //Total hashes
-    render.setFontSize(36);
+    render.setFontSize(18);
     render.rdrawString(String(Mhashes).c_str(), 268, 138, TFT_BLACK);
     //Block templates
-    render.setFontSize(36);
+    render.setFontSize(18);
     render.drawString(String(templates).c_str(), 186, 20, 0xDEDB);
     //Best diff
-    char best_diff_string[8] = {0};
-    sprintf(best_diff_string, "%.4f", best_diff);
-    render.setFontSize(36);
+    char best_diff_string[16] = {0};
+    suffix_string(best_diff, best_diff_string, 16, 0);
+    render.setFontSize(18);
     render.drawString(String(best_diff_string).c_str(), 186, 48, 0xDEDB);
     //32Bit shares
-    render.setFontSize(36);
+    render.setFontSize(18);
     render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
     //Hores
     char timeMining[15]; 
@@ -261,23 +261,23 @@ void show_MinerScreen(unsigned long mElapsed){
     int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60;                                              //Remove the number of hours and calculate the minutes.
     int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
     sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
-    render.setFontSize(27);
+    render.setFontSize(14);
     render.rdrawString(String(timeMining).c_str(), 315, 104, 0xDEDB);
 
     //Valid Blocks
-    render.setFontSize(48);
+    render.setFontSize(24);
     render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
 
     //Print Temp
     String temp = String(temperatureRead(), 0);
-    render.setFontSize(20);
+    render.setFontSize(10);
     render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
 
-    render.setFontSize(7);
+    render.setFontSize(4);
     render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
 
     //Print Hour
-    render.setFontSize(20);
+    render.setFontSize(10);
     render.rdrawString(getTime().c_str(), 286, 1, TFT_BLACK);
 
     // pool url
@@ -305,7 +305,7 @@ void show_ClockScreen(unsigned long mElapsed){
       shares, totalKHashes, CurrentHashrate);
 
     //Hashrate
-    render.setFontSize(50);
+    render.setFontSize(25);
     render.setCursor(19, 122);
     render.setFontColor(TFT_BLACK);
     
@@ -321,7 +321,7 @@ void show_ClockScreen(unsigned long mElapsed){
     background.drawString(getBTCprice().c_str(), 202, 3, GFXFF);
 
     //Print BlockHeight
-    render.setFontSize(36);
+    render.setFontSize(18);
     render.rdrawString(getBlockHeight().c_str(), 254, 140, TFT_BLACK);
 
     //Print Hour
@@ -383,11 +383,11 @@ void show_GlobalHashScreen(unsigned long mElapsed){
     background.drawString(gData.difficulty.c_str(), 302, 88, GFXFF);
 
     //Print Global Hashrate
-    render.setFontSize(34);
+    render.setFontSize(17);
     render.rdrawString(gData.globalHash.c_str(), 274, 145, TFT_BLACK);
 
     //Print BlockHeight
-    render.setFontSize(55);
+    render.setFontSize(28);
     gData.currentBlock = getBlockHeight();
     render.rdrawString(gData.currentBlock.c_str(), 140, 104, 0xDEDB);
 

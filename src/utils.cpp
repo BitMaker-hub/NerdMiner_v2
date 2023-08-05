@@ -395,3 +395,62 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     #endif
   return mMiner;
 }
+
+/* Convert a double value into a truncated string for displaying with its
+ * associated suitable for Mega, Giga etc. Buf array needs to be long enough */
+void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
+{
+	const double kilo = 1000;
+	const double mega = 1000000;
+	const double giga = 1000000000;
+	const double tera = 1000000000000;
+	const double peta = 1000000000000000;
+	const double exa  = 1000000000000000000;
+	// minimum diff value to display
+	const double min_diff = 0.001;
+	char suffix[2] = "";
+	bool decimal = true;
+	double dval;
+
+	if (val >= exa) {
+		val /= peta;
+		dval = val / kilo;
+		strcpy(suffix, "E");
+	} else if (val >= peta) {
+		val /= tera;
+		dval = val / kilo;
+		strcpy(suffix, "P");
+	} else if (val >= tera) {
+		val /= giga;
+		dval = val / kilo;
+		strcpy(suffix, "T");
+	} else if (val >= giga) {
+		val /= mega;
+		dval = val / kilo;
+		strcpy(suffix, "G");
+	} else if (val >= mega) {
+		val /= kilo;
+		dval = val / kilo;
+		strcpy(suffix, "M");
+	} else if (val >= kilo) {
+		dval = val / kilo;
+		strcpy(suffix, "K");
+	} else {
+		dval = val;
+		if (dval < min_diff)
+			dval = 0.0;
+	}
+
+	if (!sigdigits) {
+		if (decimal)
+			snprintf(buf, bufsiz, "%.3g%s", dval, suffix);
+		else
+			snprintf(buf, bufsiz, "%d%s", (unsigned int)dval, suffix);
+	} else {
+		/* Always show sigdigits + 1, padded on right with zeroes
+		 * followed by suffix */
+		int ndigits = sigdigits - 1 - (dval > 0.0 ? floor(log10(dval)) : 0);
+
+		snprintf(buf, bufsiz, "%*.*f%s", sigdigits + 1, ndigits, dval, suffix);
+	}
+}
