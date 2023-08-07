@@ -112,7 +112,7 @@ With the USB-C port to the right:
 - Partition squeme should be build as huge app
 - All libraries needed shown on platform.ini
 
-### On process
+### Job done
 - [x]  Move project to platformIO
 - [x]  Bug rectangle on screen when 1milion shares
 - [x]  Bug memory leaks
@@ -123,6 +123,15 @@ With the USB-C port to the right:
 - [x]  Add blockHeight to screen
 - [x]  Add clock to show current time
 - [x]  Add new screen with global mining stats
+- [x]  Add pool support for low difficulty miners
+- [x]  Add best difficulty on miner screen
+
+### On process
+- [ ]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
+- [ ]  Add suport to standard ESP32 dev-kit
+- [ ]  Add support to TTGO T-display 1.14
+- [ ]  Add support to Amoled
+- [ ]  Create new screen like clockMiner but with BTC price
 - [ ]  Add support to control BM1397
 
 ### Donations/Project contributions
