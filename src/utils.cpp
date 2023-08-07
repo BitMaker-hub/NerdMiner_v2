@@ -408,6 +408,7 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 	const double exa  = 1000000000000000000;
 	// minimum diff value to display
 	const double min_diff = 0.001;
+    const byte maxNdigits = 2;
 	char suffix[2] = "";
 	bool decimal = true;
 	double dval;
@@ -443,7 +444,7 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 
 	if (!sigdigits) {
 		if (decimal)
-			snprintf(buf, bufsiz, "%.3g%s", dval, suffix);
+			snprintf(buf, bufsiz, "%.3f%s", dval, suffix);
 		else
 			snprintf(buf, bufsiz, "%d%s", (unsigned int)dval, suffix);
 	} else {
