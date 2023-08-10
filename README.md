@@ -75,7 +75,7 @@ Recommended low difficulty share pools:
 
 | Pool URL                 | Port  | Web URL | Status |
 |---                       |---    |---  |---      |
-| web.public-pool.io       | 21496 | http://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
+| public-pool.io       | 21496 | http://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
 | nerdminers.org           |       | https://nerdminers.org | Team domain for future pool - Currently pointing to public-pool.airdns.org  |
 | pool.nerdminer.io        | 3333  | https://nerdminer.io | Mantained by CHMEX |
 | pool.vkbit.com           | 3333  | https://vkbit.com/ | Mantained by djerfy |
