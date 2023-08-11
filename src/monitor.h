@@ -7,6 +7,7 @@
 #define SCREEN_MINING   0
 #define SCREEN_CLOCK    1
 #define SCREEN_GLOBAL   2
+#define NO_SCREEN       3   //Used when board has no TFT
 
 //Time update period
 #define UPDATE_PERIOD_h   5
@@ -47,6 +48,7 @@ void setup_monitor(void);
 void show_MinerScreen(unsigned long mElapsed);
 void show_ClockScreen(unsigned long mElapsed);
 void show_GlobalHashScreen(unsigned long mElapsed);
+void show_NoScreen(unsigned long mElapsed);
 void changeScreen(void);
 
 #endif //MONITOR_API_H

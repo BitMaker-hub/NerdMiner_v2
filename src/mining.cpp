@@ -233,6 +233,8 @@ void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
 
+  Serial.printf("[MINER]  %d  Started runMiner Task!\n", miner_id);
+
   while(1){
 
     //Wait new job
@@ -393,6 +395,10 @@ void runMonitor(void *name){
   unsigned long mLastCheck = 0;
   mMonitor.screen = SCREEN_MINING;
 
+  #ifdef DEVKITV1
+  mMonitor.screen = NO_SCREEN;
+  #endif
+
   while(1){
     
     
@@ -406,6 +412,7 @@ void runMonitor(void *name){
       case SCREEN_MINING: show_MinerScreen(mElapsed); break;
       case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
       case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
+      case NO_SCREEN: show_NoScreen(mElapsed); break;
     }
     
     //Monitor state when hashrate is 0.0

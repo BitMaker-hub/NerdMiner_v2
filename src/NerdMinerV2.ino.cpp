@@ -38,10 +38,12 @@ const char* ntpServer = "pool.ntp.org";
 //void runMonitor(void *name);
 
 void alternate_screen_state() {
+  #ifdef NERDMINERV2
   int screen_state= digitalRead(TFT_BL);
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
   Serial.println("Switching display state");
   digitalWrite(TFT_BL, !screen_state);
+  #endif
 }
 
 void alternate_screen_rotation() {
@@ -64,21 +66,22 @@ void setup()
   //disableCore1WDT();
 
   // Setup the buttons
+  #ifdef NERDMINERV2
   // Button 1 (Boot)
   button1.setPressTicks(5000);
   button1.attachClick(alternate_screen_state);
   button1.attachDoubleClick(alternate_screen_rotation);
-  // button1.attachLongPressStart([]{Serial.println("Button 1 started a long press");});
-  // button1.attachLongPressStop([]{Serial.println("Button 1 stopped a long press");});
-  // button1.attachDuringLongPress([]{Serial.println("Button 1 is being held down");});
-
   // Button 2 (GPIO14)
   button2.setPressTicks(5000);
   button2.attachClick(changeScreen);
-  // button2.attachDoubleClick([]{Serial.println("Button 2 was double clicked");});
   button2.attachLongPressStart(reset_configurations);
-  // button2.attachLongPressStop(reset_configurations);
-  // button2.attachDuringLongPress([]{Serial.println("Button 2 is being held down");});
+  #elif defined(DEVKITV1)
+  //Standard ESP32-devKit
+  button1.setPressTicks(5000);
+  button1.attachLongPressStart(reset_configurations);
+  #endif
+  
+
 
 
   /******** INIT NERDMINER ************/
@@ -122,7 +125,7 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 20000, (void*)name, 3, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 3, NULL,1);
 
 
   /******** CREATE MINER TASKS *****/
@@ -130,19 +133,12 @@ void setup()
   //  char *name = (char*) malloc(32);
   //  sprintf(name, "(%d)", i);
 
-  // Start stratum tasks
-  sprintf(name, "(%s)", "Miner0");
-  //BaseType_t res = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1, NULL, 0);
-  //BaseType_t res3 = xTaskCreatePinnedToCore(runMiner, "0", 10000, (void*)name, 1,NULL, 0);
-  //sprintf(name, "(%s)", "Miner1");
-  //BaseType_t res4 = xTaskCreatePinnedToCore(runMiner, "1", 10000, (void*)name, 1,NULL, 0);
-  //Serial.printf("Starting %s %s!\n", "1", res3 == pdPASS? "successful":"failed");
-
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
-  xTaskCreate(runMiner, "Miner0", 15000, (void*)0, 1, &minerTask1);
-  xTaskCreate(runMiner, "Miner1", 15000, (void*)1, 1, &minerTask2);
+  xTaskCreate(runMiner, "Miner0", 6000, (void*)0, 1, &minerTask1);
+  xTaskCreate(runMiner, "Miner1", 6000, (void*)1, 1, &minerTask2);
+ 
   esp_task_wdt_add(minerTask1);
   esp_task_wdt_add(minerTask2);
 

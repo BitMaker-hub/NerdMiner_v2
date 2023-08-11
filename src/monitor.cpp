@@ -219,6 +219,16 @@ void changeScreen(void){
     mMonitor.screen++;
     if(mMonitor.screen> SCREEN_GLOBAL) mMonitor.screen = SCREEN_MINING;
 }
+
+void show_NoScreen(unsigned long mElapsed){
+    char CurrentHashrate[10] = {0};
+    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
+
+    //Print hashrate to serial
+    Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
+      shares, totalKHashes, CurrentHashrate);
+}
+
 void show_MinerScreen(unsigned long mElapsed){
 
     //Print background screen
