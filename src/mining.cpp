@@ -4,7 +4,6 @@
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include <wolfssl/wolfcrypt/sha256.h>
-//#include "ShaTests/nerdSHA256.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "OpenFontRender.h"
