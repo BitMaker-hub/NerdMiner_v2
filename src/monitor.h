@@ -50,5 +50,6 @@ void show_ClockScreen(unsigned long mElapsed);
 void show_GlobalHashScreen(unsigned long mElapsed);
 void show_NoScreen(unsigned long mElapsed);
 void changeScreen(void);
+void doLedStuff(int ledPin);
 
 #endif //MONITOR_API_H

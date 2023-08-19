@@ -3,8 +3,8 @@
 #include <WiFi.h>
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-//#include <wolfssl/wolfcrypt/sha256.h>
 #include "ShaTests/nerdSHA256.h"
+//#include "ShaTests/nerdSHA256plus.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "OpenFontRender.h"
@@ -226,9 +226,7 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
-//#include "shaTests/jadeSHA256.h"
-//#include "shaTests/customSHA256.h"
-//#include "mbedtls/sha256.h"
+  
 void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
@@ -251,26 +249,16 @@ void runMiner(void * task_id) {
     mMiner.inRun = true; //Set inRun flag
 
     //Prepare Premining data
-    //Sha256 midstate[32];
     nerd_sha256 nerdMidstate;
+    //nerdSHA256_context nerdMidstate; //NerdShaplus
     uint8_t hash[32];
-    //Sha256 sha256;
-
-    //Calcular midstate WOLF
-    //wc_InitSha256(midstate);
-    //wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
-    nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
-
-
-    /*Serial.println("Blockheader:");
-    for (size_t i = 0; i < 80; i++)
-            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     
-    Serial.println("Midstate:");
-    for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", midstate[i]);
-        Serial.println("");   
-    */
+
+    //Calcular midstate
+    nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
+    //nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
+
+
     // search a valid nonce
     unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     // split up odd/even nonces between miner tasks
@@ -278,11 +266,15 @@ void runMiner(void * task_id) {
     uint32_t startT = micros();
     unsigned char *header64;
     // each miner thread needs to track its own blockheader template
+    uint8_t temp;
+
     memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
     if (miner_id == 0)
       header64 = mMiner.bytearray_blockheader + 64;
     else
       header64 = mMiner.bytearray_blockheader2 + 64;
+    
+    bool is16BitShare=true;  
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
       if (miner_id == 0)
@@ -290,31 +282,26 @@ void runMiner(void * task_id) {
       else
         memcpy(mMiner.bytearray_blockheader2 + 76, &nonce, 4);
 
-      //Con midstate
-      // Primer SHA-256
-      /*wc_Sha256Copy(midstate, &sha256);
-      wc_Sha256Update(&sha256, header64, 16);
-      wc_Sha256Final(&sha256, hash);
- 
-      // Segundo SHA-256
-      wc_Sha256Update(&sha256, hash, 32);
-      wc_Sha256Final(&sha256, hash);*/
-      nerd_double_sha(&nerdMidstate, header64, hash);
 
-      /*for (size_t i = 0; i < 32; i++)
+      nerd_double_sha2(&nerdMidstate, header64, hash);
+      //is16BitShare=nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
+
+      /*Serial.print("hash1: ");
+      for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
         Serial.println("");  
-
+      Serial.print("hash2: ");
       for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", midstate_jade.buffer[i]);
+            Serial.printf("%02x", hash2[i]);
         Serial.println("");  */
-      
+
       hashes++;
       if (nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
       if(hash[31] !=0 || hash[30] !=0) {
+      //if(!is16BitShare){
         // increment nonce
         nonce += 2;
         continue;

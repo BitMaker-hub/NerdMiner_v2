@@ -421,3 +421,13 @@ void show_GlobalHashScreen(unsigned long mElapsed){
     //Push prepared background to screen
     background.pushSprite(0,0);
 }
+
+void doLedStuff(int ledPin){
+    //State 1: Waiting config - on portal mode
+    //State 2: Config ok - but not hashing
+    //State 3: Hashing
+
+    //State 1: 
+    
+    //State 2:
+}

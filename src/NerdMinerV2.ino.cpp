@@ -79,6 +79,7 @@ void setup()
   //Standard ESP32-devKit
   button1.setPressTicks(5000);
   button1.attachLongPressStart(reset_configurations);
+  pinMode(LED_PIN, OUTPUT);
   #endif
   
 
@@ -164,6 +165,10 @@ void loop() {
   button2.tick();
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
+
+  #ifdef DEVKITV1
+  doLedStuff(LED_PIN);
+  #endif
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

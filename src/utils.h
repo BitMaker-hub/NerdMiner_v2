@@ -25,4 +25,5 @@ bool checkValid(unsigned char* hash, unsigned char* target);
 void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits);
 
 
+
 #endif // UTILS_API_H

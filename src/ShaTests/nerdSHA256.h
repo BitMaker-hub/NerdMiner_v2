@@ -21,6 +21,8 @@ struct nerd_sha256 {
 /* Calculate midstate */
 IRAM_ATTR int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len);
 
-IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash);
+//IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash);
+
+IRAM_ATTR int nerd_double_sha2(nerd_sha256* midstate, uint8_t* dataIn, uint8_t* doubleHash);
 
 #endif /* nerdSHA256_H_ */

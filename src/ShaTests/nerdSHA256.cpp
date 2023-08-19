@@ -13,6 +13,32 @@
 
 #define HASH_SIZE 32
 
+//------------- JADE
+#define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
+
+#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
+
+#define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
+#define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
+
+#define S2(x) (ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22))
+#define S3(x) (ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25))
+
+#define F0(x, y, z) ((x & y) | (z & (x | y)))
+#define F1(x, y, z) (z ^ (x & (y ^ z)))
+
+#define RJ(t) (W[t] = S1(W[t - 2]) + W[t - 7] + S0(W[t - 15]) + W[t - 16])
+
+#define P(a, b, c, d, e, f, g, h, x, K)                                                                                \
+    {                                                                                                                  \
+        temp1 = h + S3(e) + F1(e, f, g) + K + x;                                                                       \
+        temp2 = S2(a) + F0(a, b, c);                                                                                   \
+        d += temp1;                                                                                                    \
+        h = temp1 + temp2;                                                                                             \
+    }
+
+//--------------
+
 IRAM_ATTR static inline uint32_t rotlFixed(uint32_t x, uint32_t y)
     {
         return (x << y) | (x >> (sizeof(y) * 8 - y));
@@ -56,7 +82,12 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
     )
 
 #define RND1(j) \
-      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[i+j] + SCHED1(j); \
+      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[j] + SCHED1(j); \
+      t1 = Sigma0(a(j)) + Maj(a(j), b(j), c(j)); \
+      d(j) += t0; \
+      h(j)  = t0 + t1
+#define RND(j) \
+      t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[j] + SCHED(j); \
       t1 = Sigma0(a(j)) + Maj(a(j), b(j), c(j)); \
       d(j) += t0; \
       h(j)  = t0 + t1
@@ -223,6 +254,97 @@ int nerd_midstate(nerd_sha256* sha256, uint8_t* data, uint32_t len)
     
     return 0;
 }
+
+
+IRAM_ATTR int nerd_double_sha2(nerd_sha256* midstate, uint8_t* dataIn, uint8_t* doubleHash)
+{
+    uint32_t S[8], t0, t1;
+    uint32_t W[16];
+    int i;
+    uint8_t* data;
+
+    //*********** Init 1rst SHA ***********
+    uint8_t data1rstSHA[64] = { dataIn[3],dataIn[2],dataIn[1],dataIn[0],dataIn[7],dataIn[6],dataIn[5],dataIn[4],
+                       dataIn[11],dataIn[10],dataIn[9],dataIn[8],dataIn[15],dataIn[14],dataIn[13],dataIn[12],
+                       0,0,0,0x80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x80,0x02,0,0};
+
+    data = data1rstSHA;
+    // Copy digest to working vars 
+    S[0] = midstate->digest[0];
+    S[1] = midstate->digest[1];
+    S[2] = midstate->digest[2];
+    S[3] = midstate->digest[3];
+    S[4] = midstate->digest[4];
+    S[5] = midstate->digest[5];
+    S[6] = midstate->digest[6];
+    S[7] = midstate->digest[7];
+
+    RND1( 0); RND1( 1); RND1( 2); RND1( 3);
+    RND1( 4); RND1( 5); RND1( 6); RND1( 7);
+    RND1( 8); RND1( 9); RND1(10); RND1(11);
+    RND1(12); RND1(13); RND1(14); RND1(15);
+    // 64 operations, partially loop unrolled 
+    for (i = 16; i < 64; i += 16) {
+        RNDN( 0); RNDN( 1); RNDN( 2); RNDN( 3);
+        RNDN( 4); RNDN( 5); RNDN( 6); RNDN( 7);
+        RNDN( 8); RNDN( 9); RNDN(10); RNDN(11);
+        RNDN(12); RNDN(13); RNDN(14); RNDN(15);
+    }
+
+    // Add the working vars back into digest 
+    S[0] += midstate->digest[0];
+    S[1] += midstate->digest[1];
+    S[2] += midstate->digest[2];
+    S[3] += midstate->digest[3];
+    S[4] += midstate->digest[4];
+    S[5] += midstate->digest[5];
+    S[6] += midstate->digest[6];
+    S[7] += midstate->digest[7];
+    //*********** end SHA_finish ***********
+
+    // ----- 2nd SHA ------------
+    uint32_t data2nSha[64] = {S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],
+                              0x80000000,0,0,0,0,0,0,256};    
+
+    data = (uint8_t*)data2nSha;
+
+    S[0] = 0x6A09E667L;
+    S[1] = 0xBB67AE85L;
+    S[2] = 0x3C6EF372L;
+    S[3] = 0xA54FF53AL;
+    S[4] = 0x510E527FL;
+    S[5] = 0x9B05688CL;
+    S[6] = 0x1F83D9ABL;
+    S[7] = 0x5BE0CD19L;
+
+    RND1( 0); RND1( 1); RND1( 2); RND1( 3);
+    RND1( 4); RND1( 5); RND1( 6); RND1( 7);
+    RND1( 8); RND1( 9); RND1(10); RND1(11);
+    RND1(12); RND1(13); RND1(14); RND1(15);
+    // 64 operations, partially loop unrolled 
+    for (i = 16; i < 64; i += 16) {
+        RNDN( 0); RNDN( 1); RNDN( 2); RNDN( 3);
+        RNDN( 4); RNDN( 5); RNDN( 6); RNDN( 7);
+        RNDN( 8); RNDN( 9); RNDN(10); RNDN(11);
+        RNDN(12); RNDN(13); RNDN(14); RNDN(15);
+    }
+
+    // Add the working vars back into digest 
+    S[0] += 0x6A09E667L;
+    S[1] += 0xBB67AE85L;
+    S[2] += 0x3C6EF372L;
+    S[3] += 0xA54FF53AL;
+    S[4] += 0x510E527FL;
+    S[5] += 0x9B05688CL;
+    S[6] += 0x1F83D9ABL;
+    S[7] += 0x5BE0CD19L;
+
+    ByteReverseWords((uint32_t*)doubleHash, S, NERD_DIGEST_SIZE);
+    
+    return 0;
+}
+
+
 
 IRAM_ATTR int nerd_double_sha(nerd_sha256* midstate, uint8_t* data, uint8_t* doubleHash)
 {

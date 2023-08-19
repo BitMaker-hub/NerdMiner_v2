@@ -9,6 +9,7 @@
 #define PIN_BUTTON_1 0
 #define PIN_BUTTON_2 19  //Not used
 #define PIN_ENABLE5V 21  //Not used
+#define LED_PIN      2
 #endif
 
 void init_WifiManager();
