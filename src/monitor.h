@@ -7,6 +7,7 @@
 #define SCREEN_MINING   0
 #define SCREEN_CLOCK    1
 #define SCREEN_GLOBAL   2
+#define NO_SCREEN       3   //Used when board has no TFT
 
 //Time update period
 #define UPDATE_PERIOD_h   5
@@ -28,9 +29,16 @@
 #define NEXT_HALVING_EVENT 840000
 #define HALVING_BLOCKS 210000
 
+enum NMState {
+  NM_waitingConfig,
+  NM_Connecting,
+  NM_hashing
+};
+
 typedef struct{
   uint8_t screen;
   bool rotation;
+  NMState NerdStatus;
 }monitor_data;
 
 typedef struct{
@@ -43,10 +51,14 @@ typedef struct{
   int halfHourFee;
 }global_data;
 
+
+
 void setup_monitor(void);
 void show_MinerScreen(unsigned long mElapsed);
 void show_ClockScreen(unsigned long mElapsed);
 void show_GlobalHashScreen(unsigned long mElapsed);
+void show_NoScreen(unsigned long mElapsed);
 void changeScreen(void);
+void doLedStuff(int ledPin);
 
 #endif //MONITOR_API_H

@@ -3,7 +3,8 @@
 #define MINING_API_H
 
 // Mining
-#define MAX_NONCE       5000000U
+#define MAX_NONCE_STEP  5000000U
+#define MAX_NONCE       25000000U
 #define TARGET_NONCE    471136297U
 #define DEFAULT_DIFFICULTY  1e-4
 #define KEEPALIVE_TIME_ms       30000

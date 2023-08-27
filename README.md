@@ -11,20 +11,20 @@ Original project https://github.com/valerio-vaccaro/HAN
 ![image](images/NerdMinerv2.jpg)
 
 ## Requirements
-- TTGO T-Display S3
+- TTGO T-Display S3 or any supported boards (check Build tutorial 👇)
 - 3D BOX [here](3d_files/)
 
 ### Project description
-**ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with ckpool.
+**ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with Public-pool.io (where Nerdminers are supported).
 
-This project is using ESP32-S3, uses WifiManager to modify miner settings and save them to SPIFF.
+This project was initialy developed using ESP32-S3, but currently support other boards. It uses WifiManager to modify miner settings and save them to SPIFF.
 The microMiner comes with several screens to monitor it's working procedure and also to show you network mining stats.
 Currently includes:
 - NerdMiner Screen > Mining data of Nerdminer
 - ClockMiner Screen > Fashion style clock miner
 - GlobalStats Screen > Global minery stats and relevant data
 
-This miner is multicore and multithreads, one thread is used to mine and other is implementing stratum work and wifi stuff. 
+This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi stuff. 
 Every time an stratum job notification is received miner update its current work to not create stale shares. 
 
 **IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
@@ -34,20 +34,24 @@ Every time an stratum job notification is received miner update its current work
 ## Build Tutorial
 ### Hardware requirements
 - TTGO T-Display S3 > Buy it on aliexpress or amazon
-- 3D BOX
+- 3D BOX [here](3d_files/)
+
+#### Current Supported Boards
+- TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
+- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX))
 
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
-1. Get a TTGO T-display S3
+1. Get a TTGO T-display S3 or any other supported board
 1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
 
 #### Standard tool
 Create your own miner using the online firwmare flash tool **ESPtool** and the **binary files** that you will find in the src/bin folder.
 If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
 
-1. Get a TTGO T-display S3
+1. Get a TTGO T-display S3 or any supported board
 1. Download this repository
 1. Go to ESPtool online: https://espressif.github.io/esptool-js/
 1. Load the firmware with the binaries from the src/bin folder.
@@ -61,6 +65,7 @@ Update NerdMiner firmware following same flashing steps but only adding 0x10000_
 1. ESPtool recommendations: use 115200bps
 1. Build errors > If during firmware download upload stops, it's recommended to enter the board in boot mode. Unplug cable, hold right bottom button and then plug cable. Try programming
 1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made. 
+1. In case of ESP32-WROOM Boards, could be necessary to put your board on boot mode. Hold boot button, press reset button and then program.
 
 ### NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
@@ -108,11 +113,11 @@ With the USB-C port to the right:
 ## Developers
 ### Project guidelines
 - Current project was addapted to work with PlatformIO
-- Current project works with ESP32-S3 but any ESP32 can be used.
+- Current project works with ESP32-S3 and ESP32-wroom.
 - Partition squeme should be build as huge app
 - All libraries needed shown on platform.ini
 
-### On process
+### Job done
 - [x]  Move project to platformIO
 - [x]  Bug rectangle on screen when 1milion shares
 - [x]  Bug memory leaks
@@ -123,6 +128,16 @@ With the USB-C port to the right:
 - [x]  Add blockHeight to screen
 - [x]  Add clock to show current time
 - [x]  Add new screen with global mining stats
+- [x]  Add pool support for low difficulty miners
+- [x]  Add best difficulty on miner screen
+- [x]  Add suport to standard ESP32 dev-kit / ESP32-WROOM
+
+### On process
+- [ ]  Code changes to support adding multiple boards
+- [ ]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
+- [ ]  Add support to TTGO T-display 1.14
+- [ ]  Add support to Amoled
+- [ ]  Create new screen like clockMiner but with BTC price
 - [ ]  Add support to control BM1397
 
 ### Donations/Project contributions

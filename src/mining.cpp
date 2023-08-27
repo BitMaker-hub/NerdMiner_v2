@@ -3,8 +3,8 @@
 #include <WiFi.h>
 #include <esp_task_wdt.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-#include <wolfssl/wolfcrypt/sha256.h>
-//#include "ShaTests/nerdSHA256.h"
+#include "ShaTests/nerdSHA256.h"
+//#include "ShaTests/nerdSHA256plus.h"
 #include "media/Free_Fonts.h"
 #include "media/images.h"
 #include "OpenFontRender.h"
@@ -19,9 +19,11 @@ unsigned long Mhashes = 0;
 unsigned long totalKHashes = 0;
 unsigned long elapsedKHs = 0;
 
-unsigned long halfshares; // increase if blockhash has 16 bits of zeroes
 unsigned int shares; // increase if blockhash has 32 bits of zeroes
 unsigned int valids; // increased if blockhash <= target
+
+// Track best diff
+double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
 extern char poolString[80];
@@ -41,10 +43,10 @@ monitor_data mMonitor;
 bool isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
 
-void checkPoolConnection(void) {
+bool checkPoolConnection(void) {
   
   if (client.connected()) {
-    return;
+    return true;
   }
   
   isMinerSuscribed = false;
@@ -63,7 +65,10 @@ void checkPoolConnection(void) {
     WiFi.hostByName(poolString, serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    return false;
   }
+
+  return true;
 }
 
 //Implements a socketKeepAlive function and 
@@ -118,6 +123,7 @@ void runStratumWorker(void *name) {
       
     if(WiFi.status() != WL_CONNECTED){
       // WiFi is disconnected, so reconnect now
+      mMonitor.NerdStatus = NM_Connecting;
       WiFi.reconnect();
       vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
@@ -138,7 +144,11 @@ void runStratumWorker(void *name) {
     //portNumber = 3333;
     //strcpy(btcString,"test");
 
-    checkPoolConnection();
+    if(!checkPoolConnection())
+      //If server is not reachable add random delay for connection retries
+      srand(millis());
+      //Generate value between 1 and 15 secs
+      vTaskDelay(((1 + rand() % 15) * 1000) / portTICK_PERIOD_MS);
 
     if(!isMinerSuscribed){
 
@@ -217,12 +227,12 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
-//#include "shaTests/jadeSHA256.h"
-//#include "shaTests/customSHA256.h"
-//#include "mbedtls/sha256.h"
+  
 void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
+
+  Serial.printf("[MINER]  %d  Started runMiner Task!\n", miner_id);
 
   while(1){
 
@@ -239,27 +249,19 @@ void runMiner(void * task_id) {
       mMiner.newJob2 = false; //Clear newJob flag
     mMiner.inRun = true; //Set inRun flag
 
+    mMonitor.NerdStatus = NM_hashing;
+
     //Prepare Premining data
-    Sha256 midstate[32];
-    //nerd_sha256 nerdMidstate;
+    nerd_sha256 nerdMidstate;
+    //nerdSHA256_context nerdMidstate; //NerdShaplus
     uint8_t hash[32];
-    Sha256 sha256;
-
-    //Calcular midstate WOLF
-    wc_InitSha256(midstate);
-    wc_Sha256Update(midstate, mMiner.bytearray_blockheader, 64);
-    //nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
-
-
-    /*Serial.println("Blockheader:");
-    for (size_t i = 0; i < 80; i++)
-            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     
-    Serial.println("Midstate:");
-    for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", midstate[i]);
-        Serial.println("");   
-    */
+
+    //Calcular midstate
+    nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
+    //nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
+
+
     // search a valid nonce
     unsigned long nonce = TARGET_NONCE - MAX_NONCE;
     // split up odd/even nonces between miner tasks
@@ -267,11 +269,15 @@ void runMiner(void * task_id) {
     uint32_t startT = micros();
     unsigned char *header64;
     // each miner thread needs to track its own blockheader template
+    uint8_t temp;
+
     memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
     if (miner_id == 0)
       header64 = mMiner.bytearray_blockheader + 64;
     else
       header64 = mMiner.bytearray_blockheader2 + 64;
+    
+    bool is16BitShare=true;  
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
       if (miner_id == 0)
@@ -279,43 +285,42 @@ void runMiner(void * task_id) {
       else
         memcpy(mMiner.bytearray_blockheader2 + 76, &nonce, 4);
 
-      //Con midstate
-      // Primer SHA-256
-      wc_Sha256Copy(midstate, &sha256);
-      wc_Sha256Update(&sha256, header64, 16);
-      wc_Sha256Final(&sha256, hash);
- 
-      // Segundo SHA-256
-      wc_Sha256Update(&sha256, hash, 32);
-      wc_Sha256Final(&sha256, hash);
-      //nerd_double_sha(&nerdMidstate, header64, hash);
 
-      /*for (size_t i = 0; i < 32; i++)
+      nerd_double_sha2(&nerdMidstate, header64, hash);
+      //is16BitShare=nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
+
+      /*Serial.print("hash1: ");
+      for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
         Serial.println("");  
-
+      Serial.print("hash2: ");
       for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", midstate_jade.buffer[i]);
+            Serial.printf("%02x", hash2[i]);
         Serial.println("");  */
-      
+
       hashes++;
       if (nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
       if(hash[31] !=0 || hash[30] !=0) {
+      //if(!is16BitShare){
         // increment nonce
         nonce += 2;
         continue;
       }
-      halfshares++;
-      
+
       //Check target to submit
       //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
       //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
       //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
       //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
       double diff_hash = diff_from_target(hash);
+
+      // update best diff
+      if (diff_hash > best_diff)
+        best_diff = diff_hash;
+
       if(diff_hash > mMiner.poolDifficulty)//(hash[29] <= 0x3B)//(diff_hash > 1e-9)
       {
         tx_mining_submit(client, mWorker, mJob, nonce);
@@ -344,31 +349,27 @@ void runMiner(void * task_id) {
       }
       shares++;
 
-        // check if valid header
+      // check if valid header
       if(checkValid(hash, mMiner.bytearray_target)){
         Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
         valids++;
         Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
-        // STEP 3: Submit mining job
-        tx_mining_submit(client, mWorker, mJob, nonce);
-        client.stop();
-        // exit 
-        nonce = MAX_NONCE;
+        // wait for new job
         break;
       }
       // increment nonce
       nonce += 2;
     } // exit if found a valid result or nonce > MAX_NONCE
 
-    wc_Sha256Free(&sha256);
-    wc_Sha256Free(midstate);
+    //wc_Sha256Free(&sha256);
+    //wc_Sha256Free(midstate);
 
     mMiner.inRun = false;
     Serial.print(">>> Finished job waiting new data from pool");
 
-    if(hashes>=MAX_NONCE) { 
-      Mhashes=Mhashes+MAX_NONCE/1000000; 
-      hashes=hashes-MAX_NONCE;
+    if(hashes>=MAX_NONCE_STEP) {
+      Mhashes=Mhashes+MAX_NONCE_STEP/1000000;
+      hashes=hashes-MAX_NONCE_STEP;
     }
 
     uint32_t duration = micros() - startT;
@@ -384,6 +385,10 @@ void runMonitor(void *name){
   unsigned long mLastCheck = 0;
   mMonitor.screen = SCREEN_MINING;
 
+  #ifdef DEVKITV1
+  mMonitor.screen = NO_SCREEN;
+  #endif
+
   while(1){
     
     
@@ -397,6 +402,7 @@ void runMonitor(void *name){
       case SCREEN_MINING: show_MinerScreen(mElapsed); break;
       case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
       case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
+      case NO_SCREEN: show_NoScreen(mElapsed); break;
     }
     
     //Monitor state when hashrate is 0.0

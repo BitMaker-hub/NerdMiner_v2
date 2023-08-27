@@ -22,6 +22,7 @@ double le256todouble(const void *target);
 double diff_from_target(void *target);
 miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob);
 bool checkValid(unsigned char* hash, unsigned char* target);
+void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits);
 
 
 
