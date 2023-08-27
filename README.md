@@ -11,7 +11,7 @@ Original project https://github.com/valerio-vaccaro/HAN
 ![image](images/NerdMinerv2.jpg)
 
 ## Requirements
-- TTGO T-Display S3
+- TTGO T-Display S3 or any supported boards (check Build tutorial 👇)
 - 3D BOX [here](3d_files/)
 
 ### Project description
@@ -34,7 +34,7 @@ Every time an stratum job notification is received miner update its current work
 ## Build Tutorial
 ### Hardware requirements
 - TTGO T-Display S3 > Buy it on aliexpress or amazon
-- 3D BOX
+- 3D BOX [here](3d_files/)
 
 #### Current Supported Boards
 - TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
