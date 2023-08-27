@@ -15,16 +15,16 @@ Original project https://github.com/valerio-vaccaro/HAN
 - 3D BOX [here](3d_files/)
 
 ### Project description
-**ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with ckpool.
+**ESP32 implementing Stratum protocol** to mine on solo pool. Pool can be changed but originally works with Public-pool.io (where Nerdminers are supported).
 
-This project is using ESP32-S3, uses WifiManager to modify miner settings and save them to SPIFF.
+This project was initialy developed using ESP32-S3, but currently support other boards. It uses WifiManager to modify miner settings and save them to SPIFF.
 The microMiner comes with several screens to monitor it's working procedure and also to show you network mining stats.
 Currently includes:
 - NerdMiner Screen > Mining data of Nerdminer
 - ClockMiner Screen > Fashion style clock miner
 - GlobalStats Screen > Global minery stats and relevant data
 
-This miner is multicore and multithreads, one thread is used to mine and other is implementing stratum work and wifi stuff. 
+This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi stuff. 
 Every time an stratum job notification is received miner update its current work to not create stale shares. 
 
 **IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
@@ -65,7 +65,7 @@ Update NerdMiner firmware following same flashing steps but only adding 0x10000_
 1. ESPtool recommendations: use 115200bps
 1. Build errors > If during firmware download upload stops, it's recommended to enter the board in boot mode. Unplug cable, hold right bottom button and then plug cable. Try programming
 1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made. 
-1. In case of ESP32-WROOM Boards, could be necessary to put board on boot mode. Hold boot button, press reset button and then program.
+1. In case of ESP32-WROOM Boards, could be necessary to put your board on boot mode. Hold boot button, press reset button and then program.
 
 ### NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
