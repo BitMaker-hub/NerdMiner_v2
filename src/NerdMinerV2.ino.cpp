@@ -16,7 +16,7 @@
 #include "mining.h"
 #include "monitor.h"
 
-#define CURRENT_VERSION "V1.6.0"
+#define CURRENT_VERSION "V1.6.1"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -27,6 +27,7 @@ OneButton button2(PIN_BUTTON_2);
 
 
 OpenFontRender render;
+extern monitor_data mMonitor;
 
 /**********************⚡ GLOBAL Vars *******************************/
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
@@ -109,8 +110,14 @@ void setup()
   tft.fillScreen(TFT_BLACK);
   tft.pushImage(0, 0, initWidth, initHeight, initScreen);
   tft.setTextColor(TFT_BLACK);
-  tft.drawString(CURRENT_VERSION, 24, 130, FONT2);
+  tft.drawString(CURRENT_VERSION, 24, 147, FONT2);
   delay(2000);
+
+  /******** SHOW LED INIT STATUS (devices without screen) *****/
+  mMonitor.NerdStatus = NM_waitingConfig;
+  #ifdef DEVKITV1
+  doLedStuff(LED_PIN);
+  #endif
 
   /******** INIT WIFI ************/
   init_WifiManager();

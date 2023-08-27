@@ -422,12 +422,28 @@ void show_GlobalHashScreen(unsigned long mElapsed){
     background.pushSprite(0,0);
 }
 
-void doLedStuff(int ledPin){
-    //State 1: Waiting config - on portal mode
-    //State 2: Config ok - but not hashing
-    //State 3: Hashing
+// Variables para controlar el parpadeo con millis()
+unsigned long previousMillis = 0;
 
-    //State 1: 
-    
-    //State 2:
+void doLedStuff(int ledPin){
+
+  unsigned long currentMillis = millis();
+
+  switch (mMonitor.NerdStatus) {
+
+    case NM_waitingConfig: digitalWrite(ledPin, HIGH); // LED encendido de forma continua
+                           break;
+
+    case NM_Connecting: if (currentMillis - previousMillis >= 500) { //0.5sec blink
+                            previousMillis = currentMillis;
+                            digitalWrite(ledPin, !digitalRead(ledPin)); // Cambia el estado del LED
+                        } 
+                        break;
+
+    case NM_hashing:    if (currentMillis - previousMillis >= 100) { //0.1sec blink
+                            previousMillis = currentMillis;
+                            digitalWrite(ledPin, !digitalRead(ledPin)); // Cambia el estado del LED
+                        }
+                        break;
+  }
 }

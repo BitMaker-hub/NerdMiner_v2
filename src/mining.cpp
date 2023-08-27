@@ -123,6 +123,7 @@ void runStratumWorker(void *name) {
       
     if(WiFi.status() != WL_CONNECTED){
       // WiFi is disconnected, so reconnect now
+      mMonitor.NerdStatus = NM_Connecting;
       WiFi.reconnect();
       vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
@@ -247,6 +248,8 @@ void runMiner(void * task_id) {
     else if(mMiner.newJob2)
       mMiner.newJob2 = false; //Clear newJob flag
     mMiner.inRun = true; //Set inRun flag
+
+    mMonitor.NerdStatus = NM_hashing;
 
     //Prepare Premining data
     nerd_sha256 nerdMidstate;

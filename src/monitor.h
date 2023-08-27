@@ -29,9 +29,16 @@
 #define NEXT_HALVING_EVENT 840000
 #define HALVING_BLOCKS 210000
 
+enum NMState {
+  NM_waitingConfig,
+  NM_Connecting,
+  NM_hashing
+};
+
 typedef struct{
   uint8_t screen;
   bool rotation;
+  NMState NerdStatus;
 }monitor_data;
 
 typedef struct{
@@ -43,6 +50,8 @@ typedef struct{
   int remainingBlocks;
   int halfHourFee;
 }global_data;
+
+
 
 void setup_monitor(void);
 void show_MinerScreen(unsigned long mElapsed);

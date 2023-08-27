@@ -11,6 +11,7 @@
 #include "media/images.h"
 #include <TFT_eSPI.h> // Graphics and font library
 #include "wManager.h"
+#include "monitor.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
@@ -19,7 +20,7 @@
 bool shouldSaveConfig = false;
 
 // Variables to hold data from custom textboxes
-char poolString[80] = "public-pool.airdns.org";
+char poolString[80] = "public-pool.io";
 int portNumber = 21496;//3333;
 char btcString[80] = "yourBtcAddress";
 int GMTzone = 2; //Currently selected in spain
@@ -30,6 +31,7 @@ WiFiManager wm;
 
 
 extern TFT_eSPI tft;  // tft variable declared on main
+extern monitor_data mMonitor;
 
 void saveConfigFile()
 // Save Config in JSON format
@@ -239,6 +241,7 @@ void init_WifiManager()
   else
   {
     //Tratamos de conectar con la configuración inicial ya almacenada
+    mMonitor.NerdStatus = NM_Connecting;
     wm.setCaptivePortalEnable(false); // disable captive portal redirection
     if (!wm.autoConnect("NerdMinerAP","MineYourCoins"))
     {
@@ -249,6 +252,8 @@ void init_WifiManager()
       //delay(5000);
     }
   }
+
+  mMonitor.NerdStatus = NM_Connecting;
 
   //Conectado a la red Wifi
   if(WiFi.status() == WL_CONNECTED){
