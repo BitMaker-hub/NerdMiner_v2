@@ -8,10 +8,9 @@
 
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
-#include "media/images.h"
-#include <TFT_eSPI.h> // Graphics and font library
 #include "wManager.h"
 #include "monitor.h"
+#include "display/display.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
@@ -28,9 +27,6 @@ int GMTzone = 2; //Currently selected in spain
 
 // Define WiFiManager Object
 WiFiManager wm;
-
-
-extern TFT_eSPI tft;  // tft variable declared on main
 extern monitor_data mMonitor;
 
 void saveConfigFile()
@@ -222,7 +218,7 @@ void init_WifiManager()
   {
     //No configuramos timeout al modulo
     wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
-    tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
+    drawSetupScreen();
     if (!wm.startConfigPortal("NerdMinerAP","MineYourCoins"))
     {
       Serial.println("failed to connect and hit timeout");

@@ -2,16 +2,13 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <esp_task_wdt.h>
-#include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include "ShaTests/nerdSHA256.h"
 //#include "ShaTests/nerdSHA256plus.h"
-#include "media/Free_Fonts.h"
-#include "media/images.h"
-#include "OpenFontRender.h"
 #include "stratum.h"
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "display/display.h"
 
 unsigned long templates = 0;
 unsigned long hashes= 0;
@@ -30,9 +27,6 @@ extern char poolString[80];
 extern int portNumber;
 extern char btcString[80];
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
-
-extern OpenFontRender render;
-extern TFT_eSprite background;
 
 //Global work data 
 static WiFiClient client;
@@ -383,11 +377,8 @@ void runMonitor(void *name){
   Serial.println("[MONITOR] started");
   
   unsigned long mLastCheck = 0;
-  mMonitor.screen = SCREEN_MINING;
-
-  #ifdef DEVKITV1
-  mMonitor.screen = NO_SCREEN;
-  #endif
+  
+  resetToFirstScreen();
 
   while(1){
     
@@ -398,12 +389,7 @@ void runMonitor(void *name){
     elapsedKHs = currentKHashes - totalKHashes; 
     totalKHashes = currentKHashes;
     
-    switch(mMonitor.screen){
-      case SCREEN_MINING: show_MinerScreen(mElapsed); break;
-      case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
-      case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
-      case NO_SCREEN: show_NoScreen(mElapsed); break;
-    }
+    drawCurrentScreen(mElapsed);
     
     //Monitor state when hashrate is 0.0
     if(elapsedKHs == 0) {

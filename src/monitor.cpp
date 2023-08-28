@@ -1,10 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
-#include "media/Free_Fonts.h"
-#include "media/images.h"
 #include "mbedtls/md.h"
-#include "OpenFontRender.h"
 #include "HTTPClient.h"
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -24,8 +20,6 @@ extern unsigned int valids; // increased if blockhash <= target
 
 extern double best_diff; // track best diff
 
-extern OpenFontRender render;
-extern TFT_eSprite background;
 extern monitor_data mMonitor;
 
 extern int GMTzone; //Gotten from saved config
@@ -215,213 +209,6 @@ String getTime(void){
   return LocalHour;
 }
 
-void changeScreen(void){
-    mMonitor.screen++;
-    if(mMonitor.screen> SCREEN_GLOBAL) mMonitor.screen = SCREEN_MINING;
-}
-
-void show_NoScreen(unsigned long mElapsed){
-    char CurrentHashrate[10] = {0};
-    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
-
-    //Print hashrate to serial
-    Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
-      shares, totalKHashes, CurrentHashrate);
-}
-
-void show_MinerScreen(unsigned long mElapsed){
-
-    //Print background screen
-    background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen); 
-
-    char CurrentHashrate[10] = {0};
-    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
-
-    //Serial.println("[runMonitor Task] -> Printing results on screen ");
-    
-     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
-      shares, totalKHashes, CurrentHashrate);
-
-    //Hashrate
-    render.setFontSize(35);
-    render.setCursor(19, 118);
-    render.setFontColor(TFT_BLACK);
-    
-    render.rdrawString(CurrentHashrate, 118, 114, TFT_BLACK);
-    //Total hashes
-    render.setFontSize(18);
-    render.rdrawString(String(Mhashes).c_str(), 268, 138, TFT_BLACK);
-    //Block templates
-    render.setFontSize(18);
-    render.drawString(String(templates).c_str(), 186, 20, 0xDEDB);
-    //Best diff
-    char best_diff_string[16] = {0};
-    suffix_string(best_diff, best_diff_string, 16, 0);
-    render.setFontSize(18);
-    render.drawString(String(best_diff_string).c_str(), 186, 48, 0xDEDB);
-    //32Bit shares
-    render.setFontSize(18);
-    render.drawString(String(shares).c_str(), 186, 76, 0xDEDB);
-    //Hores
-    char timeMining[15]; 
-
-    unsigned long secElapsed = millis() / 1000;
-    int days = secElapsed / 86400; 
-    int hours = (secElapsed - (days * 86400)) / 3600;                                                        //Number of seconds in an hour
-    int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60;                                              //Remove the number of hours and calculate the minutes.
-    int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
-    sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
-    render.setFontSize(14);
-    render.rdrawString(String(timeMining).c_str(), 315, 104, 0xDEDB);
-
-    //Valid Blocks
-    render.setFontSize(24);
-    render.drawString(String(valids).c_str(), 285, 56, 0xDEDB);
-
-    //Print Temp
-    String temp = String(temperatureRead(), 0);
-    render.setFontSize(10);
-    render.rdrawString(String(temp).c_str(), 239, 1, TFT_BLACK);
-
-    render.setFontSize(4);
-    render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
-
-    //Print Hour
-    render.setFontSize(10);
-    render.rdrawString(getTime().c_str(), 286, 1, TFT_BLACK);
-
-    // pool url
-    /*background.setTextSize(1);
-    background.setTextDatum(MC_DATUM);
-    background.setTextColor(0xDEDB);
-    background.drawString(String(poolString), 59, 85, FONT2);*/
-
-    //Push prepared background to screen
-    background.pushSprite(0,0);
-}
-
-
-void show_ClockScreen(unsigned long mElapsed){
-
-    //Print background screen
-    background.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen); 
-
-    char CurrentHashrate[10] = {0};
-    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
-
-    //Serial.println("[runMonitor Task] -> Printing results on screen ");
-    
-     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
-      shares, totalKHashes, CurrentHashrate);
-
-    //Hashrate
-    render.setFontSize(25);
-    render.setCursor(19, 122);
-    render.setFontColor(TFT_BLACK);
-    
-    render.rdrawString(CurrentHashrate, 94, 129, TFT_BLACK);
-
-    //Print BTC Price
-    //render.setFontSize(22);
-    //render.drawString(getBTCprice().c_str(), 202, 3, TFT_BLACK);
-    background.setFreeFont(FSSB9);
-    background.setTextSize(1);
-    background.setTextDatum(TL_DATUM);
-    background.setTextColor(TFT_BLACK);
-    background.drawString(getBTCprice().c_str(), 202, 3, GFXFF);
-
-    //Print BlockHeight
-    render.setFontSize(18);
-    render.rdrawString(getBlockHeight().c_str(), 254, 140, TFT_BLACK);
-
-    //Print Hour
-    background.setFreeFont(FF23);
-    background.setTextSize(2);
-    background.setTextColor(0xDEDB, TFT_BLACK);
-    
-    //background.setTexSize(2);
-    background.drawString(getTime().c_str(), 130, 50, GFXFF);
-    //render.setFontColor(TFT_WHITE);
-    //render.setFontSize(110);
-    //render.rdrawString(getTime().c_str(), 290, 40, TFT_WHITE);
-
-    //Push prepared background to screen
-    background.pushSprite(0,0);
-}
-
-void show_GlobalHashScreen(unsigned long mElapsed){
-
-    //Print background screen
-    background.pushImage(0, 0, globalHashWidth, globalHashHeight, globalHashScreen); 
-
-    char CurrentHashrate[10] = {0};
-    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
-
-    //Serial.println("[runMonitor Task] -> Printing results on screen ");
-    
-     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
-      shares, totalKHashes, CurrentHashrate);
-
-    //Hashrate
-    updateGlobalData(); //Update gData vars asking mempool APIs
-    
-    //Print BTC Price
-    background.setFreeFont(FSSB9);
-    background.setTextSize(1);
-    background.setTextDatum(TL_DATUM);
-    background.setTextColor(TFT_BLACK);
-    background.drawString(getBTCprice().c_str(), 198, 3, GFXFF);
-
-    //Print Hour
-    background.setFreeFont(FSSB9);
-    background.setTextSize(1);
-    background.setTextDatum(TL_DATUM);
-    background.setTextColor(TFT_BLACK);
-    background.drawString(getTime().c_str(), 268, 3, GFXFF);
-
-    //Print Last Pool Block
-    background.setFreeFont(FSS9);
-    background.setTextDatum(TR_DATUM);
-    background.setTextColor(0x9C92);
-    String temp = String(gData.halfHourFee) + " sat/vB";
-    background.drawString(temp.c_str(), 302, 52, GFXFF);
-
-    //Print Difficulty
-    background.setFreeFont(FSS9);
-    background.setTextDatum(TR_DATUM);
-    background.setTextColor(0x9C92);
-    background.drawString(gData.difficulty.c_str(), 302, 88, GFXFF);
-
-    //Print Global Hashrate
-    render.setFontSize(17);
-    render.rdrawString(gData.globalHash.c_str(), 274, 145, TFT_BLACK);
-
-    //Print BlockHeight
-    render.setFontSize(28);
-    gData.currentBlock = getBlockHeight();
-    render.rdrawString(gData.currentBlock.c_str(), 140, 104, 0xDEDB);
-
-    //Draw percentage rectangle
-    //width percent bar 140 - 2
-    unsigned long cBlock = gData.currentBlock.toInt();
-    gData.remainingBlocks = (((cBlock / HALVING_BLOCKS)+1) * HALVING_BLOCKS) - cBlock;
-    gData.progressPercent = (HALVING_BLOCKS-gData.remainingBlocks)*100/HALVING_BLOCKS;
-    int x2 = 2 + (138*gData.progressPercent/100);
-    background.fillRect(2, 149, x2, 168, 0xDEDB);
-
-    //Print Remaining BLocks
-    //background.setFreeFont(FSSB9);
-    background.setTextFont(FONT2);
-    background.setTextSize(1);
-    background.setTextDatum(MC_DATUM);
-    background.setTextColor(TFT_BLACK);
-    temp = String(gData.remainingBlocks) + " BLOCKS";
-    background.drawString(temp.c_str(), 72, 159, FONT2);//GFXFF);
-
-    //Push prepared background to screen
-    background.pushSprite(0,0);
-}
-
 // Variables para controlar el parpadeo con millis()
 unsigned long previousMillis = 0;
 
@@ -446,4 +233,72 @@ void doLedStuff(int ledPin){
                         }
                         break;
   }
+}
+
+String getCurrentHashRate(unsigned long mElapsed){
+  return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
+}
+
+mining_data getMiningData(unsigned long mElapsed){
+  mining_data data;
+
+  char best_diff_string[16] = {0};
+  suffix_string(best_diff, best_diff_string, 16, 0);
+
+  char timeMining[15] = {0}; 
+  unsigned long secElapsed = millis() / 1000;
+  int days = secElapsed / 86400; 
+  int hours = (secElapsed - (days * 86400)) / 3600; //Number of seconds in an hour
+  int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; //Remove the number of hours and calculate the minutes.
+  int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
+  sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);  
+
+  data.completedShares = shares;
+  data.totalMHashes = Mhashes;
+  data.totalKHashes = totalKHashes;
+  data.currentHashRate = getCurrentHashRate(mElapsed);
+  data.templates = templates;
+  data.bestDiff = best_diff_string;
+  data.timeMining = timeMining;
+  data.valids = valids;
+  data.temp = String(temperatureRead(), 0);
+  data.currentTime = getTime();
+  
+  return data;
+}
+
+clock_data getClockData(unsigned long mElapsed){
+  clock_data data;
+
+  data.completedShares = shares;
+  data.totalKHashes = totalKHashes;
+  data.currentHashRate = getCurrentHashRate(mElapsed);
+  data.btcPrice = getBTCprice();
+  data.blockHeight = getBlockHeight();
+  data.currentTime = getTime();
+
+  return data;
+}
+
+coin_data getCoinData(unsigned long mElapsed){
+  coin_data data;
+
+  updateGlobalData(); //Update gData vars asking mempool APIs
+
+  data.completedShares = shares;
+  data.totalKHashes = totalKHashes;
+  data.currentHashRate = getCurrentHashRate(mElapsed);
+  data.btcPrice = getBTCprice();
+  data.currentTime = getTime();
+  data.halfHourFee = String(gData.halfHourFee) + " sat/vB";
+  data.netwrokDifficulty = gData.difficulty;
+  data.globalHashRate = gData.globalHash;
+  data.blockHeight = getBlockHeight();
+
+  unsigned long currentBlock = data.blockHeight.toInt();
+  unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS)+1) * HALVING_BLOCKS) - currentBlock;
+  data.progressPercent = (HALVING_BLOCKS - remainingBlocks) * 100 / HALVING_BLOCKS;
+  data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
+
+  return data;
 }

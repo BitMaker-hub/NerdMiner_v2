@@ -51,14 +51,47 @@ typedef struct{
   int halfHourFee;
 }global_data;
 
+typedef struct {
+  String completedShares;
+  String totalMHashes;
+  String totalKHashes;
+  String currentHashRate;
+  String templates;
+  String bestDiff;
+  String timeMining;
+  String valids;
+  String temp;
+  String currentTime;
+}mining_data;
 
+typedef struct {
+  String completedShares;
+  String totalKHashes;
+  String currentHashRate;
+  String btcPrice;
+  String blockHeight;
+  String currentTime;  
+}clock_data;
+
+typedef struct {
+  String completedShares;
+  String totalKHashes;
+  String currentHashRate;
+  String btcPrice;
+  String currentTime;
+  String halfHourFee;
+  String netwrokDifficulty;
+  String globalHashRate;
+  String blockHeight;
+  float progressPercent;
+  String remainingBlocks;
+}coin_data;
 
 void setup_monitor(void);
-void show_MinerScreen(unsigned long mElapsed);
-void show_ClockScreen(unsigned long mElapsed);
-void show_GlobalHashScreen(unsigned long mElapsed);
-void show_NoScreen(unsigned long mElapsed);
-void changeScreen(void);
 void doLedStuff(int ledPin);
+
+mining_data getMiningData(unsigned long mElapsed);
+clock_data getClockData(unsigned long mElapsed);
+coin_data getCoinData(unsigned long mElapsed);
 
 #endif //MONITOR_API_H
