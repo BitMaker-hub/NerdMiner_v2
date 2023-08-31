@@ -56,6 +56,11 @@ void setup()
   button1.setPressTicks(5000);
   button1.attachLongPressStart(reset_configurations);
   pinMode(LED_PIN, OUTPUT);
+  #elif defined(NERMINER_S3_DONGLE)
+  button1.setPressTicks(5000);
+  button1.attachClick(switchToNextScreen);
+  button1.attachDoubleClick(alternateScreenRotation);
+  button1.attachLongPressStart(reset_configurations);
   #endif
   
 

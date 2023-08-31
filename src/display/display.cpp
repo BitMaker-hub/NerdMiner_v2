@@ -12,6 +12,10 @@ DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 DisplayDriver *currentDisplayDriver = &amoledDisplayDriver;
 #endif
 
+#ifdef DONGLE_DISPLAY
+DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
+#endif
+
 // Initialize the display
 void initDisplay() {
     currentDisplayDriver->initDisplay();
@@ -50,5 +54,10 @@ void switchToNextScreen() {
 // Draw the current cyclic screen
 void drawCurrentScreen(unsigned long mElapsed) {
     currentDisplayDriver->cyclic_screens[currentDisplayDriver->current_cyclic_screen](mElapsed);
+}
+
+// Animate the current cyclic screen
+void animateCurrentScreen(unsigned long frame) {
+    currentDisplayDriver->animateCurrentScreen(frame);
 }
 

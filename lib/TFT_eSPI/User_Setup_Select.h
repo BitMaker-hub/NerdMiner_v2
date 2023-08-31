@@ -130,9 +130,15 @@
 #ifdef NERDMINERV2
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 #endif
+
 #ifdef NERMINER_S3_AMOLED
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h> //Just a stub. No driver implementation for S3 AMOLED in TFT_eSPI
 #endif
+
+#ifdef NERMINER_S3_DONGLE
+#include <User_Setups/Setup300_TTGO_T_Dongle.h> //Just a stub. No driver implementation for S3 AMOLED in TFT_eSPI
+#endif
+
 
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 

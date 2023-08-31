@@ -33,10 +33,14 @@ void noDisplay_NoScreen(unsigned long mElapsed) {
 }
 void noDisplay_LoadingScreen(void) {
     Serial.println("Initializing...");
- }
+}
+
 void noDisplay_SetupScreen(void) { 
     Serial.println("Setup...");
- }
+}
+
+void tDisplay_AnimateCurrentScreen(unsigned long frame) {
+}
 
 CyclicScreenFunction noDisplayCyclicScreens[] = { noDisplay_NoScreen };
 
@@ -47,6 +51,7 @@ DisplayDriver noDisplayDriver = {
     noDisplay_LoadingScreen, 
     noDisplay_SetupScreen,
     noDisplayCyclicScreens, 
+    noDisplay_AnimateCurrentScreen,
     SCREENS_ARRAY_SIZE(noDisplayCyclicScreens), 
     0, 
     0,

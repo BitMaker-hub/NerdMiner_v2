@@ -13,5 +13,6 @@ void resetToFirstScreen();
 void drawLoadingScreen();
 void drawSetupScreen();
 void drawCurrentScreen(unsigned long mElapsed);
+void animateCurrentScreen(unsigned long frame);
 
 #endif // DISPLAY_H

@@ -204,6 +204,9 @@ void amoledDisplay_SetupScreen(void) {
     lcd_PushColors(0, 0, WIDTH, HEIGHT, (uint16_t *)background.getPointer());
 }
 
+void amoledDisplay_AnimateCurrentScreen(unsigned long frame) {
+}
+
 CyclicScreenFunction amoledDisplayCyclicScreens[] = { amoledDisplay_MinerScreen, amoledDisplay_ClockScreen, amoledDisplay_GlobalHashScreen };
 
 DisplayDriver amoledDisplayDriver = { 
@@ -213,6 +216,7 @@ DisplayDriver amoledDisplayDriver = {
     amoledDisplay_LoadingScreen, 
     amoledDisplay_SetupScreen,
     amoledDisplayCyclicScreens, 
+    amoledDisplay_AnimateCurrentScreen,
     SCREENS_ARRAY_SIZE(amoledDisplayCyclicScreens), 
     0,
     WIDTH,

@@ -14,7 +14,10 @@
 #define PIN_BUTTON_1 0
 #define PIN_BUTTON_2 21
 #define PIN_ENABLE5V 15
-
+#elif defined(NERMINER_S3_DONGLE)
+#define PIN_BUTTON_1 0
+#define PIN_BUTTON_2 -1
+#define PIN_ENABLE5V -1
 #endif
 
 void init_WifiManager();

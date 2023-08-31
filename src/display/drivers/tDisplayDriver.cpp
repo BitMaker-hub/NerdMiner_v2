@@ -17,7 +17,7 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
-void smoledDisplay_Init(void) {
+void tDisplay_Init(void) {
     tft.init();
     tft.setRotation(1);
     tft.setSwapBytes(true);// Swap the colour byte order when rendering
@@ -199,15 +199,19 @@ void tDisplay_SetupScreen(void) {
     tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
 }
 
+void tDisplay_AnimateCurrentScreen(unsigned long frame) {
+}
+
 CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_MinerScreen, tDisplay_ClockScreen, tDisplay_GlobalHashScreen };
 
 DisplayDriver tDisplayDriver = { 
-    smoledDisplay_Init,
+    tDisplay_Init,
     tDisplay_AlternateScreenState,
     tDisplay_AlternateRotation,
     tDisplay_LoadingScreen, 
     tDisplay_SetupScreen,
     tDisplayCyclicScreens, 
+    tDisplay_AnimateCurrentScreen,
     SCREENS_ARRAY_SIZE(tDisplayCyclicScreens), 
     0,
     WIDTH,

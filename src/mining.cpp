@@ -372,6 +372,9 @@ void runMiner(void * task_id) {
   }
 }
 
+#define DELAY 100
+#define REDRAW_EVERY 10
+
 void runMonitor(void *name){
 
   Serial.println("[MONITOR] started");
@@ -380,26 +383,30 @@ void runMonitor(void *name){
   
   resetToFirstScreen();
 
-  while(1){
-    
-    
-    unsigned long mElapsed = millis()-mLastCheck;
-    mLastCheck = millis();
-    unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
-    elapsedKHs = currentKHashes - totalKHashes; 
-    totalKHashes = currentKHashes;
-    
-    drawCurrentScreen(mElapsed);
-    
-    //Monitor state when hashrate is 0.0
-    if(elapsedKHs == 0) {
-      Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false", 
-      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
-    }
+  unsigned long frame = 0;
 
+  while(1){
+    if((frame % REDRAW_EVERY) == 0){        
+      unsigned long mElapsed = millis()-mLastCheck;
+      mLastCheck = millis();
+      unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
+      elapsedKHs = currentKHashes - totalKHashes; 
+      totalKHashes = currentKHashes;
+      
+      drawCurrentScreen(mElapsed);
+
+      //Monitor state when hashrate is 0.0
+      if(elapsedKHs == 0) {
+        Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
+        mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false", 
+        client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+      }
+    }
+    animateCurrentScreen(frame);
+    
     // Pause the task for 1000ms
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(DELAY / portTICK_PERIOD_MS);
+    frame++;
   }
 }
 
