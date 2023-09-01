@@ -10,7 +10,7 @@
 #include <ArduinoJson.h>
 #include "wManager.h"
 #include "monitor.h"
-#include "display/display.h"
+#include "drivers/display.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
@@ -139,19 +139,21 @@ void init_WifiManager()
   //Serial.setTxTimeoutMs(10);
 
   //Init pin 15 to eneble 5V external power (LilyGo bug)
-  pinMode(PIN_ENABLE5V, OUTPUT);
-  digitalWrite(PIN_ENABLE5V, HIGH);
+  #ifdef PIN_ENABLE5V
+    pinMode(PIN_ENABLE5V, OUTPUT);
+    digitalWrite(PIN_ENABLE5V, HIGH);
+  #endif
 
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
 
-  #if !defined(DEVKITV1) & !defined(NERMINER_S3_DONGLE)
-  // Check if button2 is pressed to enter configMode with actual configuration
-  if(!digitalRead(PIN_BUTTON_2)){
-    Serial.println(F("Button pressed to force start config mode"));
-    forceConfig = true;
-    wm.setBreakAfterConfig(true); //Set to detect config edition and save
-  }
+  #if defined(PIN_BUTTON_2)
+    // Check if button2 is pressed to enter configMode with actual configuration
+    if(!digitalRead(PIN_BUTTON_2)){
+      Serial.println(F("Button pressed to force start config mode"));
+      forceConfig = true;
+      wm.setBreakAfterConfig(true); //Set to detect config edition and save
+    }
   #endif
   
   bool spiffsSetup = loadConfigFile();

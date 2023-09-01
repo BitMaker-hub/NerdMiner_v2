@@ -10,14 +10,20 @@
 #include "wManager.h"
 #include "mining.h"
 #include "monitor.h"
-#include "display/display.h"
+#include "drivers/display.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
 //15 minutes WDT for miner task
 #define WDT_MINER_TIMEOUT 900
-OneButton button1(PIN_BUTTON_1);
-OneButton button2(PIN_BUTTON_2);
+
+#ifdef PIN_BUTTON_1
+  OneButton button1(PIN_BUTTON_1);
+#endif
+
+#ifdef PIN_BUTTON_2
+  OneButton button2(PIN_BUTTON_2);
+#endif
 
 
 extern monitor_data mMonitor;
@@ -42,29 +48,24 @@ void setup()
   //disableCore1WDT();
 
   // Setup the buttons
-  #if defined(NERDMINERV2) || defined(NERMINER_S3_AMOLED)
-  // Button 1 (Boot)
-  button1.setPressTicks(5000);
-  button1.attachClick(alternateScreenState);
-  button1.attachDoubleClick(alternateScreenRotation);
-  // Button 2 (GPIO14)
-  button2.setPressTicks(5000);
-  button2.attachClick(switchToNextScreen);
-  button2.attachLongPressStart(reset_configurations);
-  #elif defined(DEVKITV1)
-  //Standard ESP32-devKit
-  button1.setPressTicks(5000);
-  button1.attachLongPressStart(reset_configurations);
-  pinMode(LED_PIN, OUTPUT);
-  #elif defined(NERMINER_S3_DONGLE)
-  button1.setPressTicks(5000);
-  button1.attachClick(switchToNextScreen);
-  button1.attachDoubleClick(alternateScreenRotation);
-  button1.attachLongPressStart(reset_configurations);
+  #if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) //One button device
+    button1.setPressTicks(5000);
+    button1.attachClick(switchToNextScreen);
+    button1.attachDoubleClick(alternateScreenRotation);
+    button1.attachLongPressStart(reset_configurations);
   #endif
-  
 
+  #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
+    button1.setPressTicks(5000);
+    button1.attachClick(alternateScreenState);
+    button1.attachDoubleClick(alternateScreenRotation);
+  #endif
 
+  #if defined(PIN_BUTTON_2) //Button 2 of two button device
+    button2.setPressTicks(5000);
+    button2.attachClick(switchToNextScreen);
+    button2.attachLongPressStart(reset_configurations);
+  #endif
 
   /******** INIT NERDMINER ************/
   Serial.println("NerdMiner v2 starting......");
@@ -78,10 +79,8 @@ void setup()
 
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
-  #ifdef DEVKITV1
-  doLedStuff(LED_PIN);
-  #endif
-
+  doLedStuff(0);
+  
   /******** INIT WIFI ************/
   init_WifiManager();
 
@@ -131,14 +130,15 @@ void app_error_fault_handler(void *arg) {
 
 void loop() {
   // keep watching the push buttons:
-  button1.tick();
-  button2.tick();
+  #ifdef PIN_BUTTON_1
+    button1.tick();
+  #endif
+
+  #ifdef PIN_BUTTON_2
+    button2.tick();
+  #endif
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
-
-  #ifdef DEVKITV1
-  doLedStuff(LED_PIN);
-  #endif
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

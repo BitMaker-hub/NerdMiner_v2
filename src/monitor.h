@@ -88,7 +88,6 @@ typedef struct {
 }coin_data;
 
 void setup_monitor(void);
-void doLedStuff(int ledPin);
 
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);

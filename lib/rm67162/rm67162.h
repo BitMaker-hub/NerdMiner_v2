@@ -29,9 +29,9 @@
 
 typedef struct
 {
-    uint8_t cmd;
-    uint8_t data[4];
-    uint8_t len;
+  uint8_t cmd;
+  uint8_t data[4];
+  uint8_t len;
 } lcd_cmd_t;
 
 void rm67162_init(void);

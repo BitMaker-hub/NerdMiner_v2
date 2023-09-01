@@ -209,49 +209,25 @@ String getTime(void){
   return LocalHour;
 }
 
-// Variables para controlar el parpadeo con millis()
-unsigned long previousMillis = 0;
-
-void doLedStuff(int ledPin){
-
-  unsigned long currentMillis = millis();
-
-  switch (mMonitor.NerdStatus) {
-
-    case NM_waitingConfig: digitalWrite(ledPin, HIGH); // LED encendido de forma continua
-                           break;
-
-    case NM_Connecting: if (currentMillis - previousMillis >= 500) { //0.5sec blink
-                            previousMillis = currentMillis;
-                            digitalWrite(ledPin, !digitalRead(ledPin)); // Cambia el estado del LED
-                        } 
-                        break;
-
-    case NM_hashing:    if (currentMillis - previousMillis >= 100) { //0.1sec blink
-                            previousMillis = currentMillis;
-                            digitalWrite(ledPin, !digitalRead(ledPin)); // Cambia el estado del LED
-                        }
-                        break;
-  }
-}
-
-String getCurrentHashRate(unsigned long mElapsed){
+String getCurrentHashRate(unsigned long mElapsed)
+{
   return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
 }
 
-mining_data getMiningData(unsigned long mElapsed){
+mining_data getMiningData(unsigned long mElapsed)
+{
   mining_data data;
 
   char best_diff_string[16] = {0};
   suffix_string(best_diff, best_diff_string, 16, 0);
 
-  char timeMining[15] = {0}; 
+  char timeMining[15] = {0};
   unsigned long secElapsed = millis() / 1000;
-  int days = secElapsed / 86400; 
-  int hours = (secElapsed - (days * 86400)) / 3600; //Number of seconds in an hour
-  int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; //Remove the number of hours and calculate the minutes.
-  int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
-  sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);  
+  int days = secElapsed / 86400;
+  int hours = (secElapsed - (days * 86400)) / 3600;               // Number of seconds in an hour
+  int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; // Remove the number of hours and calculate the minutes.
+  int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);
+  sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
 
   data.completedShares = shares;
   data.totalMHashes = Mhashes;
@@ -263,11 +239,12 @@ mining_data getMiningData(unsigned long mElapsed){
   data.valids = valids;
   data.temp = String(temperatureRead(), 0);
   data.currentTime = getTime();
-  
+
   return data;
 }
 
-clock_data getClockData(unsigned long mElapsed){
+clock_data getClockData(unsigned long mElapsed)
+{
   clock_data data;
 
   data.completedShares = shares;
@@ -280,10 +257,11 @@ clock_data getClockData(unsigned long mElapsed){
   return data;
 }
 
-coin_data getCoinData(unsigned long mElapsed){
+coin_data getCoinData(unsigned long mElapsed)
+{
   coin_data data;
 
-  updateGlobalData(); //Update gData vars asking mempool APIs
+  updateGlobalData(); // Update gData vars asking mempool APIs
 
   data.completedShares = shares;
   data.totalKHashes = totalKHashes;
@@ -296,7 +274,7 @@ coin_data getCoinData(unsigned long mElapsed){
   data.blockHeight = getBlockHeight();
 
   unsigned long currentBlock = data.blockHeight.toInt();
-  unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS)+1) * HALVING_BLOCKS) - currentBlock;
+  unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS) + 1) * HALVING_BLOCKS) - currentBlock;
   data.progressPercent = (HALVING_BLOCKS - remainingBlocks) * 100 / HALVING_BLOCKS;
   data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
 
