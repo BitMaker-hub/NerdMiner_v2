@@ -91,7 +91,7 @@ void setup()
   Serial.println("Initiating tasks...");
   char *name = (char*) malloc(32);
   sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 5000, (void*)name, 4, NULL,1);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 4, NULL,1);
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");

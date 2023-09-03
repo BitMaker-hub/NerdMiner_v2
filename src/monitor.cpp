@@ -55,7 +55,7 @@ void updateGlobalData(void){
         http.begin(getGlobalHash);
         int httpCode = http.GET();
 
-        if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
             DynamicJsonDocument doc(1024);
@@ -75,33 +75,12 @@ void updateGlobalData(void){
         }
         http.end();
 
-        
-        //OLD code gets remaining blocks to next difficulty ajustment
-        /*//Make second API call to get remaining Blocks
-        http.begin(getDifficulty);
-        httpCode = http.GET();
-
-        if (httpCode > 0) {
-            String payload = http.getString();
-            
-            DynamicJsonDocument doc(1024);
-            deserializeJson(doc, payload);
-            String temp = "";
-            if (doc.containsKey("progressPercent")) gData.progressPercent = doc["progressPercent"].as<float>();
-            if (doc.containsKey("remainingBlocks")) gData.remainingBlocks = doc["remainingBlocks"].as<int>();
-
-            doc.clear();
-
-            mGlobalUpdate = millis();
-        }
-        
-        http.end();*/
-
+      
         //Make third API call to get fees
         http.begin(getFees);
         httpCode = http.GET();
 
-        if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
             DynamicJsonDocument doc(1024);
@@ -131,7 +110,7 @@ String getBlockHeight(void){
         http.begin(getHeightAPI);
         int httpCode = http.GET();
 
-        if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             payload.trim();
 
@@ -159,7 +138,7 @@ String getBTCprice(void){
         http.begin(getBTCAPI);
         int httpCode = http.GET();
 
-        if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
 
             DynamicJsonDocument doc(1024);

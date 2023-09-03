@@ -405,6 +405,11 @@ void runMonitor(void *name)
                       mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
                       client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
       }
+
+      #ifdef DEBUG_MEMORY
+      Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+      Serial.printf("### Max stack usage: %d\n", uxTaskGetStackHighWaterMark(NULL));
+      #endif
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);
