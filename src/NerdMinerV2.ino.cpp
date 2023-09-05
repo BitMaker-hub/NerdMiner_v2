@@ -8,7 +8,11 @@
 #include <OneButton.h>
 
 #include "mbedtls/md.h"
+#ifdef T_QT
+#include "media/images_TQT.h"
+#else
 #include "media/images.h"
+#endif
 #include "media/myFonts.h"
 #include "media/Free_Fonts.h"
 #include "OpenFontRender.h"
@@ -39,7 +43,7 @@ const char* ntpServer = "pool.ntp.org";
 //void runMonitor(void *name);
 
 void alternate_screen_state() {
-  #ifdef NERDMINERV2
+  #if defined(NERDMINERV2) || defined(T_QT)
   int screen_state= digitalRead(TFT_BL);
   //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
   Serial.println("Switching display state");
@@ -48,7 +52,11 @@ void alternate_screen_state() {
 }
 
 void alternate_screen_rotation() {
+  #ifdef T_QT
+  tft.setRotation((tft.getRotation()+1) % 4);
+  #else
   tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  #endif
 
 }
 
@@ -67,7 +75,7 @@ void setup()
   //disableCore1WDT();
 
   // Setup the buttons
-  #ifdef NERDMINERV2
+  #if defined(NERDMINERV2) || defined(T_QT)
   // Button 1 (Boot)
   button1.setPressTicks(5000);
   button1.attachClick(alternate_screen_state);
@@ -109,8 +117,13 @@ void setup()
   /******** PRINT INIT SCREEN *****/
   tft.fillScreen(TFT_BLACK);
   tft.pushImage(0, 0, initWidth, initHeight, initScreen);
+  #ifdef T_QT
+  tft.setTextColor(TFT_GOLD);
+  tft.drawString(CURRENT_VERSION, 2, 100, FONT2);
+  #else
   tft.setTextColor(TFT_BLACK);
   tft.drawString(CURRENT_VERSION, 24, 147, FONT2);
+  #endif
   delay(2000);
 
   /******** SHOW LED INIT STATUS (devices without screen) *****/

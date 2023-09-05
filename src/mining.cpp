@@ -6,7 +6,11 @@
 #include "ShaTests/nerdSHA256.h"
 //#include "ShaTests/nerdSHA256plus.h"
 #include "media/Free_Fonts.h"
+#ifdef T_QT
+#include "media/images_TQT.h"
+#else
 #include "media/images.h"
+#endif
 #include "OpenFontRender.h"
 #include "stratum.h"
 #include "mining.h"
@@ -401,8 +405,10 @@ void runMonitor(void *name){
     switch(mMonitor.screen){
       case SCREEN_MINING: show_MinerScreen(mElapsed); break;
       case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
+#ifndef T_QT      
       case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
       case NO_SCREEN: show_NoScreen(mElapsed); break;
+#endif
     }
     
     //Monitor state when hashrate is 0.0

@@ -2,7 +2,11 @@
 #include <WiFi.h>
 #include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include "media/Free_Fonts.h"
+#ifdef T_QT
+#include "media/images_TQT.h"
+#else
 #include "media/images.h"
+#endif
 #include "mbedtls/md.h"
 #include "OpenFontRender.h"
 #include "HTTPClient.h"
@@ -188,6 +192,29 @@ unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
 
+#ifdef T_QT
+void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
+  
+  //Check if need an NTP call to check current time
+  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
+    if(WiFi.status() == WL_CONNECTED) {
+        timeClient.update(); //NTP call to get current time
+        mTriggerUpdate = millis();
+        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
+        Serial.print("TimeClient NTPupdateTime ");
+    }
+  }
+
+  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+
+  // convierte la hora actual en horas, minutos y segundos
+  *currentHours = currentTime % 86400 / 3600;
+  *currentMinutes = currentTime % 3600 / 60;
+  *currentSeconds = currentTime % 60;
+
+}    
+#else
 String getTime(void){
   
   //Check if need an NTP call to check current time
@@ -213,10 +240,15 @@ String getTime(void){
   String mystring(LocalHour);
   return LocalHour;
 }
+#endif
 
 void changeScreen(void){
     mMonitor.screen++;
+#ifdef T_QT
+    if(mMonitor.screen> SCREEN_CLOCK) mMonitor.screen = SCREEN_MINING;
+#else
     if(mMonitor.screen> SCREEN_GLOBAL) mMonitor.screen = SCREEN_MINING;
+#endif
 }
 
 void show_NoScreen(unsigned long mElapsed){
@@ -228,6 +260,106 @@ void show_NoScreen(unsigned long mElapsed){
       shares, totalKHashes, CurrentHashrate);
 }
 
+#ifdef T_QT
+void show_MinerScreen(unsigned long mElapsed){
+
+    //Print background screen
+    background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen); 
+
+    char CurrentHashrate[10] = {0};
+    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
+
+    //Serial.println("[runMonitor Task] -> Printing results on screen ");
+    
+     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
+      shares, totalKHashes, CurrentHashrate);
+
+    //Hashrate
+    render.setFontSize(32);
+    render.setCursor(0, 0);
+    render.setFontColor(TFT_BLACK);    
+    render.rdrawString(CurrentHashrate, 114, 24, TFT_DARKGREY);
+
+    //Valid Blocks
+    render.setFontSize(22);
+    render.drawString(String(valids).c_str(), 15, 92, TFT_BLACK);
+    
+    //Mining Time
+    char timeMining[15]; 
+    unsigned long secElapsed = millis() / 1000;
+    int days = secElapsed / 86400; 
+    int hours = (secElapsed - (days * 86400)) / 3600;                                                        //Number of seconds in an hour
+    int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60;                                              //Remove the number of hours and calculate the minutes.
+    int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);   
+    sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
+    render.setFontSize(10);
+    render.setCursor(0, 10);        
+    render.rdrawString(String(timeMining).c_str(), 124, 0, TFT_BLACK);
+
+    //Push prepared background to screen
+    background.pushSprite(0,0);
+}
+
+uint16_t osx=64, osy=64, omx=64, omy=64, ohx=64, ohy=64;  // Saved H, M, S x & y coords
+void show_ClockScreen(unsigned long mElapsed){
+
+    //Print background screen
+    background.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen); 
+
+    char CurrentHashrate[10] = {0};
+    sprintf(CurrentHashrate, "%.2f", (1.0*(elapsedKHs*1000))/mElapsed);
+
+    //Serial.println("[runMonitor Task] -> Printing results on screen ");
+    
+     Serial.printf(">>> Completed %d share(s), %d Khashes, avg. hashrate %s KH/s\n",
+      shares, totalKHashes, CurrentHashrate);
+
+    render.setCursor(0, 0);
+    //Valid Blocks
+    render.setFontSize(15);
+    render.rdrawString(String(valids).c_str(), 96, 54, TFT_BLACK);
+
+    //Hashrate
+    render.setFontSize(18);
+    render.setFontColor(TFT_BLACK);    
+    render.cdrawString(CurrentHashrate, 64, 74, TFT_DARKGREY);
+
+    unsigned long currentHours;
+    unsigned long currentMinutes;
+    unsigned long currentSeconds;
+    getTime(&currentHours, &currentMinutes, &currentSeconds);
+
+    if (currentHours > 12)
+        currentHours -= 12;
+    float sdeg = currentSeconds*6;                  // 0-59 -> 0-354
+    float mdeg = currentMinutes*6+sdeg*0.01666667;  // 0-59 -> 0-360 - includes seconds
+    float hdeg = currentHours*30+mdeg*0.0833333;  // 0-11 -> 0-360 - includes minutes and seconds
+
+    float hx = cos((hdeg-90)*0.0174532925);    
+    float hy = sin((hdeg-90)*0.0174532925);
+    float mx = cos((mdeg-90)*0.0174532925);    
+    float my = sin((mdeg-90)*0.0174532925);
+    float sx = cos((sdeg-90)*0.0174532925);    
+    float sy = sin((sdeg-90)*0.0174532925);    
+
+    ohx = hx*33+60;    
+    ohy = hy*33+60;
+    omx = mx*44+60;    
+    omy = my*44+60;    
+    // Redraw new hand positions, hour and minute hands not erased here to avoid flicker
+    background.drawLine(ohx, ohy, 65, 65, TFT_BLACK);
+    background.drawLine(omx, omy, 65, 65, TFT_BLACK);
+    osx = sx*47+60;    
+    osy = sy*47+60;
+    background.drawLine(osx, osy, 65, 65, TFT_RED);   
+
+    background.fillCircle(65, 65, 3, TFT_RED);
+
+
+    //Push prepared background to screen
+    background.pushSprite(0,0);      
+}
+#else
 void show_MinerScreen(unsigned long mElapsed){
 
     //Print background screen
@@ -420,6 +552,7 @@ void show_GlobalHashScreen(unsigned long mElapsed){
     //Push prepared background to screen
     background.pushSprite(0,0);
 }
+#endif
 
 // Variables para controlar el parpadeo con millis()
 unsigned long previousMillis = 0;

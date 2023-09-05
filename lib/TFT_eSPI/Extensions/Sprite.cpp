@@ -223,10 +223,7 @@ void* TFT_eSprite::callocSprite(int16_t w, int16_t h, uint8_t frames)
 ***************************************************************************************/
 void TFT_eSprite::createPalette(uint16_t colorMap[], uint8_t colors)
 {
-  if (_colorMap != nullptr)
-  {
-    free(_colorMap);
-  }
+  if (!_created) return;
 
   if (colorMap == nullptr)
   {
@@ -236,7 +233,7 @@ void TFT_eSprite::createPalette(uint16_t colorMap[], uint8_t colors)
   }
 
   // Allocate and clear memory for 16 color map
-  _colorMap = (uint16_t *)calloc(16, sizeof(uint16_t));
+  if (_colorMap == nullptr) _colorMap = (uint16_t *)calloc(16, sizeof(uint16_t));
 
   if (colors > 16) colors = 16;
 
@@ -254,6 +251,8 @@ void TFT_eSprite::createPalette(uint16_t colorMap[], uint8_t colors)
 ***************************************************************************************/
 void TFT_eSprite::createPalette(const uint16_t colorMap[], uint8_t colors)
 {
+  if (!_created) return;
+
   if (colorMap == nullptr)
   {
     // Create a color map using the default FLASH map
@@ -261,7 +260,7 @@ void TFT_eSprite::createPalette(const uint16_t colorMap[], uint8_t colors)
   }
 
   // Allocate and clear memory for 16 color map
-  _colorMap = (uint16_t *)calloc(16, sizeof(uint16_t));
+  if (_colorMap == nullptr) _colorMap = (uint16_t *)calloc(16, sizeof(uint16_t));
 
   if (colors > 16) colors = 16;
 
@@ -310,13 +309,9 @@ void* TFT_eSprite::setColorDepth(int8_t b)
   else if ( b > 1 ) _bpp = 4;
   else _bpp = 1;
 
-  // Can't change an existing sprite's colour depth so delete it
-  if (_created) free(_img8_1);
-
-  // If it existed, re-create the sprite with the new colour depth
-  if (_created)
-  {
-    _created = false;
+  // Can't change an existing sprite's colour depth so delete and create a new one
+  if (_created) {
+    deleteSprite();
     return createSprite(_dwidth, _dheight);
   }
 
@@ -380,7 +375,7 @@ void TFT_eSprite::deleteSprite(void)
   if (_colorMap != nullptr)
   {
     free(_colorMap);
-	_colorMap = nullptr;
+    _colorMap = nullptr;
   }
 
   if (_created)

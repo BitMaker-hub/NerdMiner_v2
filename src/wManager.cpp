@@ -8,7 +8,11 @@
 
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
+#ifdef T_QT
+#include "media/images_TQT.h"
+#else
 #include "media/images.h"
+#endif
 #include <TFT_eSPI.h> // Graphics and font library
 #include "wManager.h"
 #include "monitor.h"
