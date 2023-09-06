@@ -8,10 +8,9 @@
 
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
-#include "media/images.h"
-#include <TFT_eSPI.h> // Graphics and font library
 #include "wManager.h"
 #include "monitor.h"
+#include "drivers/display.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
@@ -28,9 +27,6 @@ int GMTzone = 2; //Currently selected in spain
 
 // Define WiFiManager Object
 WiFiManager wm;
-
-
-extern TFT_eSPI tft;  // tft variable declared on main
 extern monitor_data mMonitor;
 
 void saveConfigFile()
@@ -143,19 +139,21 @@ void init_WifiManager()
   //Serial.setTxTimeoutMs(10);
 
   //Init pin 15 to eneble 5V external power (LilyGo bug)
-  pinMode(PIN_ENABLE5V, OUTPUT);
-  digitalWrite(PIN_ENABLE5V, HIGH);
+  #ifdef PIN_ENABLE5V
+    pinMode(PIN_ENABLE5V, OUTPUT);
+    digitalWrite(PIN_ENABLE5V, HIGH);
+  #endif
 
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
 
-  #if !defined(DEVKITV1)
-  // Check if button2 is pressed to enter configMode with actual configuration
-  if(!digitalRead(PIN_BUTTON_2)){
-    Serial.println(F("Button pressed to force start config mode"));
-    forceConfig = true;
-    wm.setBreakAfterConfig(true); //Set to detect config edition and save
-  }
+  #if defined(PIN_BUTTON_2)
+    // Check if button2 is pressed to enter configMode with actual configuration
+    if(!digitalRead(PIN_BUTTON_2)){
+      Serial.println(F("Button pressed to force start config mode"));
+      forceConfig = true;
+      wm.setBreakAfterConfig(true); //Set to detect config edition and save
+    }
   #endif
   
   bool spiffsSetup = loadConfigFile();
@@ -222,7 +220,7 @@ void init_WifiManager()
   {
     //No configuramos timeout al modulo
     wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
-    tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
+    drawSetupScreen();
     if (!wm.startConfigPortal("NerdMinerAP","MineYourCoins"))
     {
       Serial.println("failed to connect and hit timeout");

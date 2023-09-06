@@ -2,16 +2,13 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <esp_task_wdt.h>
-#include <TFT_eSPI.h> // Graphics and font library for ILI9341 driver chip
 #include "ShaTests/nerdSHA256.h"
 //#include "ShaTests/nerdSHA256plus.h"
-#include "media/Free_Fonts.h"
-#include "media/images.h"
-#include "OpenFontRender.h"
 #include "stratum.h"
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "drivers/display.h"
 
 unsigned long templates = 0;
 unsigned long hashes= 0;
@@ -30,9 +27,6 @@ extern char poolString[80];
 extern int portNumber;
 extern char btcString[80];
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
-
-extern OpenFontRender render;
-extern TFT_eSprite background;
 
 //Global work data 
 static WiFiClient client;
@@ -378,42 +372,50 @@ void runMiner(void * task_id) {
   }
 }
 
-void runMonitor(void *name){
+#define DELAY 100
+#define REDRAW_EVERY 10
+
+void runMonitor(void *name)
+{
 
   Serial.println("[MONITOR] started");
-  
+
   unsigned long mLastCheck = 0;
-  mMonitor.screen = SCREEN_MINING;
 
-  #ifdef DEVKITV1
-  mMonitor.screen = NO_SCREEN;
-  #endif
+  resetToFirstScreen();
 
-  while(1){
-    
-    
-    unsigned long mElapsed = millis()-mLastCheck;
-    mLastCheck = millis();
-    unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
-    elapsedKHs = currentKHashes - totalKHashes; 
-    totalKHashes = currentKHashes;
-    
-    switch(mMonitor.screen){
-      case SCREEN_MINING: show_MinerScreen(mElapsed); break;
-      case SCREEN_CLOCK: show_ClockScreen(mElapsed); break;
-      case SCREEN_GLOBAL: show_GlobalHashScreen(mElapsed); break;
-      case NO_SCREEN: show_NoScreen(mElapsed); break;
+  unsigned long frame = 0;
+
+  while (1)
+  {
+    if ((frame % REDRAW_EVERY) == 0)
+    {
+      unsigned long mElapsed = millis() - mLastCheck;
+      mLastCheck = millis();
+      unsigned long currentKHashes = (Mhashes * 1000) + hashes / 1000;
+      elapsedKHs = currentKHashes - totalKHashes;
+      totalKHashes = currentKHashes;
+
+      drawCurrentScreen(mElapsed);
+
+      // Monitor state when hashrate is 0.0
+      if (elapsedKHs == 0)
+      {
+        Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
+                      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
+                      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+      }
+
+      #ifdef DEBUG_MEMORY
+      Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+      Serial.printf("### Max stack usage: %d\n", uxTaskGetStackHighWaterMark(NULL));
+      #endif
     }
-    
-    //Monitor state when hashrate is 0.0
-    if(elapsedKHs == 0) {
-      Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false", 
-      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
-    }
+    animateCurrentScreen(frame);
+    doLedStuff(frame);
 
     // Pause the task for 1000ms
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(DELAY / portTICK_PERIOD_MS);
+    frame++;
   }
 }
-
