@@ -166,8 +166,7 @@ String getTime(void){
   //Check if need an NTP call to check current time
   if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
     if(WiFi.status() == WL_CONNECTED) {
-        timeClient.update(); //NTP call to get current time
-        mTriggerUpdate = millis();
+        if(timeClient.update()) mTriggerUpdate = millis();
         initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
         Serial.print("TimeClient NTPupdateTime ");
     }
@@ -256,6 +255,7 @@ coin_data getCoinData(unsigned long mElapsed)
   unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS) + 1) * HALVING_BLOCKS) - currentBlock;
   data.progressPercent = (HALVING_BLOCKS - remainingBlocks) * 100 / HALVING_BLOCKS;
   data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
+
 
   return data;
 }
