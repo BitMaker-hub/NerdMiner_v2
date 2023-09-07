@@ -4,55 +4,36 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h>
-#include <TFT_eSPI.h> // Graphics and font library
 #include <OneButton.h>
 
 #include "mbedtls/md.h"
-#include "media/images.h"
-#include "media/myFonts.h"
-#include "media/Free_Fonts.h"
-#include "OpenFontRender.h"
 #include "wManager.h"
 #include "mining.h"
 #include "monitor.h"
-
-#define CURRENT_VERSION "V1.6.1"
+#include "drivers/display.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
 //15 minutes WDT for miner task
 #define WDT_MINER_TIMEOUT 900
-OneButton button1(PIN_BUTTON_1);
-OneButton button2(PIN_BUTTON_2);
+
+#ifdef PIN_BUTTON_1
+  OneButton button1(PIN_BUTTON_1);
+#endif
+
+#ifdef PIN_BUTTON_2
+  OneButton button2(PIN_BUTTON_2);
+#endif
 
 
-OpenFontRender render;
 extern monitor_data mMonitor;
 
 /**********************⚡ GLOBAL Vars *******************************/
-TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
-TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
 
 unsigned long start = millis();
 const char* ntpServer = "pool.ntp.org";
 
 //void runMonitor(void *name);
-
-void alternate_screen_state() {
-  #ifdef NERDMINERV2
-  int screen_state= digitalRead(TFT_BL);
-  //Serial.printf("Screen state is '%s', switching to '%s'", screen_state, !screen_state);
-  Serial.println("Switching display state");
-  digitalWrite(TFT_BL, !screen_state);
-  #endif
-}
-
-void alternate_screen_rotation() {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
-
-}
-
-
 
 /********* INIT *****/
 void setup()
@@ -67,58 +48,39 @@ void setup()
   //disableCore1WDT();
 
   // Setup the buttons
-  #ifdef NERDMINERV2
-  // Button 1 (Boot)
-  button1.setPressTicks(5000);
-  button1.attachClick(alternate_screen_state);
-  button1.attachDoubleClick(alternate_screen_rotation);
-  // Button 2 (GPIO14)
-  button2.setPressTicks(5000);
-  button2.attachClick(changeScreen);
-  button2.attachLongPressStart(reset_configurations);
-  #elif defined(DEVKITV1)
-  //Standard ESP32-devKit
-  button1.setPressTicks(5000);
-  button1.attachLongPressStart(reset_configurations);
-  pinMode(LED_PIN, OUTPUT);
+  #if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) //One button device
+    button1.setPressTicks(5000);
+    button1.attachClick(switchToNextScreen);
+    button1.attachDoubleClick(alternateScreenRotation);
+    button1.attachLongPressStart(reset_configurations);
   #endif
-  
 
+  #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
+    button1.setPressTicks(5000);
+    button1.attachClick(alternateScreenState);
+    button1.attachDoubleClick(alternateScreenRotation);
+  #endif
 
+  #if defined(PIN_BUTTON_2) //Button 2 of two button device
+    button2.setPressTicks(5000);
+    button2.attachClick(switchToNextScreen);
+    button2.attachLongPressStart(reset_configurations);
+  #endif
 
   /******** INIT NERDMINER ************/
   Serial.println("NerdMiner v2 starting......");
 
-
   /******** INIT DISPLAY ************/
-  tft.init();
-  tft.setRotation(1);
-  tft.setSwapBytes(true);// Swap the colour byte order when rendering
-  background.createSprite(initWidth,initHeight); //Background Sprite
-  background.setSwapBytes(true);
-  render.setDrawer(background); // Link drawing object to background instance (so font will be rendered on background)
-  render.setLineSpaceRatio(0.9); //Espaciado entre texto
-
-  // Load the font and check it can be read OK
-  //if (render.loadFont(NotoSans_Bold, sizeof(NotoSans_Bold))) {
-  if (render.loadFont(DigitalNumbers, sizeof(DigitalNumbers))){
-    Serial.println("Initialise error");
-    return;
-  }
+  initDisplay();
   
   /******** PRINT INIT SCREEN *****/
-  tft.fillScreen(TFT_BLACK);
-  tft.pushImage(0, 0, initWidth, initHeight, initScreen);
-  tft.setTextColor(TFT_BLACK);
-  tft.drawString(CURRENT_VERSION, 24, 147, FONT2);
+  drawLoadingScreen();
   delay(2000);
 
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
-  #ifdef DEVKITV1
-  doLedStuff(LED_PIN);
-  #endif
-
+  doLedStuff(0);
+  
   /******** INIT WIFI ************/
   init_WifiManager();
 
@@ -129,7 +91,7 @@ void setup()
   Serial.println("Initiating tasks...");
   char *name = (char*) malloc(32);
   sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 5000, (void*)name, 4, NULL,1);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 4, NULL,1);
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
@@ -168,14 +130,15 @@ void app_error_fault_handler(void *arg) {
 
 void loop() {
   // keep watching the push buttons:
-  button1.tick();
-  button2.tick();
+  #ifdef PIN_BUTTON_1
+    button1.tick();
+  #endif
+
+  #ifdef PIN_BUTTON_2
+    button2.tick();
+  #endif
   
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
-
-  #ifdef DEVKITV1
-  doLedStuff(LED_PIN);
-  #endif
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }
