@@ -12,6 +12,8 @@
 
 #define TARGET_BUFFER_SIZE 64
 
+#define SAVESTAT_TIME (5 * 60) //Save stats every 5 min seconds
+
 void runMonitor(void *name);
 void runStratumWorker(void *name);
 void runMiner(void *name);

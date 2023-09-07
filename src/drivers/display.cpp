@@ -1,4 +1,5 @@
 #include "display.h"
+#include "monitor.h"
 
 #ifdef NO_DISPLAY
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
@@ -49,12 +50,14 @@ void drawSetupScreen()
 // Reset the current cyclic screen to the first one
 void resetToFirstScreen()
 {
+  markFirstTimeDraw();
   currentDisplayDriver->current_cyclic_screen = 0;
 }
 
 // Switches to the next cyclic screen without drawing it
 void switchToNextScreen()
 {
+  markFirstTimeDraw();
   currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
 }
 

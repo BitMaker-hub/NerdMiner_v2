@@ -92,5 +92,6 @@ void setup_monitor(void);
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
+void markFirstTimeDraw(void);
 
 #endif //MONITOR_API_H

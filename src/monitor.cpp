@@ -9,14 +9,15 @@
 #include "monitor.h"
 
 extern char poolString[80];
-extern unsigned long templates;
-extern unsigned long hashes;
-extern unsigned long Mhashes;
-extern unsigned long totalKHashes;
-extern unsigned long elapsedKHs;
+extern uint32_t templates;
+extern uint32_t hashes;
+extern uint32_t Mhashes;
+extern uint32_t totalKHashes;
+extern uint32_t elapsedKHs;
+extern uint64_t upTime;
 
-extern unsigned int shares; // increase if blockhash has 32 bits of zeroes
-extern unsigned int valids; // increased if blockhash <= target
+extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
+extern uint32_t valids; // increased if blockhash <= targethalfshares
 
 extern double best_diff; // track best diff
 
@@ -160,6 +161,11 @@ String getBTCprice(void){
 unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
+bool isFirstTimeDraw = true;
+
+void markFirstTimeDraw(void){
+  isFirstTimeDraw = true;
+}
 
 String getTime(void){
   
@@ -200,7 +206,7 @@ mining_data getMiningData(unsigned long mElapsed)
   suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
-  unsigned long secElapsed = millis() / 1000;
+  uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
   int days = secElapsed / 86400;
   int hours = (secElapsed - (days * 86400)) / 3600;               // Number of seconds in an hour
   int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; // Remove the number of hours and calculate the minutes.
@@ -225,13 +231,21 @@ clock_data getClockData(unsigned long mElapsed)
 {
   clock_data data;
 
+  char timeMining[15] = {0};
+  uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
+  int hours = secElapsed / 3600;
+  int mins = (secElapsed - (hours * 3600)) / 60;
+  int secs = secElapsed - (hours * 3600) - (mins * 60);
+  sprintf(timeMining, "%02d:%02d:%02d", hours, mins, secs);
+
   data.completedShares = shares;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
-  data.btcPrice = getBTCprice();
-  data.blockHeight = getBlockHeight();
+  data.btcPrice = isFirstTimeDraw ? "" : getBTCprice();
+  data.blockHeight = isFirstTimeDraw ? "" : getBlockHeight();
   data.currentTime = getTime();
 
+  isFirstTimeDraw = false;
   return data;
 }
 
@@ -239,23 +253,24 @@ coin_data getCoinData(unsigned long mElapsed)
 {
   coin_data data;
 
-  updateGlobalData(); // Update gData vars asking mempool APIs
+  if(!isFirstTimeDraw)
+    updateGlobalData(); // Update gData vars asking mempool APIs
 
   data.completedShares = shares;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
-  data.btcPrice = getBTCprice();
+  data.btcPrice = isFirstTimeDraw ? "" : getBTCprice();
   data.currentTime = getTime();
   data.halfHourFee = String(gData.halfHourFee) + " sat/vB";
   data.netwrokDifficulty = gData.difficulty;
   data.globalHashRate = gData.globalHash;
-  data.blockHeight = getBlockHeight();
+  data.blockHeight = isFirstTimeDraw ? "" : getBlockHeight();
 
   unsigned long currentBlock = data.blockHeight.toInt();
   unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS) + 1) * HALVING_BLOCKS) - currentBlock;
   data.progressPercent = (HALVING_BLOCKS - remainingBlocks) * 100 / HALVING_BLOCKS;
   data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
 
-
+  isFirstTimeDraw = false;
   return data;
 }
