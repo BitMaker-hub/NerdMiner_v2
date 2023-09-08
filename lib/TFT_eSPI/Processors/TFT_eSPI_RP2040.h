@@ -165,8 +165,13 @@
     #define DC_C  WAIT_FOR_STALL; \
                   tft_pio->sm[pio_sm].instr = pio_instr_clr_dc
 
-    // Flush has happened before this and mode changed back to 16 bit
-    #define DC_D  tft_pio->sm[pio_sm].instr = pio_instr_set_dc
+    #ifndef RM68120_DRIVER
+      // Flush has happened before this and mode changed back to 16 bit
+      #define DC_D  tft_pio->sm[pio_sm].instr = pio_instr_set_dc
+    #else
+      // Need to wait for stall since RM68120 commands are 16 bit
+      #define DC_D  WAIT_FOR_STALL; tft_pio->sm[pio_sm].instr = pio_instr_set_dc
+    #endif
   #endif
 #endif
 
@@ -408,7 +413,7 @@
   // Temporary - to be deleted
   #define GPIO_DIR_MASK 0
 
-  #if  defined (SPI_18BIT_DRIVER) // SPI 18 bit colour
+  #if  defined (SPI_18BIT_DRIVER)  || defined (SSD1963_DRIVER) // 18 bit colour (3 bytes)
       // This writes 8 bits, then switches back to 16 bit mode automatically
       // Have already waited for pio stalled (last data write complete) when DC switched to command mode
       // The wait for stall allows DC to be changed immediately afterwards
