@@ -161,6 +161,28 @@ unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
 
+void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
+  
+  //Check if need an NTP call to check current time
+  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
+    if(WiFi.status() == WL_CONNECTED) {
+        timeClient.update(); //NTP call to get current time
+        mTriggerUpdate = millis();
+        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
+        Serial.print("TimeClient NTPupdateTime ");
+    }
+  }
+
+  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+
+  // convierte la hora actual en horas, minutos y segundos
+  *currentHours = currentTime % 86400 / 3600;
+  *currentMinutes = currentTime % 3600 / 60;
+  *currentSeconds = currentTime % 60;
+
+}
+
 String getTime(void){
   
   //Check if need an NTP call to check current time
@@ -231,6 +253,17 @@ clock_data getClockData(unsigned long mElapsed)
   data.btcPrice = getBTCprice();
   data.blockHeight = getBlockHeight();
   data.currentTime = getTime();
+
+  return data;
+}
+
+clock_data_t getClockData_t(unsigned long mElapsed)
+{
+  clock_data_t data;
+
+  data.valids = valids;
+  data.currentHashRate = getCurrentHashRate(mElapsed);
+  getTime(&data.currentHours, &data.currentMinutes, &data.currentSeconds);
 
   return data;
 }

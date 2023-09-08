@@ -139,6 +139,9 @@
 #include <User_Setups/Setup300_TTGO_T_Dongle.h>
 #endif
 
+#ifdef NERMINER_T_QT
+#include <User_Setups/Setup211_LilyGo_T_QT_Pro_S3.h>
+#endif
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 
 //#include <User_Setups/SetupX_Template.h>     // Template file for a setup

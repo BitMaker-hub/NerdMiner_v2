@@ -16,6 +16,10 @@ DisplayDriver *currentDisplayDriver = &amoledDisplayDriver;
 DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 #endif
 
+#ifdef T_QT_DISPLAY
+DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
+#endif
+
 // Initialize the display
 void initDisplay()
 {
