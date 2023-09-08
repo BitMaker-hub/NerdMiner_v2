@@ -2,31 +2,38 @@
 // This example renders a png file that is stored in a FLASH array
 // using the PNGdec library (available via library manager).
 
+// The example png is encoded as ARGB 8 bits per pixel with indexed colour
+// It was created using GIMP and has a transparent background area.
+
 // Image files can be converted to arrays using the tool here:
 // https://notisrac.github.io/FileToCArray/
 // To use this tool:
-//   1. Drag and drop file on "Browse..." button
+//   1. Drag and drop PNG image file on "Browse..." button
 //   2. Tick box "Treat as binary"
 //   3. Click "Convert"
 //   4. Click "Save as file" and move the header file to sketch folder
+//      (alternatively use the "Copy to clipboard" and paste into a new tab)
 //   5. Open the sketch in IDE
-//   6. Include the header file containing the array (panda.h in this example)
+//   6. Include the header file containing the array (SpongeBob.h in this example)
 
-// Include the PNG decoder library
+// Include the PNG decoder library, available via the IDE library manager
 #include <PNGdec.h>
-#include "panda.h" // Image is stored here in an 8 bit array
 
-PNG png; // PNG decoder inatance
+// Include image array
+#include "SpongeBob.h"
 
-#define MAX_IMAGE_WIDTH 240 // Adjust for your images
+PNG png; // PNG decoder instance
 
-int16_t xpos = 0;
-int16_t ypos = 0;
+#define MAX_IMAGE_WIDTH 240 // Sets rendering line buffer lengths, adjust for your images
 
-// Include the TFT library https://github.com/Bodmer/TFT_eSPI
+// Include the TFT library - see https://github.com/Bodmer/TFT_eSPI for library information
 #include "SPI.h"
 #include <TFT_eSPI.h>              // Hardware-specific library
 TFT_eSPI tft = TFT_eSPI();         // Invoke custom library
+
+// Position variables must be global (PNGdec does not handle position coordinates)
+int16_t xpos = 0;
+int16_t ypos = 0;
 
 //====================================================================================
 //                                    Setup
@@ -48,31 +55,32 @@ void setup()
 //====================================================================================
 void loop()
 {
-  int16_t rc = png.openFLASH((uint8_t *)panda, sizeof(panda), pngDraw);
+  uint16_t pngw = 0, pngh = 0; // To store width and height of image
+
+  int16_t rc = png.openFLASH((uint8_t *)bob, sizeof(bob), pngDraw);
+
   if (rc == PNG_SUCCESS) {
     Serial.println("Successfully opened png file");
-    Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+    pngw = png.getWidth();
+    pngh = png.getHeight();
+    Serial.printf("Image metrics: (%d x %d), %d bpp, pixel type: %d\n", pngw, pngh, png.getBpp(), png.getPixelType());
+
     tft.startWrite();
     uint32_t dt = millis();
     rc = png.decode(NULL, 0);
+    tft.endWrite();
     Serial.print(millis() - dt); Serial.println("ms");
     tft.endWrite();
-    // png.close(); // not needed for memory->memory decode
+
+    // png.close(); // Required for files, not needed for FLASH arrays
   }
-  delay(3000);
-  tft.fillScreen(random(0x10000));
-}
 
+  delay(250);
 
-//=========================================v==========================================
-//                                      pngDraw
-//====================================================================================
-// This next function will be called during decoding of the png file to
-// render each image line to the TFT.  If you use a different TFT library
-// you will need to adapt this function to suit.
-// Callback function to draw pixels to the display
-void pngDraw(PNGDRAW *pDraw) {
-  uint16_t lineBuffer[MAX_IMAGE_WIDTH];
-  png.getLineAsRGB565(pDraw, lineBuffer, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
-  tft.pushImage(xpos, ypos + pDraw->y, pDraw->iWidth, 1, lineBuffer);
+  // Randomly change position
+  xpos = random(tft.width() - pngw);
+  ypos = random(tft.height() - pngh);
+
+  // Fill screen with a random colour at random intervals
+  if (random(100) < 20) tft.fillScreen(random(0x10000));
 }

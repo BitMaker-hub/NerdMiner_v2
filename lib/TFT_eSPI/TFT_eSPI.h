@@ -16,7 +16,7 @@
 #ifndef _TFT_eSPIH_
 #define _TFT_eSPIH_
 
-#define TFT_ESPI_VERSION "2.5.0"
+#define TFT_ESPI_VERSION "2.5.23"
 
 // Bit level feature flags
 // Bit 0 set: viewport capability
@@ -86,7 +86,9 @@
 #elif defined(ARDUINO_ARCH_ESP8266) || defined(ESP32)
   #include <pgmspace.h>
 #else
-  #define PROGMEM
+  #ifndef PROGMEM
+    #define PROGMEM
+  #endif
 #endif
 
 // Include the processor specific drivers
@@ -104,6 +106,7 @@
   #include "Processors/TFT_eSPI_RP2040.h"
 #else
   #include "Processors/TFT_eSPI_Generic.h"
+  #define GENERIC_PROCESSOR
 #endif
 
 /***************************************************************************************
@@ -140,6 +143,17 @@
 #ifndef SPI_BUSY_CHECK
   #define SPI_BUSY_CHECK
 #endif
+
+// If half duplex SDA mode is defined then MISO pin should be -1
+#ifdef TFT_SDA_READ
+  #ifdef TFT_MISO
+    #if TFT_MISO != -1
+      #undef TFT_MISO
+      #define TFT_MISO -1
+      #warning TFT_MISO set to -1
+    #endif
+  #endif
+#endif  
 
 /***************************************************************************************
 **                         Section 4: Setup fonts
@@ -353,7 +367,9 @@ uint32_t setup_id;   // ID available to use in a user setup
 int32_t esp;         // Processor code
 uint8_t trans;       // SPI transaction support
 uint8_t serial;      // Serial (SPI) or parallel
+#ifndef GENERIC_PROCESSOR
 uint8_t  port;       // SPI port
+#endif
 uint8_t overlap;     // ESP8266 overlap mode
 uint8_t interface;   // Interface type
 
@@ -526,12 +542,12 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
            // By default the arc is drawn with square ends unless the "roundEnds" parameter is included and set true
            // Angle = 0 is at 6 o'clock position, 90 at 9 o'clock etc. The angles must be in range 0-360 or they will be clipped to these limits
            // The start angle may be larger than the end angle. Arcs are always drawn clockwise from the start angle.
-  void     drawSmoothArc(int32_t x, int32_t y, int32_t r, int32_t ir, int32_t startAngle, int32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool roundEnds = false);
+  void     drawSmoothArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool roundEnds = false);
 
-           // As per "drawSmoothArc" except endAngle should be greater than startAngle (angles will be swapped otherwise)
+           // As per "drawSmoothArc" except the ends of the arc are NOT anti-aliased, this facilitates dynamic arc length changes with
+           // arc segments and ensures clean segment joints. 
            // The sides of the arc are anti-aliased by default. If smoothArc is false sides will NOT be anti-aliased
-           // The ends of the arc are NOT anti-aliased, this facilitates dynamic arc length changes with arc segments and ensures clean segment joints
-  void     drawArc(int32_t x, int32_t y, int32_t r, int32_t ir, int32_t startAngle, int32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool smoothArc = true);
+  void     drawArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool smoothArc = true);
 
            // Draw an anti-aliased filled circle at x, y with radius r
            // Note: The thickness of line is 3 pixels to reduce the visible "braiding" effect of anti-aliasing narrow lines
@@ -683,11 +699,12 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
 
   // Low level read/write
   void     spiwrite(uint8_t);        // legacy support only
-#ifndef RM68120_DRIVER
-  void     writecommand(uint8_t c);  // Send a command, function resets DC/RS high ready for data
+#ifdef RM68120_DRIVER
+  void     writecommand(uint16_t c);                 // Send a 16 bit command, function resets DC/RS high ready for data
+  void     writeRegister8(uint16_t c, uint8_t d);    // Write 8 bit data data to 16 bit command register
+  void     writeRegister16(uint16_t c, uint16_t d);  // Write 16 bit data data to 16 bit command register
 #else
-  void     writecommand(uint16_t c); // Send a command, function resets DC/RS high ready for data
-  void     writeRegister(uint16_t c, uint8_t d); // Write data to 16 bit command register
+  void     writecommand(uint8_t c);  // Send an 8 bit command, function resets DC/RS high ready for data
 #endif
   void     writedata(uint8_t d);     // Send data with DC/RS set high
 

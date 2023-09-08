@@ -43,11 +43,11 @@
     #endif
   #else
     #ifdef USE_HSPI_PORT
-      #define DMA_CHANNEL 2
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
+      #define DMA_CHANNEL SPI_DMA_CH_AUTO
+      spi_host_device_t spi_host = SPI3_HOST;
     #else // use FSPI port
-      #define DMA_CHANNEL 1
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
+      #define DMA_CHANNEL SPI_DMA_CH_AUTO
+      spi_host_device_t spi_host = SPI2_HOST;
     #endif
   #endif
 #endif
@@ -57,27 +57,24 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 /***************************************************************************************
-** Function name:           beginSDA
-** Description:             Detach SPI from pin to permit software SPI
+** Function name:           beginSDA - FPSI port only
+** Description:             Detach MOSI and attach MISO to SDA for reads
 ***************************************************************************************/
 void TFT_eSPI::begin_SDA_Read(void)
 {
-  pinMatrixOutDetach(TFT_MOSI, false, false);
-  pinMode(TFT_MOSI, INPUT);
-  pinMatrixInAttach(TFT_MOSI, VSPIQ_IN_IDX, false);
+  gpio_set_direction((gpio_num_t)TFT_MOSI, GPIO_MODE_INPUT);
+  pinMatrixInAttach(TFT_MOSI, FSPIQ_IN_IDX, false);
   SET_BUS_READ_MODE;
 }
 
 /***************************************************************************************
-** Function name:           endSDA
-** Description:             Attach SPI pins after software SPI
+** Function name:           endSDA - FPSI port only
+** Description:             Attach MOSI to SDA and detach MISO for writes
 ***************************************************************************************/
 void TFT_eSPI::end_SDA_Read(void)
 {
-  pinMode(TFT_MOSI, OUTPUT);
-  pinMatrixOutAttach(TFT_MOSI, VSPID_OUT_IDX, false, false);
-  pinMode(TFT_MISO, INPUT);
-  pinMatrixInAttach(TFT_MISO, VSPIQ_IN_IDX, false);
+  gpio_set_direction((gpio_num_t)TFT_MOSI, GPIO_MODE_OUTPUT);
+  pinMatrixOutAttach(TFT_MOSI, FSPID_OUT_IDX, false, false);
   SET_BUS_WRITE_MODE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -96,21 +93,20 @@ uint8_t TFT_eSPI::readByte(void)
 
 #if defined (TFT_PARALLEL_8_BIT)
   RD_L;
-  uint32_t reg;           // Read all GPIO pins 0-31
-  reg = gpio_input_get(); // Read three times to allow for bus access time
-  reg = gpio_input_get();
-  reg = gpio_input_get(); // Data should be stable now
-  RD_H;
+  b  = gpio_get_level((gpio_num_t)TFT_D0); // Read three times to allow for bus access time
+  b  = gpio_get_level((gpio_num_t)TFT_D0);
+  b  = gpio_get_level((gpio_num_t)TFT_D0); // Data should be stable now
 
   // Check GPIO bits used and build value
-  b  = (((reg>>TFT_D0)&1) << 0);
-  b |= (((reg>>TFT_D1)&1) << 1);
-  b |= (((reg>>TFT_D2)&1) << 2);
-  b |= (((reg>>TFT_D3)&1) << 3);
-  b |= (((reg>>TFT_D4)&1) << 4);
-  b |= (((reg>>TFT_D5)&1) << 5);
-  b |= (((reg>>TFT_D6)&1) << 6);
-  b |= (((reg>>TFT_D7)&1) << 7);
+  b  = (gpio_get_level((gpio_num_t)TFT_D0) << 0);
+  b |= (gpio_get_level((gpio_num_t)TFT_D1) << 1);
+  b |= (gpio_get_level((gpio_num_t)TFT_D2) << 2);
+  b |= (gpio_get_level((gpio_num_t)TFT_D3) << 3);
+  b |= (gpio_get_level((gpio_num_t)TFT_D4) << 4);
+  b |= (gpio_get_level((gpio_num_t)TFT_D5) << 5);
+  b |= (gpio_get_level((gpio_num_t)TFT_D6) << 6);
+  b |= (gpio_get_level((gpio_num_t)TFT_D7) << 7);
+  RD_H;
 #endif
 
   return b;
@@ -644,6 +640,15 @@ void TFT_eSPI::pushPixelsDMA(uint16_t* image, uint32_t len)
     for (uint32_t i = 0; i < len; i++) (image[i] = image[i] << 8 | image[i] >> 8);
   }
 
+  // DMA byte count for transmit is 64Kbytes maximum, so to avoid this constraint
+  // small transfers are performed using a blocking call until DMA capacity is reached.
+  // User sketch can prevent blocking by managing pixel count and splitting into blocks
+  // of 32768 pixels maximum. (equivalent to an area of ~320 x 100 pixels)
+  while(len>0x4000) { // Transfer 16 bit pixels in blocks if len*2 over 65536 bytes
+    pushPixels(image, 0x400);
+    len -= 0x400; image+= 0x400; // Arbitrarily send 1K pixel blocks (2Kbytes)
+  }
+
   esp_err_t ret;
   static spi_transaction_t trans;
 
@@ -670,11 +675,20 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
 {
   if ((w == 0) || (h == 0) || (!DMA_Enabled)) return;
 
+  uint16_t *buffer = (uint16_t*)image;
   uint32_t len = w*h;
 
   dmaWait();
 
   setAddrWindow(x, y, w, h);
+  // DMA byte count for transmit is 64Kbytes maximum, so to avoid this constraint
+  // small transfers are performed using a blocking call until DMA capacity is reached.
+  // User sketch can prevent blocking by managing pixel count and splitting into blocks
+  // of 32768 pixels maximum. (equivalent to an area of ~320 x 100 pixels)
+  while(len>0x4000) { // Transfer 16 bit pixels in blocks if len*2 over 65536 bytes
+    pushPixels(buffer, 0x400);
+    len -= 0x400; buffer+= 0x400; // Arbitrarily send 1K pixel blocks (2Kbytes)
+  }
 
   esp_err_t ret;
   static spi_transaction_t trans;
@@ -682,7 +696,7 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
   memset(&trans, 0, sizeof(spi_transaction_t));
 
   trans.user = (void *)1;
-  trans.tx_buffer = image;   //Data pointer
+  trans.tx_buffer = buffer;   //Data pointer
   trans.length = len * 16;   //Data length, in bits
   trans.flags = 0;           //SPI_TRANS_USE_TXDATA flag
 
@@ -752,6 +766,15 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
 
   setAddrWindow(x, y, dw, dh);
 
+  // DMA byte count for transmit is 64Kbytes maximum, so to avoid this constraint
+  // small transfers are performed using a blocking call until DMA capacity is reached.
+  // User sketch can prevent blocking by managing pixel count and splitting into blocks
+  // of 32768 pixels maximum. (equivalent to an area of ~320 x 100 pixels)
+  while(len>0x4000) { // Transfer 16 bit pixels in blocks if len*2 over 65536 bytes
+    pushPixels(buffer, 0x400);
+    len -= 0x400; buffer+= 0x400; // Arbitrarily send 1K pixel blocks (2Kbytes)
+  }
+
   esp_err_t ret;
   static spi_transaction_t trans;
 
@@ -775,7 +798,7 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
 // The DMA functions here work with SPI only (not parallel)
 /***************************************************************************************
 ** Function name:           dc_callback
-** Description:             Toggles DC line during transaction
+** Description:             Toggles DC line during transaction (not used)
 ***************************************************************************************/
 extern "C" void dc_callback();
 
@@ -783,6 +806,17 @@ void IRAM_ATTR dc_callback(spi_transaction_t *spi_tx)
 {
   if ((bool)spi_tx->user) {DC_D;}
   else {DC_C;}
+}
+
+/***************************************************************************************
+** Function name:           dma_end_callback
+** Description:             Clear DMA run flag to stop retransmission loop
+***************************************************************************************/
+extern "C" void dma_end_callback();
+
+void IRAM_ATTR dma_end_callback(spi_transaction_t *spi_tx)
+{
+  WRITE_PERI_REG(SPI_DMA_CONF_REG(spi_host), 0);
 }
 
 /***************************************************************************************
@@ -800,7 +834,7 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     .sclk_io_num = TFT_SCLK,
     .quadwp_io_num = -1,
     .quadhd_io_num = -1,
-    .max_transfer_sz = TFT_WIDTH * TFT_HEIGHT * 2 + 8, // TFT screen size
+    .max_transfer_sz = 65536, // ESP32 S3 max size is 64Kbytes
     .flags = 0,
     .intr_flags = 0
   };
@@ -820,9 +854,9 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     .input_delay_ns = 0,
     .spics_io_num = pin,
     .flags = SPI_DEVICE_NO_DUMMY, //0,
-    .queue_size = 1,
-    .pre_cb = 0, //dc_callback, //Callback to handle D/C line
-    .post_cb = 0
+    .queue_size = 1,            // Not using queues
+    .pre_cb = 0, //dc_callback, //Callback to handle D/C line (not used)
+    .post_cb = dma_end_callback //Callback to end transmission
   };
   ret = spi_bus_initialize(spi_host, &buscfg, DMA_CHANNEL);
   ESP_ERROR_CHECK(ret);
