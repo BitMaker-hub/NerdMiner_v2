@@ -1,6 +1,6 @@
 #include "../drivers.h"
 
-#ifdef LED_DISPLAY
+#ifdef V1_DISPLAY
 
 #include <TFT_eSPI.h>
 #include "media/images_240_135.h"
@@ -218,7 +218,7 @@ void tDisplay_DoLedStuff(unsigned long frame)
 
 CyclicScreenFunction tDisplayCyclicScreens[] = {tDisplay_MinerScreen, tDisplay_ClockScreen, tDisplay_GlobalHashScreen};
 
-DisplayDriver tDisplayLedDriver = {
+DisplayDriver tDisplayV1Driver = {
     tDisplay_Init,
     tDisplay_AlternateScreenState,
     tDisplay_AlternateRotation,

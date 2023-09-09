@@ -20,8 +20,8 @@ DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 #endif
 
-#ifdef LED_DISPLAY
-DisplayDriver *currentDisplayDriver = &tDisplayLedDriver;
+#ifdef V1_DISPLAY
+DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
 // Initialize the display
