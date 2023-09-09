@@ -20,6 +20,10 @@ DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 #endif
 
+#ifdef LED_DISPLAY
+DisplayDriver *currentDisplayDriver = &tDisplayLedDriver;
+#endif
+
 // Initialize the display
 void initDisplay()
 {

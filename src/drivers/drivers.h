@@ -13,6 +13,8 @@
 #include "devices/lilygoS3Dongle.h"
 #elif defined(NERMINER_T_QT)
 #include "devices/lilygoT_QT.h"
+#elif defined(NERDMINER_LED)
+#include "devices/lilygoTDisplayLed.h"
 #else
 #error "No device defined"
 #endif
@@ -47,6 +49,7 @@ extern DisplayDriver tDisplayDriver;
 extern DisplayDriver amoledDisplayDriver;
 extern DisplayDriver dongleDisplayDriver;
 extern DisplayDriver t_qtDisplayDriver;
+extern DisplayDriver tDisplayLedDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
