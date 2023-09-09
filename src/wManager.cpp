@@ -23,6 +23,7 @@ char poolString[80] = "public-pool.io";
 int portNumber = 21496;//3333;
 char btcString[80] = "yourBtcAddress";
 int GMTzone = 2; //Currently selected in spain
+bool saveStatsToNVS = false; //Track mining stats in non volatile memory
 
 
 // Define WiFiManager Object
@@ -40,6 +41,7 @@ void saveConfigFile()
   json["portNumber"] = portNumber;
   json["btcString"] = btcString;
   json["gmtZone"] = GMTzone;
+  json["saveStatsToNVS"] = String(saveStatsToNVS);
 
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -93,6 +95,8 @@ bool loadConfigFile()
           strcpy(btcString, json["btcString"]);
           portNumber = json["portNumber"].as<int>();
           GMTzone = json["gmtZone"].as<int>();
+          if(json.containsKey("saveStatsToNVS"))
+            saveStatsToNVS = json["saveStatsToNVS"].as<int>();
           return true;
         }
         else
@@ -206,13 +210,24 @@ void init_WifiManager()
   // Text box (Number) - 2 characters maximum
   char charZone[6];
   sprintf(charZone, "%d", GMTzone); 
-  WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3); 
+  WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
+
+  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
+
+  char checkboxParams[24] = "type=\"checkbox\"";
+  if (saveStatsToNVS)
+  {
+    strcat(checkboxParams, " checked");
+  }
+  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER);
 
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
   wm.addParameter(&addr_text_box);
   wm.addParameter(&time_text_box_num);
+  wm.addParameter(&features_html);
+  wm.addParameter(&save_stats_to_nvs);
 
   Serial.println("AllDone: ");
   if (forceConfig)
@@ -229,6 +244,7 @@ void init_WifiManager()
       portNumber = atoi(port_text_box_num.getValue());
       strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
       GMTzone = atoi(time_text_box_num.getValue());
+      saveStatsToNVS = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
       saveConfigFile();
       delay(3000);
       //reset and try again, or maybe put it to deep sleep

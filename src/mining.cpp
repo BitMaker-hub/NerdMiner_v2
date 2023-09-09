@@ -2,6 +2,8 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <esp_task_wdt.h>
+#include <nvs_flash.h>
+#include <nvs.h>
 #include "ShaTests/nerdSHA256.h"
 //#include "ShaTests/nerdSHA256plus.h"
 #include "stratum.h"
@@ -10,14 +12,17 @@
 #include "monitor.h"
 #include "drivers/display.h"
 
-unsigned long templates = 0;
-unsigned long hashes= 0;
-unsigned long Mhashes = 0;
-unsigned long totalKHashes = 0;
-unsigned long elapsedKHs = 0;
+nvs_handle_t stat_handle;
 
-unsigned int shares; // increase if blockhash has 32 bits of zeroes
-unsigned int valids; // increased if blockhash <= target
+uint32_t templates = 0;
+uint32_t hashes = 0;
+uint32_t Mhashes = 0;
+uint32_t totalKHashes = 0;
+uint32_t elapsedKHs = 0;
+uint64_t upTime = 0;
+
+uint32_t shares; // increase if blockhash has 32 bits of zeroes
+uint32_t valids; // increased if blockhash <= target
 
 // Track best diff
 double best_diff = 0.0;
@@ -27,6 +32,7 @@ extern char poolString[80];
 extern int portNumber;
 extern char btcString[80];
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
+extern bool saveStatsToNVS; //Track mining stats in non volatile memory
 
 //Global work data 
 static WiFiClient client;
@@ -36,6 +42,10 @@ mining_job mJob;
 monitor_data mMonitor;
 bool isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
+
+int saveIntervals[7] = {5 * 60, 15 * 60, 30 * 60, 1 * 360, 3 * 360, 6 * 360, 12 * 360};
+int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
+int currentIntervalIndex = 0;
 
 bool checkPoolConnection(void) {
   
@@ -375,16 +385,51 @@ void runMiner(void * task_id) {
 #define DELAY 100
 #define REDRAW_EVERY 10
 
+void restoreStat() {
+  if(!saveStatsToNVS) return;
+  esp_err_t ret = nvs_flash_init();
+  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    Serial.printf("[MONITOR] NVS partition is full or has invalid version, erasing...\n");
+    nvs_flash_init();
+  }
+
+  ret = nvs_open("state", NVS_READWRITE, &stat_handle);
+
+  size_t required_size = sizeof(double);
+  nvs_get_blob(stat_handle, "best_diff", &best_diff, &required_size);
+  nvs_get_u32(stat_handle, "Mhashes", &Mhashes);
+  nvs_get_u32(stat_handle, "shares", &shares);
+  nvs_get_u32(stat_handle, "valids", &valids);
+  nvs_get_u32(stat_handle, "templates", &templates);
+  nvs_get_u64(stat_handle, "upTime", &upTime);
+}
+
+void saveStat() {
+  if(!saveStatsToNVS) return;
+  Serial.printf("[MONITOR] Saving stats\n");
+  nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(double));
+  nvs_set_u32(stat_handle, "Mhashes", Mhashes);
+  nvs_set_u32(stat_handle, "shares", shares);
+  nvs_set_u32(stat_handle, "valids", valids);
+  nvs_set_u32(stat_handle, "templates", templates);
+  nvs_set_u64(stat_handle, "upTime", upTime + (esp_timer_get_time()/1000000));
+}
+
 void runMonitor(void *name)
 {
 
   Serial.println("[MONITOR] started");
+  restoreStat();
 
   unsigned long mLastCheck = 0;
 
   resetToFirstScreen();
 
   unsigned long frame = 0;
+
+  uint32_t seconds_elapsed = 0;
+
+  totalKHashes = (Mhashes * 1000) + hashes / 1000;;
 
   while (1)
   {
@@ -410,11 +455,19 @@ void runMonitor(void *name)
       Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
       Serial.printf("### Max stack usage: %d\n", uxTaskGetStackHighWaterMark(NULL));
       #endif
+
+      seconds_elapsed++;
+
+      if(seconds_elapsed % (saveIntervals[currentIntervalIndex]) == 0){
+        saveStat();
+        seconds_elapsed = 0;
+        if(currentIntervalIndex < saveIntervalsSize - 1)
+          currentIntervalIndex++;
+      }    
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);
 
-    // Pause the task for 1000ms
     vTaskDelay(DELAY / portTICK_PERIOD_MS);
     frame++;
   }
