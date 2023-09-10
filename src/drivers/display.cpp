@@ -16,6 +16,10 @@ DisplayDriver *currentDisplayDriver = &amoledDisplayDriver;
 DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 #endif
 
+#ifdef ESP32_2432S028R
+DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
+#endif
+
 // Initialize the display
 void initDisplay()
 {

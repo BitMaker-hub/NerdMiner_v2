@@ -26,6 +26,11 @@
 #define getFees "https://mempool.space/api/v1/fees/recommended"
 #define UPDATE_Global_min 2
 
+//API public-pool.io
+// https://public-pool.io:40557/api/client/btcString
+#define getPublicPool "https://public-pool.io:40557/api/client/" // +btcString
+#define UPDATE_POOL_min   1
+
 #define NEXT_HALVING_EVENT 840000
 #define HALVING_BLOCKS 210000
 
@@ -87,10 +92,16 @@ typedef struct {
   String remainingBlocks;
 }coin_data;
 
+typedef struct{
+  int workersCount;       // Workers count, how many nerdminers using your address
+  String workersHash;     // Workers Total Hash Rate
+  String bestDifficulty;  // Your miners best difficulty
+}pool_data;
+
 void setup_monitor(void);
 
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
-
+pool_data updatePoolData(void);
 #endif //MONITOR_API_H
