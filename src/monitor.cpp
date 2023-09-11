@@ -167,8 +167,7 @@ void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigne
   //Check if need an NTP call to check current time
   if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
     if(WiFi.status() == WL_CONNECTED) {
-        timeClient.update(); //NTP call to get current time
-        mTriggerUpdate = millis();
+        if(timeClient.update()) mTriggerUpdate = millis(); //NTP call to get current time
         initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
         Serial.print("TimeClient NTPupdateTime ");
     }
@@ -181,27 +180,11 @@ void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigne
   *currentHours = currentTime % 86400 / 3600;
   *currentMinutes = currentTime % 3600 / 60;
   *currentSeconds = currentTime % 60;
-
 }
 
 String getTime(void){
-  
-  //Check if need an NTP call to check current time
-  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
-    if(WiFi.status() == WL_CONNECTED) {
-         if(timeClient.update()) mTriggerUpdate = millis();
-        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
-        Serial.print("TimeClient NTPupdateTime ");
-    }
-  }
-
-  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
-  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
-
-  // convierte la hora actual en horas, minutos y segundos
-  unsigned long currentHours = currentTime % 86400 / 3600;
-  unsigned long currentMinutes = currentTime % 3600 / 60;
-  unsigned long currentSeconds = currentTime % 60;
+  unsigned long currentHours, currentMinutes, currentSeconds;
+  getTime(&currentHours, &currentMinutes, &currentSeconds);
 
   char LocalHour[10];
   sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
