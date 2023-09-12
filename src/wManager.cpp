@@ -8,7 +8,7 @@
 #include "wManager.h"
 #include "monitor.h"
 #include "drivers/display.h"
-
+#include "drivers/memoryCard/SDCard.h"
 #include "drivers/SPIStorage/SPIStorage.h"
 #include "drivers/storage.h"
 
@@ -96,8 +96,13 @@ void init_WifiManager()
     Settings = SPIFS.loadConfigFile();
     if (!Settings.holdsData)
     {
-        Serial.println(F("Forcing config mode as there is no saved config"));
-        forceConfig = true;
+        SDCard sdc;
+        if (sdc.loadConfigFile().holdsData)
+        {
+            Serial.println(F("No config file on internal flash, force config mode."));
+            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+            forceConfig = true;
+        };
     };
 
     // Reset settings (only for development)
