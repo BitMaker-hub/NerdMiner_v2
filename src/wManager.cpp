@@ -135,7 +135,11 @@ void configModeCallback(WiFiManager *myWiFiManager)
 
 void init_WifiManager()
 {
-  Serial.begin(115200);
+#ifdef MONITOR_SPEED
+    Serial.begin(MONITOR_SPEED);
+#else
+    Serial.begin(115200);
+#endif //MONITOR_SPEED
   //Serial.setTxTimeoutMs(10);
 
   //Init pin 15 to eneble 5V external power (LilyGo bug)

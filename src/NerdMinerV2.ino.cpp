@@ -38,7 +38,12 @@ const char* ntpServer = "pool.ntp.org";
 /********* INIT *****/
 void setup()
 {
-  Serial.begin(115200);
+#ifdef MONITOR_SPEED
+    Serial.begin(MONITOR_SPEED);
+#else
+    Serial.begin(115200);
+#endif //MONITOR_SPEED
+
   Serial.setTimeout(0);
   delay(100);
 
