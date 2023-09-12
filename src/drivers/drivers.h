@@ -11,10 +11,13 @@
 #include "devices/lilygoS3Amoled.h"
 #elif defined(NERMINER_S3_DONGLE)
 #include "devices/lilygoS3Dongle.h"
+#elif defined(ESP32_2432S028R)
+#include "devices/esp322432s028r.h"
 #elif defined(NERMINER_T_QT)
 #include "devices/lilygoT_QT.h"
 #elif defined(NERDMINER_T_DISPLAY_V1)
 #include "devices/lilygoV1TDisplay.h"
+
 #else
 #error "No device defined"
 #endif
@@ -48,6 +51,7 @@ extern DisplayDriver noDisplayDriver;
 extern DisplayDriver tDisplayDriver;
 extern DisplayDriver amoledDisplayDriver;
 extern DisplayDriver dongleDisplayDriver;
+extern DisplayDriver esp32_2432S028RDriver;
 extern DisplayDriver t_qtDisplayDriver;
 extern DisplayDriver tDisplayV1Driver;
 

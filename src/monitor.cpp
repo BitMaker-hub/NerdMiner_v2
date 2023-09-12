@@ -30,6 +30,7 @@ NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 unsigned int bitcoin_price=0;
 String current_block = "793261";
 global_data gData;
+pool_data pData;
 
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
@@ -40,7 +41,7 @@ void setup_monitor(void){
     // GMT +2 in seconds (zona horaria de Europa Central)
     timeClient.setTimeOffset(3600 * GMTzone);
 
-    Serial.println("TimeClient setup done");
+    Serial.println("TimeClient setup done");    
 }
 
 unsigned long mGlobalUpdate =0;
@@ -53,6 +54,7 @@ void updateGlobalData(void){
             
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
+        try {
         http.begin(getGlobalHash);
         int httpCode = http.GET();
 
@@ -95,7 +97,9 @@ void updateGlobalData(void){
         }
         
         http.end();
-
+        } catch(...) {
+          http.end();
+        }
     }
 }
 
@@ -108,6 +112,7 @@ String getBlockHeight(void){
         if (WiFi.status() != WL_CONNECTED) return current_block;
             
         HTTPClient http;
+        try {
         http.begin(getHeightAPI);
         int httpCode = http.GET();
 
@@ -118,10 +123,11 @@ String getBlockHeight(void){
             current_block = payload;
 
             mHeightUpdate = millis();
-        }
-        
+        }        
         http.end();
-
+        } catch(...) {
+          http.end();
+        }
     }
   
   return current_block;
@@ -136,6 +142,7 @@ String getBTCprice(void){
         if (WiFi.status() != WL_CONNECTED) return (String(bitcoin_price) + "$");
         
         HTTPClient http;
+        try {
         http.begin(getBTCAPI);
         int httpCode = http.GET();
 
@@ -152,7 +159,9 @@ String getBTCprice(void){
         }
         
         http.end();
-
+        } catch(...) {
+          http.end();
+        }
     }
   
   return (String(bitcoin_price) + "$");
@@ -161,6 +170,8 @@ String getBTCprice(void){
 unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
+unsigned long mPoolUpdate = 0;
+extern char btcString[80];
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
@@ -274,4 +285,46 @@ coin_data getCoinData(unsigned long mElapsed)
   data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
 
   return data;
+}
+
+pool_data updatePoolData(void){
+    //pool_data pData;    
+    if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){      
+        if (WiFi.status() != WL_CONNECTED) return pData;
+            
+        //Make first API call to get global hash and current difficulty
+        HTTPClient http;
+        http.setReuse(true);        
+        try {          
+          http.begin(String(getPublicPool)+btcString);  
+          int httpCode = http.GET();
+
+          if (httpCode > 0) {
+              String payload = http.getString();
+              // Serial.println(payload);
+              DynamicJsonDocument doc(1024);
+              deserializeJson(doc, payload);
+             
+              if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
+              const JsonArray& workers = doc["workers"].as<JsonArray>();
+              float totalhashs = 0;
+              for (const JsonObject& worker : workers) {
+                totalhashs += worker["hashRate"].as<float>();
+              }
+              pData.workersHash = String(totalhashs/1000);
+              
+              String temp = "";
+              if (doc.containsKey("bestDifficulty")) {
+              temp = doc["bestDifficulty"].as<float>();
+              pData.bestDifficulty = String(temp);
+              }
+              doc.clear();
+              mPoolUpdate = millis();
+          }
+          http.end();
+        } catch(...) {
+          http.end();
+        } 
+    }
+    return pData;
 }
