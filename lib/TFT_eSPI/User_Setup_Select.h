@@ -58,7 +58,9 @@
 //#include <User_Setups/Setup22_TTGO_T4_v1.3.h>      // Setup file for ESP32 and TTGO T4 version 1.3
 //#include <User_Setups/Setup23_TTGO_TM.h>           // Setup file for ESP32 and TTGO TM ST7789 SPI bus TFT
 //#include <User_Setups/Setup24_ST7789.h>            // Setup file for DSTIKE/ESP32/ESP8266 configured for ST7789 240 x 240
-//#include <User_Setups/Setup25_TTGO_T_Display.h>    // Setup file for ESP32 and TTGO T-Display ST7789V SPI bus TFT
+#ifdef NERDMINER_T_DISPLAY_V1
+#include <User_Setups/Setup25_TTGO_T_Display.h>      // Setup file for ESP32 and TTGO T-Display ST7789V SPI bus TFT
+#endif
 //#include <User_Setups/Setup26_TTGO_T_Wristband.h>  // Setup file for ESP32 and TTGO T-Wristband ST7735 SPI bus TFT
 
 //#include <User_Setups/Setup27_RPi_ST7796_ESP32.h>    // ESP32   RPi MHS-4.0 inch Display-B
@@ -116,6 +118,8 @@
 //#include <User_Setups/Setup136_LilyGo_TTV.h>       // Setup file for ESP32 and Lilygo TTV ST7789 SPI bus TFT  135x240
 //#include <User_Setups/Setup137_LilyGo_TDisplay_RP2040.h>  // Setup file for Lilygo T-Display RP2040 (ST7789 on SPI bus with 135x240 TFT)
 
+//#include <User_Setups/Setup138_Pico_Explorer_Base_RP2040_ST7789.h> // Setup file for Pico Explorer Base by Pimoroni for RP2040 (ST7789 on SPI bus with 240x240 TFT)
+
 //#include <User_Setups/Setup200_GC9A01.h>           // Setup file for ESP32 and GC9A01 240 x 240 TFT
 
 //#include <User_Setups/Setup201_WT32_SC01.h>        // Setup file for ESP32 based WT32_SC01 from Seeed
@@ -126,23 +130,28 @@
 
 //#include <User_Setups/Setup204_ESP32_TouchDown.h>     // Setup file for the ESP32 TouchDown based on ILI9488 480 x 320 TFT 
 
-//#include <User_Setups/Setup205_ESP32_TouchDown_S3.h>     // Setup file for the ESP32 TouchDown S3 based on ILI9488 480 x 320 TFT
+//#include <User_Setups/Setup205_ESP32_TouchDown_S3.h>     // Setup file for the ESP32 TouchDown S3 based on ILI9488 480 x 320 TFT 
 #ifdef NERDMINERV2
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 #endif
-
 #ifdef NERMINER_S3_AMOLED
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h> //Just a stub. No driver implementation for S3 AMOLED in TFT_eSPI
 #endif
+//#include <User_Setups/Setup207_LilyGo_T_HMI.h>            // For the LilyGo T-HMI S3 based ESP32S3 with ST7789 240 x 320 TFT
 
-#ifdef NERMINER_S3_DONGLE
-#include <User_Setups/Setup300_TTGO_T_Dongle.h>
+//#include <User_Setups/Setup208_ESP32_S3_Box_Lite.h>      // For the ESP32 S3 Box Lite (may also work with ESP32 S3 Box)
+
+//#include <User_Setups/Setup209_LilyGo_T_Dongle_S3.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
+// #include <User_Setups/Setup210_LilyGo_T_Embed_S3.h>         // For the LilyGo T-Embed S3 based ESP32S3 with ST7789 170 x 320 TFT
+#ifdef NERMINER_T_QT
+#include <User_Setups/Setup211_LilyGo_T_QT_Pro_S3.h>         // For the LilyGo T-QT Pro S3 based ESP32S3 with GC9A01 128 x 128 TFT
 #endif
-
+#ifdef NERMINER_S3_DONGLE
+#include <User_Setups/Setup209_LilyGo_T_Dongle_S3.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
+#endif
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 
 //#include <User_Setups/SetupX_Template.h>     // Template file for a setup
-
 
 //#include <User_Setups/Dustin_ILI9488.h>           // Setup file for Dustin Watts PCB with ILI9488
 //#include <User_Setups/Dustin_ST7796.h>           // Setup file for Dustin Watts PCB with ST7796

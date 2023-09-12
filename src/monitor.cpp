@@ -9,14 +9,15 @@
 #include "monitor.h"
 
 extern char poolString[80];
-extern unsigned long templates;
-extern unsigned long hashes;
-extern unsigned long Mhashes;
-extern unsigned long totalKHashes;
-extern unsigned long elapsedKHs;
+extern uint32_t templates;
+extern uint32_t hashes;
+extern uint32_t Mhashes;
+extern uint32_t totalKHashes;
+extern uint32_t elapsedKHs;
+extern uint64_t upTime;
 
-extern unsigned int shares; // increase if blockhash has 32 bits of zeroes
-extern unsigned int valids; // increased if blockhash <= target
+extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
+extern uint32_t valids; // increased if blockhash <= targethalfshares
 
 extern double best_diff; // track best diff
 
@@ -172,12 +173,12 @@ unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
 extern char btcString[80];
 
-String getTime(void){
+void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
   //Check if need an NTP call to check current time
   if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
     if(WiFi.status() == WL_CONNECTED) {
-        if(timeClient.update()) mTriggerUpdate = millis();
+        if(timeClient.update()) mTriggerUpdate = millis(); //NTP call to get current time
         initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
         Serial.print("TimeClient NTPupdateTime ");
     }
@@ -187,9 +188,14 @@ String getTime(void){
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
   // convierte la hora actual en horas, minutos y segundos
-  unsigned long currentHours = currentTime % 86400 / 3600;
-  unsigned long currentMinutes = currentTime % 3600 / 60;
-  unsigned long currentSeconds = currentTime % 60;
+  *currentHours = currentTime % 86400 / 3600;
+  *currentMinutes = currentTime % 3600 / 60;
+  *currentSeconds = currentTime % 60;
+}
+
+String getTime(void){
+  unsigned long currentHours, currentMinutes, currentSeconds;
+  getTime(&currentHours, &currentMinutes, &currentSeconds);
 
   char LocalHour[10];
   sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
@@ -211,7 +217,7 @@ mining_data getMiningData(unsigned long mElapsed)
   suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
-  unsigned long secElapsed = millis() / 1000;
+  uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
   int days = secElapsed / 86400;
   int hours = (secElapsed - (days * 86400)) / 3600;               // Number of seconds in an hour
   int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; // Remove the number of hours and calculate the minutes.
@@ -246,6 +252,17 @@ clock_data getClockData(unsigned long mElapsed)
   return data;
 }
 
+clock_data_t getClockData_t(unsigned long mElapsed)
+{
+  clock_data_t data;
+
+  data.valids = valids;
+  data.currentHashRate = getCurrentHashRate(mElapsed);
+  getTime(&data.currentHours, &data.currentMinutes, &data.currentSeconds);
+
+  return data;
+}
+
 coin_data getCoinData(unsigned long mElapsed)
 {
   coin_data data;
@@ -266,7 +283,6 @@ coin_data getCoinData(unsigned long mElapsed)
   unsigned long remainingBlocks = (((currentBlock / HALVING_BLOCKS) + 1) * HALVING_BLOCKS) - currentBlock;
   data.progressPercent = (HALVING_BLOCKS - remainingBlocks) * 100 / HALVING_BLOCKS;
   data.remainingBlocks = String(remainingBlocks) + " BLOCKS";
-
 
   return data;
 }

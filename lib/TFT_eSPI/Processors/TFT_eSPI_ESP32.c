@@ -41,11 +41,11 @@
     #endif
   #else
     #ifdef USE_HSPI_PORT
-      #define DMA_CHANNEL 2
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
+      #define DMA_CHANNEL SPI_DMA_CH_AUTO
+      spi_host_device_t spi_host = (spi_host_device_t) SPI3_HOST; // Draws once then freezes
     #else // use FSPI port
-      #define DMA_CHANNEL 1
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
+      #define DMA_CHANNEL SPI_DMA_CH_AUTO
+      spi_host_device_t spi_host = (spi_host_device_t) SPI2_HOST; // Draws once then freezes
     #endif
   #endif
 #endif
@@ -64,29 +64,35 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 
 /***************************************************************************************
-** Function name:           beginSDA
-** Description:             Detach SPI from pin to permit software SPI
+** Function name:           beginSDA - VSPI port only, FPSI port only for S2
+** Description:             Detach MOSI and attach MISO to SDA for reads
 ***************************************************************************************/
 void TFT_eSPI::begin_SDA_Read(void)
 {
-  pinMatrixOutDetach(TFT_MOSI, false, false);
-  pinMode(TFT_MOSI, INPUT);
-  pinMatrixInAttach(TFT_MOSI, VSPIQ_IN_IDX, false);
+  gpio_set_direction((gpio_num_t)TFT_MOSI, GPIO_MODE_INPUT);
+  #ifdef CONFIG_IDF_TARGET_ESP32
+    pinMatrixInAttach(TFT_MOSI, VSPIQ_IN_IDX, false);
+  #else // S2
+    pinMatrixInAttach(TFT_MOSI, FSPIQ_IN_IDX, false);
+  #endif
   SET_BUS_READ_MODE;
 }
 
 /***************************************************************************************
-** Function name:           endSDA
-** Description:             Attach SPI pins after software SPI
+** Function name:           endSDA - VSPI port only, FPSI port only for S2
+** Description:             Attach MOSI to SDA and detach MISO for writes
 ***************************************************************************************/
 void TFT_eSPI::end_SDA_Read(void)
 {
-  pinMode(TFT_MOSI, OUTPUT);
-  pinMatrixOutAttach(TFT_MOSI, VSPID_OUT_IDX, false, false);
-  pinMode(TFT_MISO, INPUT);
-  pinMatrixInAttach(TFT_MISO, VSPIQ_IN_IDX, false);
+  gpio_set_direction((gpio_num_t)TFT_MOSI, GPIO_MODE_OUTPUT);
+  #ifdef CONFIG_IDF_TARGET_ESP32
+    pinMatrixOutAttach(TFT_MOSI, VSPID_OUT_IDX, false, false);
+  #else // S2
+    pinMatrixOutAttach(TFT_MOSI, FSPID_OUT_IDX, false, false);
+  #endif
   SET_BUS_WRITE_MODE;
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////
 #endif // #if defined (TFT_SDA_READ)
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -762,6 +768,17 @@ void IRAM_ATTR dc_callback(spi_transaction_t *spi_tx)
 }
 
 /***************************************************************************************
+** Function name:           dma_end_callback
+** Description:             Clear DMA run flag to stop retransmission loop
+***************************************************************************************/
+extern "C" void dma_end_callback();
+
+void IRAM_ATTR dma_end_callback(spi_transaction_t *spi_tx)
+{
+  WRITE_PERI_REG(SPI_DMA_CONF_REG(spi_host), 0);
+}
+
+/***************************************************************************************
 ** Function name:           initDMA
 ** Description:             Initialise the DMA engine - returns true if init OK
 ***************************************************************************************/
@@ -776,6 +793,12 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     .sclk_io_num = TFT_SCLK,
     .quadwp_io_num = -1,
     .quadhd_io_num = -1,
+    #ifdef CONFIG_IDF_TARGET_ESP32S2
+      .data4_io_num = -1,
+      .data5_io_num = -1,
+      .data6_io_num = -1,
+      .data7_io_num = -1,
+    #endif
     .max_transfer_sz = TFT_WIDTH * TFT_HEIGHT * 2 + 8, // TFT screen size
     .flags = 0,
     .intr_flags = 0
@@ -798,7 +821,11 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     .flags = SPI_DEVICE_NO_DUMMY, //0,
     .queue_size = 1,
     .pre_cb = 0, //dc_callback, //Callback to handle D/C line
-    .post_cb = 0
+    #ifdef CONFIG_IDF_TARGET_ESP32
+      .post_cb = 0
+    #else
+      .post_cb = dma_end_callback
+    #endif
   };
   ret = spi_bus_initialize(spi_host, &buscfg, DMA_CHANNEL);
   ESP_ERROR_CHECK(ret);

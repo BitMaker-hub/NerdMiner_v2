@@ -79,6 +79,14 @@ typedef struct {
 }clock_data;
 
 typedef struct {
+  String currentHashRate;
+  String valids;
+  unsigned long currentHours;
+  unsigned long currentMinutes;
+  unsigned long currentSeconds;
+}clock_data_t;
+
+typedef struct {
   String completedShares;
   String totalKHashes;
   String currentHashRate;
@@ -104,4 +112,8 @@ mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
 pool_data updatePoolData(void);
+
+clock_data_t getClockData_t(unsigned long mElapsed);
+
+
 #endif //MONITOR_API_H
