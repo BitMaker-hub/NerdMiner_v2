@@ -18,16 +18,7 @@ bool shouldSaveConfig = false;
 DisplayDriver dongleDisplayDriver = {};
 
 TSettings Settings;
-/* {
-    .BtcWallet = "",
-    .holdsData = false,
-    .PoolAddress = "",
-    .PoolPort = 0,
-    .Timezone = 0,
-    .WifiPW = "",
-    .WifiSSID = ""
-}
-*/
+
 // Define WiFiManager Object
 WiFiManager wm;
 extern monitor_data mMonitor;
