@@ -7,8 +7,8 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "drivers/storage.h"
 
-extern char poolString[80];
 extern unsigned long templates;
 extern unsigned long hashes;
 extern unsigned long Mhashes;
@@ -22,7 +22,7 @@ extern double best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
-extern int GMTzone; //Gotten from saved config
+extern TSettings Settings; //Gotten from saved config
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
@@ -37,7 +37,7 @@ void setup_monitor(void){
     
     // Adjust offset depending on your zone
     // GMT +2 in seconds (zona horaria de Europa Central)
-    timeClient.setTimeOffset(3600 * GMTzone);
+    timeClient.setTimeOffset(3600 * Settings.Timezone);
 
     Serial.println("TimeClient setup done");
 }

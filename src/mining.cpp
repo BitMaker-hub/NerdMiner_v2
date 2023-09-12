@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/display.h"
+#include "drivers/storage.h"
 
 unsigned long templates = 0;
 unsigned long hashes= 0;
@@ -23,9 +24,8 @@ unsigned int valids; // increased if blockhash <= target
 double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
-extern char poolString[80];
-extern int portNumber;
-extern char btcString[80];
+extern TSettings Settings;
+
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 
 //Global work data 
@@ -49,14 +49,14 @@ bool checkPoolConnection(void) {
   
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(poolString, serverIP);
+    WiFi.hostByName(Settings.PoolAddress, serverIP);
     Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
   }
 
   //Try connecting pool IP
-  if (!client.connect(serverIP, portNumber)) {
-    Serial.println("Imposible to connect to : " + String(poolString));
-    WiFi.hostByName(poolString, serverIP);
+  if (!client.connect(serverIP, Settings.PoolPort)) {
+    Serial.println("Imposible to connect to : " + String(Settings.PoolAddress));
+    WiFi.hostByName(Settings.PoolAddress, serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     return false;
@@ -156,7 +156,7 @@ void runStratumWorker(void *name) {
         continue; 
       }
       
-      strcpy(mWorker.wName, btcString);
+      strcpy(mWorker.wName, Settings.BtcWallet);
       strcpy(mWorker.wPass, "x");
       // STEP 2: Pool authorize work (Block Info)
       tx_mining_auth(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
