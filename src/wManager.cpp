@@ -248,5 +248,3 @@ void wifiManagerProcess() {
         oldStatus = newStatus;
     }
 }
-
-
