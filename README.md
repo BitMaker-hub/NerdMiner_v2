@@ -8,7 +8,7 @@ The main aim of this project is to let you **learn more about minery** and to ha
 
 Original project https://github.com/valerio-vaccaro/HAN
 
-![image](images/NerdMinerv2.jpg)
+![image](images/bgNerdMinerV2.png)
 
 ## Requirements
 - TTGO T-Display S3 or any supported boards (check Build tutorial 👇)
@@ -33,12 +33,16 @@ Every time an stratum job notification is received miner update its current work
 
 ## Build Tutorial
 ### Hardware requirements
-- TTGO T-Display S3 > Buy it on aliexpress or amazon
+- LILYGO T-Display S3 (original one) or any other supported boards
 - 3D BOX [here](3d_files/)
 
 #### Current Supported Boards
-- TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
+- LILYGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
 - ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX))
+- LILYGO T-QT pro ([Aliexpress link](https://s.click.aliexpress.com/e/_DBQIr43))
+- LILYGO T-Display 1.14 ([Aliexpress link](https://s.click.aliexpress.com/e/_DEqGvSJ))
+- LILYGO T-Display S3 AMOLED ([Aliexpress link](https://s.click.aliexpress.com/e/_DmOIK6j))
+- LILYGO T-Dongle S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_DmQCPyj)) 
 
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
