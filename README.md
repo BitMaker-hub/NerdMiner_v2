@@ -136,12 +136,13 @@ With the USB-C port to the right:
 - [x]  Add pool support for low difficulty miners
 - [x]  Add best difficulty on miner screen
 - [x]  Add suport to standard ESP32 dev-kit / ESP32-WROOM
+- [x]  Code changes to support adding multiple boards
+- [x]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
+- [x]  Add support to TTGO T-display 1.14
+- [x]  Add support to Amoled
 
 ### On process
-- [ ]  Code changes to support adding multiple boards
-- [ ]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
-- [ ]  Add support to TTGO T-display 1.14
-- [ ]  Add support to Amoled
+
 - [ ]  Create new screen like clockMiner but with BTC price
 - [ ]  Add support to control BM1397
 
