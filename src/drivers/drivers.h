@@ -11,6 +11,8 @@
 #include "devices/lilygoS3Amoled.h"
 #elif defined(NERMINER_S3_DONGLE)
 #include "devices/lilygoS3Dongle.h"
+#elif defined(ESP32_CAM)
+#include "devices/esp32CAM.h"
 #else
 #error "No device defined"
 #endif
