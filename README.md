@@ -42,7 +42,8 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-QT pro ([Aliexpress link](https://s.click.aliexpress.com/e/_DBQIr43))
 - LILYGO T-Display 1.14 ([Aliexpress link](https://s.click.aliexpress.com/e/_DEqGvSJ))
 - LILYGO T-Display S3 AMOLED ([Aliexpress link](https://s.click.aliexpress.com/e/_DmOIK6j))
-- LILYGO T-Dongle S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_DmQCPyj)) 
+- LILYGO T-Dongle S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_DmQCPyj))
+- ESP32-2432S028R 2,8" ([Aliexpress link](https://s.click.aliexpress.com/e/_DdXkvLv))
 
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
