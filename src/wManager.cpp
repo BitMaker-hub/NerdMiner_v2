@@ -8,9 +8,9 @@
 #include "wManager.h"
 #include "monitor.h"
 #include "drivers/display.h"
-#include "drivers/memoryCard/SDCard.h"
-#include "drivers/SPIStorage/SPIStorage.h"
-#include "drivers/storage.h"
+#include "drivers/storage/SDCard.h"
+#include "drivers/storage/SPIStorage.h"
+#include "drivers/storage/storage.h"
 
 // Flag for saving data
 bool shouldSaveConfig = false;

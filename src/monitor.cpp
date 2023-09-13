@@ -7,7 +7,7 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
-#include "drivers/storage.h"
+#include "drivers/storage/storage.h"
 
 extern unsigned long templates;
 extern unsigned long hashes;

@@ -9,7 +9,7 @@
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/display.h"
-#include "drivers/storage.h"
+#include "drivers/storage/storage.h"
 
 unsigned long templates = 0;
 unsigned long hashes= 0;
