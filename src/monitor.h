@@ -103,5 +103,5 @@ void setup_monitor(void);
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
-pool_data updatePoolData(void);
+pool_data getPoolData(void);
 #endif //MONITOR_API_H

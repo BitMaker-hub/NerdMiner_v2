@@ -38,6 +38,7 @@ void esp32_2432S028R_Init(void)
     Serial.println("Initialise error");
     return;
   }
+  
   pinMode(LED_PIN, OUTPUT);
   pData.bestDifficulty = "0";
   pData.workersHash = "0";
@@ -59,7 +60,7 @@ void esp32_2432S028R_AlternateRotation(void)
 
 void printPoolData(){
   
-  pData = updatePoolData();
+  pData = getPoolData();
   background.createSprite(320,70); //Background Sprite
   background.setSwapBytes(true);
   background.pushImage(0, 0, 320, 70, bottonPoolScreen);
@@ -308,6 +309,26 @@ unsigned long previousMillis = 0;
 
 void esp32_2432S028R_DoLedStuff(unsigned long frame)
 {
+
+  uint16_t t_x = 0, t_y = 0; // To store the touch coordinates
+
+  // Pressed will be set true is there is a valid touch on the screen
+  bool pressed = tft.getTouch(&t_x, &t_y);
+  
+
+  // / Check if any key coordinate boxes contain the touch coordinates
+    if (pressed && t_x > 160) {
+      // next screen
+      Serial.println("Próxima tela");
+      Serial.println(t_x);
+    } else if (pressed && t_x < 160)
+    {
+      // Previus screen
+      Serial.println("Tela anterior");
+      Serial.println(t_x);
+    }
+
+    
   unsigned long currentMillis = millis();
 
   switch (mMonitor.NerdStatus)
@@ -332,6 +353,8 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
     }
     break;
   }
+  
+
 }
 
 CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen};
