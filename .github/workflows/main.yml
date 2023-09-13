@@ -1,6 +1,9 @@
 name: PlatformIO CI
 
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -27,4 +30,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: builded artifacts
-          path: .pio/build/*
+          path: .pio/build/*/*.bin
