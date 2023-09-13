@@ -33,6 +33,7 @@ extern int portNumber;
 extern char btcString[80];
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 extern bool saveStatsToNVS; //Track mining stats in non volatile memory
+extern bool fullLotteryMode; //Use random nonces for mining
 
 //Global work data 
 static WiFiClient client;
@@ -237,6 +238,7 @@ void runMiner(void * task_id) {
   unsigned int miner_id = (uint32_t)task_id;
 
   Serial.printf("[MINER]  %d  Started runMiner Task!\n", miner_id);
+  Serial.printf("[MINER]  %d  Started in %s mode\n", miner_id, fullLotteryMode ? "Lottery" : "Incremental");
 
   while(1){
 
@@ -284,6 +286,9 @@ void runMiner(void * task_id) {
     bool is16BitShare=true;  
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
+      if(fullLotteryMode) {
+        nonce = (esp_random() << 1) + miner_id; //even random on task0 and odd random on task1 thread
+      }
       if (miner_id == 0)
         memcpy(mMiner.bytearray_blockheader + 76, &nonce, 4);
       else
@@ -303,14 +308,14 @@ void runMiner(void * task_id) {
         Serial.println("");  */
 
       hashes++;
-      if (nonce > TARGET_NONCE) break; //exit
+      if (!fullLotteryMode && nonce > TARGET_NONCE) break; //exit
       if(!mMiner.inRun) { Serial.println ("MINER WORK ABORTED >> waiting new job"); break;}
 
       // check if 16bit share
       if(hash[31] !=0 || hash[30] !=0) {
       //if(!is16BitShare){
         // increment nonce
-        nonce += 2;
+        if(!fullLotteryMode) nonce += 2;
         continue;
       }
 
@@ -348,7 +353,7 @@ void runMiner(void * task_id) {
       // check if 32bit share
       if(hash[29] !=0 || hash[28] !=0) {
         // increment nonce
-        nonce += 2;
+        if(!fullLotteryMode) nonce += 2;
         continue;
       }
       shares++;
@@ -362,7 +367,7 @@ void runMiner(void * task_id) {
         break;
       }
       // increment nonce
-      nonce += 2;
+      if(!fullLotteryMode) nonce += 2;
     } // exit if found a valid result or nonce > MAX_NONCE
 
     //wc_Sha256Free(&sha256);

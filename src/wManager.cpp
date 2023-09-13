@@ -24,6 +24,7 @@ int portNumber = 21496;//3333;
 char btcString[80] = "yourBtcAddress";
 int GMTzone = 2; //Currently selected in spain
 bool saveStatsToNVS = false; //Track mining stats in non volatile memory
+bool fullLotteryMode = false; //Use random nonces for mining
 
 
 // Define WiFiManager Object
@@ -42,6 +43,7 @@ void saveConfigFile()
   json["btcString"] = btcString;
   json["gmtZone"] = GMTzone;
   json["saveStatsToNVS"] = String(saveStatsToNVS);
+  json["fullLotteryMode"] = String(fullLotteryMode);
 
   // Open config file
   File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -97,6 +99,8 @@ bool loadConfigFile()
           GMTzone = json["gmtZone"].as<int>();
           if(json.containsKey("saveStatsToNVS"))
             saveStatsToNVS = json["saveStatsToNVS"].as<int>();
+          if(json.containsKey("fullLotteryMode"))
+            fullLotteryMode = json["fullLotteryMode"].as<int>();
           return true;
         }
         else
@@ -212,14 +216,17 @@ void init_WifiManager()
   sprintf(charZone, "%d", GMTzone); 
   WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
 
-  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
+  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 8px;display: inline-block;\">Features</label>");
 
-  char checkboxParams[24] = "type=\"checkbox\"";
-  if (saveStatsToNVS)
-  {
-    strcat(checkboxParams, " checked");
-  }
-  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER);
+  String checkbox = String("style=\"margin-top: 18px;\" type=\"checkbox\""); 
+
+  String saveStatsToNVSParams = checkbox + (saveStatsToNVS ? " checked" : "");
+  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, saveStatsToNVSParams.c_str(), WFM_LABEL_AFTER);
+
+  String fullLotteryModeParams = checkbox + (fullLotteryMode ? " checked" : "");
+  WiFiManagerParameter full_lottery_mode("FullLotteryMode", "Lottery Mode. Use random number nonces instead of incremntal nonce mining. (Experimental)", "T", 2, fullLotteryModeParams.c_str(), WFM_LABEL_AFTER);
+  
+
 
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
@@ -228,6 +235,7 @@ void init_WifiManager()
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
+  wm.addParameter(&full_lottery_mode);
 
   Serial.println("AllDone: ");
   if (forceConfig)
@@ -245,6 +253,7 @@ void init_WifiManager()
       strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
       GMTzone = atoi(time_text_box_num.getValue());
       saveStatsToNVS = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
+      fullLotteryMode = (strncmp(full_lottery_mode.getValue(), "T", 1) == 0);
       saveConfigFile();
       delay(3000);
       //reset and try again, or maybe put it to deep sleep
