@@ -10,7 +10,7 @@
 #include <ArduinoJson.h>
 
 #include "..\drivers.h"
-#include "..\storage.h"
+#include "storage.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
@@ -33,7 +33,7 @@ public:
     void saveConfigFile(TSettings*Settings)
     {
         // Save Config in JSON format
-        Serial.println(F("Saving configuration..."));
+        Serial.println(F("SPIFS: Saving configuration..."));
 
         // Create a JSON document
         StaticJsonDocument<512> json;
@@ -47,7 +47,7 @@ public:
         if (!configFile)
         {
             // Error, file did not open
-            Serial.println("failed to open config file for writing");
+            Serial.println("SPIFS: failed to open config file for writing");
         }
 
         // Serialize JSON data to write to file
@@ -55,7 +55,7 @@ public:
         if (serializeJson(json, configFile) == 0)
         {
             // Error writing file
-            Serial.println(F("Failed to write to file"));
+            Serial.println(F("SPIFS: Failed to write to file"));
         }
         // Close file
         configFile.close();
@@ -75,27 +75,27 @@ public:
         // SPIFFS.format();
 
         // Read configuration from FS json
-        Serial.println("Mounting File System...");
+        Serial.println("SPIFS: Mounting File System...");
         TSettings Settings;
         // May need to make it begin(true) first time you are using SPIFFS
         if ((SPIFFSInitialized_)||(init()))
         {
-            Serial.println("mounted file system");
+            Serial.println("SPIFS: Mounted");
             if (SPIFFS.exists(JSON_CONFIG_FILE))
             {
                 // The file exists, reading and loading
-                Serial.println("reading config file");
+                Serial.println("SPIFS: Reading config file");
                 File configFile = SPIFFS.open(JSON_CONFIG_FILE, "r");
                 if (configFile)
                 {
-                    Serial.println("Opened configuration file");
+                    Serial.println("SPIFS: Opened configuration file");
                     StaticJsonDocument<512> json;
                     DeserializationError error = deserializeJson(json, configFile);
                     configFile.close();
                     serializeJsonPretty(json, Serial);
                     if (!error)
                     {
-                        Serial.println("Parsing JSON");
+                        Serial.println("SPIFS: Parsing JSON");
 
                         strcpy(Settings.PoolAddress, json["poolString"]);
                         strcpy(Settings.BtcWallet, json["btcString"]);
@@ -106,7 +106,7 @@ public:
                     else
                     {
                         // Error loading JSON data
-                        Serial.println("Failed to load json config");
+                        Serial.println("SPIFS: Failed to load json config");
                     }
                 }
             }
@@ -114,14 +114,14 @@ public:
         else
         {
             // Error mounting file system
-            Serial.println("Failed to mount FS");
+            Serial.println("SPIFS: Failed to mount.");
         }
         return Settings;
     }
 
     void deleteConfigFile()
     {
-        Serial.println("Erasing config file..");       
+        Serial.println("SPIFS: Erasing config file..");       
         SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
     }
 };

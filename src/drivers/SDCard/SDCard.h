@@ -8,8 +8,8 @@
 #include <ArduinoJson.h>
 
 #include "..\drivers.h"
-#include "..\storage.h"
-#include "..\SPIStorage\SPIStorage.h"
+#include "storage.h"
+#include "SPIStorage.h"
 
 #define JSON_CONFIG_FILE "/config.json"
 
@@ -43,13 +43,13 @@ public:
         if (SD_MMC.cardType() == CARD_NONE)
             SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
 #else
-        Serial.println("SD card interface not available.");
+        Serial.println("SDCard: interface not available.");
         return false;
 #endif // dataPinsDefined
 
         if ((!SD_MMC.begin("/sdcard", oneBitMode)) || (SD_MMC.cardType() == CARD_NONE))
         {
-            Serial.println("No card available.");
+            Serial.println("SDCard: No card found.");
             return false;
         }
         return true;
@@ -59,27 +59,27 @@ public:
     {
         // Load existing configuration file
         // Read configuration from FS json
-        Serial.println("Mounting SD card...");
+        Serial.println("SDCard: Mounting File System...");
         TSettings Settings;
 
         if (initSDcard())
         {
-            Serial.println("mounted SD card.");
+            Serial.println("SDCard: Mounted");
             if (SD_MMC.exists(JSON_CONFIG_FILE))
             {
                 // The file exists, reading and loading
-                Serial.println("reading config file from sd.");
+                Serial.println("SDCard: Reading config file");
                 File configFile = SD_MMC.open(JSON_CONFIG_FILE, "r");
                 if (configFile)
                 {
-                    Serial.println("Opened configuration file");
+                    Serial.println("SDCard: Opened configuration file");
                     StaticJsonDocument<512> json;
                     DeserializationError error = deserializeJson(json, configFile);
                     configFile.close();
                     serializeJsonPretty(json, Serial);
                     if (!error)
                     {
-                        Serial.println("Parsing JSON");
+                        Serial.println("SDCard: Parsing JSON");
                         strcpy(Settings.WifiSSID, json["SSID"]);
                         strcpy(Settings.WifiPW, json["Password"]);
                         strcpy(Settings.PoolAddress, json["PoolURL"]);
@@ -91,7 +91,7 @@ public:
                     else
                     {
                         // Error loading JSON data
-                        Serial.println("Failed to load json config");
+                        Serial.println("SDCard: Failed to load json config");
                     }
                 }
                 SD_MMC.end();
@@ -100,7 +100,7 @@ public:
         else
         {
             // Error mounting file system
-            Serial.println("Failed to mount SD card.");
+            Serial.println("SDCard: Failed to mount.");
         }
         return Settings;
     }
@@ -112,7 +112,7 @@ public:
         {
             spifs->saveConfigFile(&Settings);
             WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
-            Serial.println("Settings copied from SD card. Rebooting now.");
+            Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
             ESP.restart();
         }
     }
