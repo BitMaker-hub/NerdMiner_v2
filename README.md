@@ -82,7 +82,7 @@ After programming, you will only need to setup your Wifi and BTC address.
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
-1. Create a file named "config.json" in your card's root with the following structure. Adjust the settings to your needs:
+1. Create a file named "config.json" in your card's root containing the the following structure. Adjust the settings to your needs:  
 {  
   "SSID": "myWifiSSID",  
   "PW": "myWifiPassword",  
