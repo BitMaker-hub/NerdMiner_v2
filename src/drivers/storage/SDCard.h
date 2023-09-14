@@ -5,6 +5,7 @@
 #include "storage.h"
 #include "nvMemory.h"
 
+// Handles the transfer of settings from sd card to nv memory (wifi credentials are handled by wifimanager)
 class SDCard
 {
 public:
@@ -143,7 +144,7 @@ bool SDCard::initSDcard()
 
 SDCard::SDCard() {}
 SDCard::~SDCard() {}
-void SDCard::SD2NVMemory(NVMemory* nvMem) {};
+void SDCard::SD2nvMemory(nvMemory* nvMem) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 

@@ -1,11 +1,13 @@
 #ifndef _NVMEMORY_H_
 #define _NVMEMORY_H_
 
-#define BUILD_SPIFFS
+// we only have one implementation right now and nothing to choose from.
+#define NVMEM_SPIFFS
 
 #include "..\drivers.h"
 #include "storage.h"
 
+// Handles load and store of user settings, except wifi credentials. Those are managed by the wifimanager.
 class nvMemory
 {
 public: 
@@ -19,14 +21,13 @@ private:
     bool Initialized_;
 };
 
-#ifdef BUILD_SPIFFS
+#ifdef NVMEM_SPIFFS
 
 #define ESP_DRD_USE_SPIFFS true
 
 #include <SPIFFS.h>
 #include <FS.h>
 #include <ArduinoJson.h>
-#include <WiFiManager.h>
 
 nvMemory::nvMemory()
 {
@@ -147,21 +148,16 @@ bool nvMemory::init()
 
 
 #else
-#error We need some kind of permanent storage here!
+#error We need some kind of permanent storage implemented here!
 
 nvMemory::nvMemory() {}
-
 nvMemory::~nvMemory() {}
-
 bool nvMemory::saveConfig(TSettings* Settings) { return false; }
-
 bool nvMemory::loadConfig(TSettings* Settings) { return false; }
-
 bool nvMemory::deleteConfig() { return false; }
-
 bool nvMemory::init() { return false; }
 
 
-#endif //BUILD_SPIFFS
+#endif //NVMEM_TYPE
 
 #endif // _NVMEMORY_H_
