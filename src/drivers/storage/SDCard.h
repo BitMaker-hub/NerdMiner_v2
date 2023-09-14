@@ -37,7 +37,7 @@ SDCard::~SDCard()
         SD_MMC.end();
 }
 
-void SDCard::SD2nvMemory(NVMem* nvMem)
+void SDCard::SD2nvMemory(nvMemory* nvMem)
 {
     TSettings Settings;
     if (loadConfigFile(&Settings))
@@ -143,7 +143,7 @@ bool SDCard::initSDcard()
 
 SDCard::SDCard() {}
 SDCard::~SDCard() {}
-void SDCard::SD2nvMemory(nvMemory* nvMem) {};
+void SDCard::SD2NVMemory(NVMemory* nvMem) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 

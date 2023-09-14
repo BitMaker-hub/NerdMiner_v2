@@ -91,8 +91,7 @@ void init_WifiManager()
         if (!SDCrd.loadConfigFile(&Settings))
         {
             //No config file on SD card.
-            SDCrd.SD2nvMemory(&nvMem); // reboot on success.
-            
+            SDCrd.SD2nvMemory(&nvMem); // reboot on success.          
         }
         else
         {
