@@ -86,17 +86,18 @@ void init_WifiManager()
 
     if (!SPIFS.loadConfigFile(&Settings))
     {
-        Serial.println(F("No config file on internal flash."));
+        //No config file on internal flash.
         SDCard sdc;
         if (!sdc.loadConfigFile(&Settings))
         {
-            Serial.println(F("No config file on SD card."));
-            forceConfig = true;
+            //No config file on SD card.
+            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+            
         }
         else
         {
-            Serial.println(F("Config file on SD card. Copy and restart."));
-            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+            //Config file on SD card. Copy and restart.
+            forceConfig = true;
         }
     };
 
