@@ -11,8 +11,6 @@
 #include "storage.h"
 #include "SPIStorage.h"
 
-#define JSON_CONFIG_FILE "/config.json"
-
 class SDCard
 {
 private:
@@ -20,7 +18,7 @@ private:
 public:
     SDCard()
     {
-        cardInitialized_ = initSDcard();
+        cardInitialized_ = false;
     }
 
     ~SDCard()
@@ -29,42 +27,26 @@ public:
             SD_MMC.end();
     }
 
-    bool initSDcard()
+    void SD2SPIStorage(SPIStorage* spifs)
     {
-        if (cardInitialized_)
-            return cardInitialized_;
-
-        bool oneBitMode = true;
-#if defined (SDMMC_D0) && defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3)
-        if (SD_MMC.cardType() == CARD_NONE)
-            SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
-        oneBitMode = false;
-#elif defined (SDMMC_D0) && !(defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3))
-        if (SD_MMC.cardType() == CARD_NONE)
-            SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
-#else
-        Serial.println("SDCard: interface not available.");
-        return false;
-#endif // dataPinsDefined
-
-        if ((!SD_MMC.begin("/sdcard", oneBitMode)) || (SD_MMC.cardType() == CARD_NONE))
+        TSettings Settings;
+        if (loadConfigFile(&Settings))
         {
-            Serial.println("SDCard: No card found.");
-            return false;
+            spifs->saveConfigFile(&Settings);
+            WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
+            Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
+            ESP.restart();
         }
-        return true;
     }
 
-    TSettings loadConfigFile()
+    bool loadConfigFile(TSettings* Settings)
     {
         // Load existing configuration file
         // Read configuration from FS json
         Serial.println("SDCard: Mounting File System...");
-        TSettings Settings;
 
         if (initSDcard())
         {
-            Serial.println("SDCard: Mounted");
             if (SD_MMC.exists(JSON_CONFIG_FILE))
             {
                 // The file exists, reading and loading
@@ -77,16 +59,20 @@ public:
                     DeserializationError error = deserializeJson(json, configFile);
                     configFile.close();
                     serializeJsonPretty(json, Serial);
+                    Serial.print('\n');
                     if (!error)
                     {
                         Serial.println("SDCard: Parsing JSON");
-                        strcpy(Settings.WifiSSID, json["SSID"]);
-                        strcpy(Settings.WifiPW, json["Password"]);
-                        strcpy(Settings.PoolAddress, json["PoolURL"]);
-                        strcpy(Settings.BtcWallet, json["WalletID"]);
-                        Settings.PoolPort = json["Port"].as<int>();
-                        Settings.Timezone = json["Timezone"].as<int>();
-                        Settings.holdsData = true;
+                        strcpy(Settings->WifiSSID, json[JSON_KEY_SSID] | Settings->WifiSSID);
+                        strcpy(Settings->WifiPW, json[JSON_KEY_PASW] | Settings->WifiPW);
+                        strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
+                        strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
+                        if (json.containsKey(JSON_KEY_POOLPORT))
+                            Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
+                        if (json.containsKey(JSON_KEY_TIMEZONE))
+                            Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
+                        SD_MMC.end();
+                        return true;
                     }
                     else
                     {
@@ -94,26 +80,54 @@ public:
                         Serial.println("SDCard: Failed to load json config");
                     }
                 }
-                SD_MMC.end();
             }
+            else
+            {
+                Serial.println("SDCard: No config file available!");        
+            }
+            SD_MMC.end();
+        }
+        return false;
+    }
+
+private:
+
+    bool initSDcard()
+    {
+        if((cardInitialized_)&&(SD_MMC.cardType() != CARD_NONE))
+        {
+            Serial.println("SDCard: Already mounted.");
+            return cardInitialized_;
+        }
+
+        bool oneBitMode = true;
+#if defined (SDMMC_D0) && defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3)
+        if (SD_MMC.cardType() == CARD_NONE)
+        {
+            SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
+            oneBitMode = false;
+            Serial.println("SDCard: 4-Bit Mode.");
+        }
+#elif defined (SDMMC_D0) && !(defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3))
+        if (SD_MMC.cardType() == CARD_NONE)
+        {
+            SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+            Serial.println("SDCard: 1-Bit Mode.");
+        }
+#else
+        Serial.println("SDCard: interface not available.");
+        return false;
+#endif // dataPinsDefined
+        cardInitialized_ = SD_MMC.begin("/sdcard", oneBitMode);
+        if ((cardInitialized_) && (SD_MMC.cardType() != CARD_NONE))
+        {
+            Serial.println("SDCard: Card mounted."); 
+            return true;
         }
         else
         {
-            // Error mounting file system
-            Serial.println("SDCard: Failed to mount.");
-        }
-        return Settings;
-    }
-
-    void SD2SPIStorage(SPIStorage* spifs)
-    {
-        TSettings Settings = loadConfigFile();
-        if (Settings.holdsData)
-        {
-            spifs->saveConfigFile(&Settings);
-            WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
-            Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
-            ESP.restart();
+            Serial.println("SDCard: No card found.");
+            return false;
         }
     }
 };

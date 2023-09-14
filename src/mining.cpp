@@ -402,8 +402,8 @@ void runMonitor(void *name)
       if (elapsedKHs == 0)
       {
         Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-                      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
-                      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+            mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
+            client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
       }
 
       #ifdef DEBUG_MEMORY

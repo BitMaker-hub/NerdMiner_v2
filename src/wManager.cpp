@@ -12,6 +12,7 @@
 #include "drivers/storage/SPIStorage.h"
 #include "drivers/storage/storage.h"
 
+
 // Flag for saving data
 bool shouldSaveConfig = false;
 
@@ -45,14 +46,13 @@ void configModeCallback(WiFiManager* myWiFiManager)
     Serial.println(WiFi.softAPIP());
 }
 
-void reset_configurations() 
+void reset_configurations()
 {
     Serial.println("Erasing Config, restarting");
     SPIFS.deleteConfigFile();
     wm.resetSettings();
     ESP.restart();
 }
-
 
 void init_WifiManager()
 {
@@ -76,7 +76,7 @@ void init_WifiManager()
     // Check if button2 is pressed to enter configMode with actual configuration
     if (!digitalRead(PIN_BUTTON_2)) {
         Serial.println(F("Button pressed to force start config mode"));
-        resetConfig();
+        reset_configurations();
         forceConfig = true;
         wm.setBreakAfterConfig(true); //Set to detect config edition and save
     }
@@ -84,16 +84,20 @@ void init_WifiManager()
     // Explicitly set WiFi mode
     WiFi.mode(WIFI_STA);
 
-    Settings = SPIFS.loadConfigFile();
-    if (!Settings.holdsData)
+    if (!SPIFS.loadConfigFile(&Settings))
     {
+        Serial.println(F("No config file on internal flash."));
         SDCard sdc;
-        if (sdc.loadConfigFile().holdsData)
+        if (!sdc.loadConfigFile(&Settings))
         {
-            Serial.println(F("No config file on internal flash, force config mode."));
-            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+            Serial.println(F("No config file on SD card."));
             forceConfig = true;
-        };
+        }
+        else
+        {
+            Serial.println(F("Config file on SD card. Copy and restart."));
+            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+        }
     };
 
     // Reset settings (only for development)
@@ -136,7 +140,7 @@ void init_WifiManager()
     char charZone[6];
     sprintf(charZone, "%d", Settings.Timezone);
     WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
-
+    
     // Add all defined parameters
     wm.addParameter(&pool_text_box);
     wm.addParameter(&port_text_box_num);
@@ -144,21 +148,23 @@ void init_WifiManager()
     wm.addParameter(&time_text_box_num);
 
     Serial.println("AllDone: ");
-    if (forceConfig)
-        // Run if we need a configuration
+    if (forceConfig)    
     {
+        // Run if we need a configuration
         //No configuramos timeout al modulo
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
-        Settings = TSettings();
-        if (!wm.startConfigPortal(Settings.WifiSSID, Settings.WifiPW))
+        
+        if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             Serial.println("failed to connect and hit timeout");
             //Could be break forced after edditing, so save new config
+
             strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
             Settings.PoolPort = atoi(port_text_box_num.getValue());
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
+
             SPIFS.saveConfigFile(&Settings);
             delay(3000);
             //reset and try again, or maybe put it to deep sleep
@@ -212,6 +218,7 @@ void init_WifiManager()
         Settings.Timezone = atoi(time_text_box_num.getValue());
         Serial.print("TimeZone fromUTC: ");
         Serial.println(Settings.Timezone);
+
     }
 
     // Save the custom parameters to FS

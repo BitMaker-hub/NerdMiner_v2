@@ -12,9 +12,6 @@
 #include "..\drivers.h"
 #include "storage.h"
 
-// JSON configuration file
-#define JSON_CONFIG_FILE "/config.json"
-
 class SPIStorage
 {
 private:
@@ -22,65 +19,60 @@ private:
 public:
     SPIStorage()
     {
-        SPIFFSInitialized_ = init();
+        SPIFFSInitialized_ = false;
     }
 
     ~SPIStorage()
     {
-        SPIFFS.end();
+        if (SPIFFSInitialized_)
+            SPIFFS.end();
     };
 
     void saveConfigFile(TSettings*Settings)
     {
-        // Save Config in JSON format
-        Serial.println(F("SPIFS: Saving configuration..."));
-
-        // Create a JSON document
-        StaticJsonDocument<512> json;
-        json["poolString"] = Settings->PoolAddress;
-        json["portNumber"] = Settings->PoolPort;
-        json["btcString"] = Settings->BtcWallet;
-        json["gmtZone"] = Settings->Timezone;
-
-        // Open config file
-        File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
-        if (!configFile)
+        if (init())
         {
-            // Error, file did not open
-            Serial.println("SPIFS: failed to open config file for writing");
-        }
+            // Save Config in JSON format
+            Serial.println(F("SPIFS: Saving configuration..."));
 
-        // Serialize JSON data to write to file
-        serializeJsonPretty(json, Serial);
-        if (serializeJson(json, configFile) == 0)
-        {
-            // Error writing file
-            Serial.println(F("SPIFS: Failed to write to file"));
-        }
-        // Close file
-        configFile.close();
+            // Create a JSON document
+            StaticJsonDocument<512> json;
+            json[JSON_KEY_POOLURL] = Settings->PoolAddress;
+            json[JSON_KEY_POOLPORT] = Settings->PoolPort;
+            json[JSON_KEY_WALLETID] = Settings->BtcWallet;
+            json[JSON_KEY_TIMEZONE] = Settings->Timezone;
+    
+            // Open config file
+            File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
+            if (!configFile)
+            {
+                // Error, file did not open
+                Serial.println("SPIFS: failed to open config file for writing");
+            }
+
+            // Serialize JSON data to write to file
+            serializeJsonPretty(json, Serial);
+            Serial.print('\n');
+            if (serializeJson(json, configFile) == 0)
+            {
+                // Error writing file
+                Serial.println(F("SPIFS: Failed to write to file"));
+            }
+            // Close file
+            configFile.close();
+        };
     }
 
-    bool init()
+    bool loadConfigFile(TSettings* Settings)
     {
-        if (SPIFFSInitialized_)
-            return SPIFFSInitialized_;
-        return SPIFFS.begin(false) || SPIFFS.begin(true);
-    };
-
-    TSettings loadConfigFile()
-    {
-        // Load existing configuration file
         // Uncomment if we need to format filesystem
         // SPIFFS.format();
 
+        // Load existing configuration file
         // Read configuration from FS json
-        Serial.println("SPIFS: Mounting File System...");
-        TSettings Settings;
-        // May need to make it begin(true) first time you are using SPIFFS
-        if ((SPIFFSInitialized_)||(init()))
+
+        if (init())
         {
-            Serial.println("SPIFS: Mounted");
             if (SPIFFS.exists(JSON_CONFIG_FILE))
             {
                 // The file exists, reading and loading
@@ -93,15 +85,17 @@ public:
                     DeserializationError error = deserializeJson(json, configFile);
                     configFile.close();
                     serializeJsonPretty(json, Serial);
+                    Serial.print('\n');
                     if (!error)
                     {
                         Serial.println("SPIFS: Parsing JSON");
-
-                        strcpy(Settings.PoolAddress, json["poolString"]);
-                        strcpy(Settings.BtcWallet, json["btcString"]);
-                        Settings.PoolPort = json["portNumber"].as<int>();
-                        Settings.Timezone = json["gmtZone"].as<int>();
-                        Settings.holdsData = true;
+                        strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
+                        strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
+                        if(json.containsKey(JSON_KEY_POOLPORT))
+                            Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
+                        if (json.containsKey(JSON_KEY_TIMEZONE))
+                            Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
+                        return true;
                     }
                     else
                     {
@@ -111,12 +105,7 @@ public:
                 }
             }
         }
-        else
-        {
-            // Error mounting file system
-            Serial.println("SPIFS: Failed to mount.");
-        }
-        return Settings;
+        return false;
     }
 
     void deleteConfigFile()
@@ -124,6 +113,22 @@ public:
         Serial.println("SPIFS: Erasing config file..");       
         SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
     }
+private:
+    bool init()
+    {
+        if (!SPIFFSInitialized_) 
+        {
+            Serial.println("SPIFS: Mounting File System...");
+            // May need to make it begin(true) first time you are using SPIFFS
+            SPIFFSInitialized_ = SPIFFS.begin(false) || SPIFFS.begin(true);
+            SPIFFSInitialized_ ? Serial.println("SPIFS: Mounted") : Serial.println("SPIFS: Mounting failed.");
+        }
+        else
+        {
+            Serial.println("SPIFS: Already Mounted");
+        }
+        return SPIFFSInitialized_;
+    };
 };
 
 #endif // _SPISTORAGE_H_
