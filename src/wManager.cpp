@@ -9,7 +9,7 @@
 #include "monitor.h"
 #include "drivers/display.h"
 #include "drivers/storage/SDCard.h"
-#include "drivers/storage/SPIStorage.h"
+#include "drivers/storage/nvMemory.h"
 #include "drivers/storage/storage.h"
 
 
@@ -24,7 +24,7 @@ TSettings Settings;
 WiFiManager wm;
 extern monitor_data mMonitor;
 
-SPIStorage SPIFS;
+nvMemory nvMem;
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -49,7 +49,7 @@ void configModeCallback(WiFiManager* myWiFiManager)
 void reset_configurations()
 {
     Serial.println("Erasing Config, restarting");
-    SPIFS.deleteConfigFile();
+    nvMem.deleteConfig();
     wm.resetSettings();
     ESP.restart();
 }
@@ -84,14 +84,14 @@ void init_WifiManager()
     // Explicitly set WiFi mode
     WiFi.mode(WIFI_STA);
 
-    if (!SPIFS.loadConfigFile(&Settings))
+    if (!nvMem.loadConfig(&Settings))
     {
         //No config file on internal flash.
-        SDCard sdc;
-        if (!sdc.loadConfigFile(&Settings))
+        SDCard SDCrd;
+        if (!SDCrd.loadConfigFile(&Settings))
         {
             //No config file on SD card.
-            sdc.SD2SPIStorage(&SPIFS); // reboot on success.
+            SDCrd.SD2nvMemory(&nvMem); // reboot on success.
             
         }
         else
@@ -166,7 +166,7 @@ void init_WifiManager()
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
 
-            SPIFS.saveConfigFile(&Settings);
+            nvMem.saveConfig(&Settings);
             delay(3000);
             //reset and try again, or maybe put it to deep sleep
             ESP.restart();
@@ -225,7 +225,7 @@ void init_WifiManager()
     // Save the custom parameters to FS
     if (shouldSaveConfig)
     {
-        SPIFS.saveConfigFile(&Settings);
+        nvMem.saveConfig(&Settings);
     }
 }
 

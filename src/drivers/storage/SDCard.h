@@ -3,14 +3,14 @@
 
 #include "..\drivers.h"
 #include "storage.h"
-#include "SPIStorage.h"
+#include "nvMemory.h"
 
 class SDCard
 {
 public:
     SDCard();
     ~SDCard();
-    void SD2SPIStorage(SPIStorage* spifs);
+    void SD2nvMemory(nvMemory* nvMem);
     bool loadConfigFile(TSettings* Settings);
 private:
     bool initSDcard();
@@ -37,12 +37,12 @@ SDCard::~SDCard()
         SD_MMC.end();
 }
 
-void SDCard::SD2SPIStorage(SPIStorage* spifs)
+void SDCard::SD2nvMemory(NVMem* nvMem)
 {
     TSettings Settings;
     if (loadConfigFile(&Settings))
     {
-        spifs->saveConfigFile(&Settings);
+        nvMem->saveConfig(&Settings);
         WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
         Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
         ESP.restart();
@@ -143,7 +143,7 @@ bool SDCard::initSDcard()
 
 SDCard::SDCard() {}
 SDCard::~SDCard() {}
-void SDCard::SD2SPIStorage(SPIStorage* spifs) {};
+void SDCard::SD2nvMemory(nvMemory* nvMem) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 
