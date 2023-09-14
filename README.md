@@ -37,11 +37,10 @@ Every time an stratum job notification is received miner update its current work
 - 3D BOX [here](3d_files/)
 
 #### Current Supported Boards
-- TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739)*)
-- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX)*)
-- ESP32-cam (https://lastminuteengineers.com/getting-started-with-esp32-cam/)
+- TTGO T-Display S3 ([Aliexpress link*](https://s.click.aliexpress.com/e/_Ddy7739))
+- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link*](https://s.click.aliexpress.com/e/_DCzlUiX))
+- ESP32-cam [Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/)
 
-*affiliate links
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
@@ -162,5 +161,6 @@ With the USB-C port to the right:
 
 ### Donations/Project contributions
 If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡
+Or order by using the affiliate links(*) above.
 
 Enjoy
