@@ -6,6 +6,8 @@
 
 #define NO_DISPLAY
 
+#define BUILD_SDMMC
+
 #define SDMMC_CLK 14
 #define SDMMC_CMD 15
 #define SDMMC_D0 2
