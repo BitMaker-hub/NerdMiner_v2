@@ -37,9 +37,11 @@ Every time an stratum job notification is received miner update its current work
 - 3D BOX [here](3d_files/)
 
 #### Current Supported Boards
-- TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
-- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX))
+- TTGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739)*)
+- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX)*)
+- ESP32-cam (https://lastminuteengineers.com/getting-started-with-esp32-cam/)
 
+*affiliate links
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
@@ -75,6 +77,24 @@ After programming, you will only need to setup your Wifi and BTC address.
     - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+
+OR
+
+1. Your board and firmware are SD card enabled.
+1. Format a SD card using Fat32.
+1. Create a file named "config.json" in your card's root with the following structure. Adjust the settings to your needs:
+{
+  "SSID": "myWifiSSID",
+  "PW": "myWifiPassword",
+  "PoolUrl": "public-pool.io",
+  "PoolPort": 21496,
+  "BtcWallet": "walletID",
+  "Timezone": 2
+}
+1. Insert the SD card.
+1. Hold down the "reset configurations" button as described below or power up without settings in your nvmemory.
+1. Power down to remove the SD card. It is not needed for mining.
+
 
 Recommended low difficulty share pools:
 
