@@ -161,6 +161,7 @@ With the USB-C port to the right:
 
 ### Donations/Project contributions
 If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡
-Or order by using the affiliate links(*) above.
+
+Or by using the affiliate links(*) above.
 
 Enjoy
