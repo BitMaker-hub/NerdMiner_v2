@@ -152,7 +152,6 @@ bool nvMemory::init()
     return Initialized_;
 };
 
-
 #else
 #error We need some kind of permanent storage implementation!
 

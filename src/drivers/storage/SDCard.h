@@ -33,8 +33,8 @@ private:
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
     fs::SDMMCFS* iSD_;
 #elif defined (BUILD_SDSPI)
+#error You chose to run the SD card in SPI mode. This is not implemented yet.
     fs::SDFS* iSD_;
-#error You chose to run the sd card in SPI mode. This is not implemented yet.
 #endif
 };
 
