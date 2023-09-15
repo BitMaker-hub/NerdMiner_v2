@@ -41,6 +41,8 @@ Every time an stratum job notification is received miner update its current work
 - ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link*](https://s.click.aliexpress.com/e/_DCzlUiX))
 - ESP32-cam [Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/)
 
+* affiliate link
+
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
@@ -92,7 +94,7 @@ After programming, you will only need to setup your Wifi and BTC address.
   "Timezone": 2  
 }
 1. Insert the SD card.
-1. Hold down the "reset configurations" button as described below or power up without settings in your nvmemory.
+1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
 1. Power down to remove the SD card. It is not needed for mining.
 
 #### Pool selection
@@ -115,6 +117,15 @@ Other standard pools not compatible with low difficulty share:
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
 ### Buttons
+
+#### One button devices:
+
+- One click > change screen.
+- Double click > change screen orientation.
+- Tripple click > turn the screen off and on again.
+- Hold 5 seconds > **reset the configurations and reboot** your NerdMiner. 
+
+#### Two button devices:
 With the USB-C port to the right:
 
 **TOP BUTTON**
@@ -162,6 +173,6 @@ With the USB-C port to the right:
 - [ ]  Add support to control BM1397
 
 ### Donations/Project contributions
-If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or use the affiliate links(*) above.
+If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡
 
 Enjoy

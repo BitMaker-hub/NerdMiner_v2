@@ -76,7 +76,6 @@ void init_WifiManager()
     // Check if button2 is pressed to enter configMode with actual configuration
     if (!digitalRead(PIN_BUTTON_2)) {
         Serial.println(F("Button pressed to force start config mode"));
-        reset_configuration();
         forceConfig = true;
         wm.setBreakAfterConfig(true); //Set to detect config edition and save
     }
