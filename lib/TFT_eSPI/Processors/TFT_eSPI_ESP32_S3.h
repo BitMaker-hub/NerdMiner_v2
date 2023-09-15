@@ -366,7 +366,7 @@ SPI3_HOST = 2
   #define PARALLEL_INIT_TFT_DATA_BUS               \
   for (int32_t c = 0; c<256; c++)                  \
   {                                                \
-    xset_mask[c] = 0;                              \            
+    xset_mask[c] = 0;                              \
     if ( c & 0x01 ) xset_mask[c] |= (1 << (TFT_D0-MASK_OFFSET)); \
     if ( c & 0x02 ) xset_mask[c] |= (1 << (TFT_D1-MASK_OFFSET)); \
     if ( c & 0x04 ) xset_mask[c] |= (1 << (TFT_D2-MASK_OFFSET)); \
@@ -374,7 +374,7 @@ SPI3_HOST = 2
     if ( c & 0x10 ) xset_mask[c] |= (1 << (TFT_D4-MASK_OFFSET)); \
     if ( c & 0x20 ) xset_mask[c] |= (1 << (TFT_D5-MASK_OFFSET)); \
     if ( c & 0x40 ) xset_mask[c] |= (1 << (TFT_D6-MASK_OFFSET)); \
-    if ( c & 0x80 ) xset_mask[c] |= (1 << (TFT_D7-MASK_OFFSET)); \                                     
+    if ( c & 0x80 ) xset_mask[c] |= (1 << (TFT_D7-MASK_OFFSET)); \
   }                                                \
 
   // Mask for the 8 data bits to set pin directions
