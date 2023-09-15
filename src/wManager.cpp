@@ -87,14 +87,14 @@ void init_WifiManager()
     {
         //No config file on internal flash.
         SDCard SDCrd;
-        if (!SDCrd.loadConfigFile(&Settings))
+        if (SDCrd.loadConfigFile(&Settings))
         {
-            //No config file on SD card.
+            //Config file on SD card.
             SDCrd.SD2nvMemory(&nvMem); // reboot on success.          
         }
         else
         {
-            //Config file on SD card. Copy and restart.
+            //No config file on SD card. Starting wifi config server.
             forceConfig = true;
         }
     };
