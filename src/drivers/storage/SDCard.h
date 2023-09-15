@@ -1,6 +1,19 @@
 #ifndef _SDCARD_H_
 #define _SDCARD_H_
 
+#if defined (SDMMC_D0) && defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3)
+#define BUILD_SDMMC_4
+#include <SD_MMC.h>
+#elif defined (SDMMC_D0) && !(defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3))
+#define BUILD_SDMMC_1
+#include <SD_MMC.h>
+#else
+#warning SD card support disabled!
+#endif
+
+#include <FS.h>
+#include <ArduinoJson.h>
+
 #include "..\devices\device.h"
 #include "storage.h"
 #include "nvMemory.h"
@@ -15,27 +28,31 @@ public:
     bool loadConfigFile(TSettings* Settings);
 private:
     bool initSDcard();
+    void unmount();
 
-    bool cardInitialized_;
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
+    fs::SDMMCFS* iSD_;
+#elif defined (BUILD_SDSPI)
+    fs::SDFS* iSD_;
+#error You chose to run the sd card in SPI mode. This is not implemented yet.
+#endif
 };
 
 
-#ifdef BUILD_SDMMC
-
-#include <FS.h>
-#include <SD_MMC.h>
-
-#include <ArduinoJson.h>
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4) || defined (BUILD_SDSPI)
 
 SDCard::SDCard()
 {
-    cardInitialized_ = false;
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
+    iSD_ = &SD_MMC;
+#elif defined (BUILD_SDSPI)
+#error You chose to run the sd card in SPI mode. This is not implemented yet.
+#endif 
 }
 
 SDCard::~SDCard()
 {
-    if (cardInitialized_)
-        SD_MMC.end();
+    unmount();
 }
 
 void SDCard::SD2nvMemory(nvMemory* nvMem)
@@ -54,26 +71,24 @@ bool SDCard::loadConfigFile(TSettings* Settings)
 {
     // Load existing configuration file
     // Read configuration from FS json
-    Serial.println("SDCard: Mounting File System...");
 
     if (initSDcard())
     {
-        if (SD_MMC.exists(JSON_CONFIG_FILE))
+        if (iSD_->exists(JSON_CONFIG_FILE))
         {
             // The file exists, reading and loading
-            Serial.println("SDCard: Reading config file");
-            File configFile = SD_MMC.open(JSON_CONFIG_FILE, "r");
+            File configFile = iSD_->open(JSON_CONFIG_FILE, "r");
             if (configFile)
             {
-                Serial.println("SDCard: Opened configuration file");
                 StaticJsonDocument<512> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
+                Serial.println("SDCard: Loading config file");
                 serializeJsonPretty(json, Serial);
                 Serial.print('\n');
+                unmount();
                 if (!error)
                 {
-                    Serial.println("SDCard: Parsing JSON");
                     strcpy(Settings->WifiSSID, json[JSON_KEY_SSID] | Settings->WifiSSID);
                     strcpy(Settings->WifiPW, json[JSON_KEY_PASW] | Settings->WifiPW);
                     strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
@@ -82,62 +97,79 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
-                    SD_MMC.end();
                     return true;
                 }
                 else
                 {
                     // Error loading JSON data
-                    Serial.println("SDCard: Failed to load json config");
+                    Serial.println("SDCard: Error parsing config file!");
                 }
+            }
+            else
+            {
+                Serial.println("SDCard: Error opening config file!");
             }
         }
         else
         {
-            Serial.println("SDCard: No config file available!");        
+            Serial.println("SDCard: No config file available!");
         }
-        SD_MMC.end();
+        unmount();
     }
     return false;
 }
 
+void SDCard::unmount()
+{
+    iSD_->end();
+    Serial.println("SDCard: Unmounted");
+}
+
 bool SDCard::initSDcard()
 {
-    if((cardInitialized_)&&(SD_MMC.cardType() != CARD_NONE))
+    if(iSD_->cardType() != CARD_NONE)
     {
-        Serial.println("SDCard: Already mounted.");
-        return cardInitialized_;
+        Serial.println("SDCard: Already mounted."); 
+        return true;
     }
-
-    bool oneBitMode = true;
-#if defined (SDMMC_D0) && defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3)
-    if (SD_MMC.cardType() == CARD_NONE)
+    Serial.println("SDCard: Mounting card."); 
+   
+    bool cardInitialized = false;
+#if defined (BUILD_SDMMC_4)
+    if (iSD_->cardType() == CARD_NONE)
     {
-        SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
-        oneBitMode = false;
+        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
         Serial.println("SDCard: 4-Bit Mode.");
+        cardInitialized = iSD_->begin("/sd", false);
     }
-#elif defined (SDMMC_D0) && !(defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3))
-    if (SD_MMC.cardType() == CARD_NONE)
+#elif defined (BUILD_SDMMC_1)
+#warning SDMMC: 1-bit mode is not always working. If you experience issues, try other modes.
+    if (iSD_->cardType() == CARD_NONE)
     {
-        SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
         Serial.println("SDCard: 1-Bit Mode.");
+        cardInitialized = iSD_->begin("/sd", true);
     }
+#elif defined (BUILD_SDSPI)
+#error You chose to run the sd card in SPI mode. This is not implemented yet.
 #else
     Serial.println("SDCard: interface not available.");
     return false;
 #endif // dataPinsDefined
-    cardInitialized_ = SD_MMC.begin("/sdcard", oneBitMode);
-    if ((cardInitialized_) && (SD_MMC.cardType() != CARD_NONE))
+    if (cardInitialized)
     {
-        Serial.println("SDCard: Card mounted."); 
-        return true;
+        if(iSD_->cardType() != CARD_NONE)
+        {
+            Serial.println("SDCard: Mounted.");
+            return true;
+        }
+        else
+        {
+            Serial.println("SDCard: Mounting failed.");
+            iSD_->end();
+        }
     }
-    else
-    {
-        Serial.println("SDCard: No card found.");
-        return false;
-    }
+    return false;
 }
 
 #else
@@ -147,6 +179,7 @@ SDCard::~SDCard() {}
 void SDCard::SD2nvMemory(nvMemory* nvMem) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
+void unmount() {}
 
 #endif //BUILD_SDMMC
 
