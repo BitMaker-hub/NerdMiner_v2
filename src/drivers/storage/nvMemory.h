@@ -4,7 +4,7 @@
 // we only have one implementation right now and nothing to choose from.
 #define NVMEM_SPIFFS
 
-#include "..\drivers.h"
+#include "..\devices\device.h"
 #include "storage.h"
 
 // Handles load and store of user settings, except wifi credentials. Those are managed by the wifimanager.

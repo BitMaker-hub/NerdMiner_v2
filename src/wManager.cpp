@@ -7,7 +7,7 @@
 
 #include "wManager.h"
 #include "monitor.h"
-#include "drivers/display.h"
+#include "drivers/displays/display.h"
 #include "drivers/storage/SDCard.h"
 #include "drivers/storage/nvMemory.h"
 #include "drivers/storage/storage.h"
@@ -46,7 +46,7 @@ void configModeCallback(WiFiManager* myWiFiManager)
     Serial.println(WiFi.softAPIP());
 }
 
-void reset_configurations()
+void reset_configuration()
 {
     Serial.println("Erasing Config, restarting");
     nvMem.deleteConfig();
@@ -76,7 +76,7 @@ void init_WifiManager()
     // Check if button2 is pressed to enter configMode with actual configuration
     if (!digitalRead(PIN_BUTTON_2)) {
         Serial.println(F("Button pressed to force start config mode"));
-        reset_configurations();
+        reset_configuration();
         forceConfig = true;
         wm.setBreakAfterConfig(true); //Set to detect config edition and save
     }

@@ -3,6 +3,6 @@
 
 void init_WifiManager();
 void wifiManagerProcess();
-void reset_configurations();
+void reset_configuration();
 
 #endif // _WMANAGER_H

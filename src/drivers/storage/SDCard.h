@@ -1,7 +1,7 @@
 #ifndef _SDCARD_H_
 #define _SDCARD_H_
 
-#include "..\drivers.h"
+#include "..\devices\device.h"
 #include "storage.h"
 #include "nvMemory.h"
 

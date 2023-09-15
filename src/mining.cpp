@@ -8,7 +8,7 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
-#include "drivers/display.h"
+#include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
 
 unsigned long templates = 0;

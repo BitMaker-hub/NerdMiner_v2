@@ -1,21 +1,7 @@
-#ifndef DRIVERS_H
-#define DRIVERS_H
+#ifndef DISPLAYDRIVER_H_
+#define DISPLAYDRIVER_H_
 
-#if defined(NERDMINERV2)
-#include "devices/nerdMinerV2.h"
-#elif defined(DEVKITV1)
-#include "devices/esp32DevKit.h"
-#elif defined(TDISPLAY)
-#include "devices/lilygoS3TDisplay.h"
-#elif defined(NERMINER_S3_AMOLED)
-#include "devices/lilygoS3Amoled.h"
-#elif defined(NERMINER_S3_DONGLE)
-#include "devices/lilygoS3Dongle.h"
-#elif defined(ESP32_CAM)
-#include "devices/esp32CAM.h"
-#else
-#error "No device defined"
-#endif
+#include "..\devices\device.h"
 
 typedef void (*AlternateFunction)(void);
 typedef void (*DriverInitFunction)(void);
@@ -49,4 +35,4 @@ extern DisplayDriver dongleDisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#endif // DRIVERS_H
+#endif // DISPLAYDRIVER_H_
