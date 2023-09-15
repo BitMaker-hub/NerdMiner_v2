@@ -148,7 +148,7 @@ bool nvMemory::init()
 
 
 #else
-#error We need some kind of permanent storage implemented here!
+#error We need some kind of permanent storage implementation!
 
 nvMemory::nvMemory() {}
 nvMemory::~nvMemory() {}
