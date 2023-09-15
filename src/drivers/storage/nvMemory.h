@@ -45,7 +45,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
     if (init())
     {
         // Save Config in JSON format
-        Serial.println(F("SPIFS: Saving configuration..."));
+        Serial.println(F("SPIFS: Saving configuration."));
 
         // Create a JSON document
         StaticJsonDocument<512> json;
@@ -59,7 +59,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         if (!configFile)
         {
             // Error, file did not open
-            Serial.println("SPIFS: failed to open config file for writing");
+            Serial.println("SPIFS: Failed to open config file for writing");
             return false;
         }
 
@@ -92,11 +92,10 @@ bool nvMemory::loadConfig(TSettings* Settings)
         if (SPIFFS.exists(JSON_CONFIG_FILE))
         {
             // The file exists, reading and loading
-            Serial.println("SPIFS: Reading config file");
             File configFile = SPIFFS.open(JSON_CONFIG_FILE, "r");
             if (configFile)
             {
-                Serial.println("SPIFS: Opened configuration file");
+                Serial.println("SPIFS: Loading config file");
                 StaticJsonDocument<512> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
@@ -104,7 +103,6 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 Serial.print('\n');
                 if (!error)
                 {
-                    Serial.println("SPIFS: Parsing JSON");
                     strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
@@ -116,9 +114,17 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 else
                 {
                     // Error loading JSON data
-                    Serial.println("SPIFS: Failed to load json config");
+                    Serial.println("SPIFS: Error parsing config file!");
                 }
             }
+            else
+            {
+                Serial.println("SPIFS: Error opening config file!");
+            }
+        }
+        else
+        {
+            Serial.println("SPIFS: No config file available!");
         }
     }
     return false;

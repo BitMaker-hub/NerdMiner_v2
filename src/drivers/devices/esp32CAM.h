@@ -6,11 +6,11 @@
 
 #define NO_DISPLAY
 
-#define BUILD_SDMMC
-
+// SDMMC interface: 1-bit mode (might cause issues):
 #define SDMMC_CLK 14
 #define SDMMC_CMD 15
 #define SDMMC_D0 2
+// additional defines to enable 4-bit mode
 #define SDMMC_D1 4
 #define SDMMC_D2 12
 #define SDMMC_D3 13
