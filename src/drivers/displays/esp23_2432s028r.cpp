@@ -3,6 +3,7 @@
 #ifdef ESP32_2432S028R
 
 #include <TFT_eSPI.h>
+#include <TFT_eTouch.h>
 #include "media/images_320_170.h"
 #include "media/images_bottom_320_70.h"
 #include "media/myFonts.h"
@@ -10,22 +11,60 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include <SPI.h>
 
 #define WIDTH 340
 #define HEIGHT 240
 
 OpenFontRender render;
-TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in User_Setup.h
+TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in platformio.ini
 TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
+SPIClass hSPI(HSPI);
+TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
 
 extern monitor_data mMonitor;
 extern pool_data pData;
-
-void esp32_2432S028R_Init(void)
+extern DisplayDriver *currentDisplayDriver;
+/* 
+void touch_calibrate(void)
 {
+  uint16_t calData[5];
+  uint8_t calDataOK = 0;
+
+  if (calDataOK) {
+    // calibration data valid
+    tft.setTouch(calData);
+  } else {
+    // data not valid so recalibrate
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(20, 0);
+    tft.setTextFont(2);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+    tft.println("Touch corners as indicated");
+
+    tft.setTextFont(1);
+    tft.println();
+
+    tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.println("Calibration complete!");
+  }
+}
+ */
+void esp32_2432S028R_Init(void)
+{  
   tft.init();
   tft.setRotation(1);
-  tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
+  tft.setSwapBytes(true); // Swap the colour byte order when rendering
+  hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
+  touch.init();
+
+  TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
+  touch.setCalibration(calibation);
+ 
   //background.createSprite(WIDTH, HEIGHT); // Background Sprite
   background.setSwapBytes(true);
   render.setDrawer(background);  // Link drawing object to background instance (so font will be rendered on background)
@@ -58,13 +97,18 @@ void esp32_2432S028R_AlternateRotation(void)
   tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
 }
 
+bool bottomScreenBlue = true;
+
 void printPoolData(){
   
   pData = getPoolData();
   background.createSprite(320,70); //Background Sprite
   background.setSwapBytes(true);
-  background.pushImage(0, 0, 320, 70, bottonPoolScreen);
-  
+  if (bottomScreenBlue) {
+    background.pushImage(0, 0, 320, 70, bottonPoolScreen);
+  } else {
+    background.pushImage(0, 0, 320, 70, bottonPoolScreen_g);
+  }
   //background.setTextDatum(MC_DATUM);
   render.setDrawer(background); // Link drawing object to background instance (so font will be rendered on background)
   render.setLineSpaceRatio(1);
@@ -306,30 +350,42 @@ void esp32_2432S028R_AnimateCurrentScreen(unsigned long frame)
 
 // Variables para controlar el parpadeo con millis()
 unsigned long previousMillis = 0;
+unsigned long previousTouchMillis = 0;
 
 void esp32_2432S028R_DoLedStuff(unsigned long frame)
 {
 
-  uint16_t t_x = 0, t_y = 0; // To store the touch coordinates
+  unsigned long currentMillis = millis();  
 
-  // Pressed will be set true is there is a valid touch on the screen
-  bool pressed = tft.getTouch(&t_x, &t_y);
-  
-
-  // / Check if any key coordinate boxes contain the touch coordinates
-    if (pressed && t_x > 160) {
-      // next screen
-      Serial.println("Próxima tela");
-      Serial.println(t_x);
-    } else if (pressed && t_x < 160)
-    {
-      // Previus screen
-      Serial.println("Tela anterior");
-      Serial.println(t_x);
+  // / Check the touch coordinates 110x185 210x240
+  if (currentMillis - previousTouchMillis >= 1000)
+    { 
+      int16_t t_x , t_y;  // To store the touch coordinates
+      bool pressed = touch.getXY(t_x, t_y);
+      if (pressed) {                     
+          if (((t_x > 109)&&(t_x < 211)) && ((t_y > 185)&&(t_y < 241))) bottomScreenBlue ^= true;
+          else
+            if (t_x > 160) {
+              // next screen
+              Serial.print(t_x);
+              Serial.print(":x Próxima Tela y:");
+              Serial.println(t_y);
+              currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
+            } else if (t_x < 160)
+            {
+              // Previus screen
+              Serial.print(t_x);
+              Serial.print(":x Tela anterior y:");
+              Serial.println(t_y);
+              /* Serial.println(currentDisplayDriver->current_cyclic_screen); */
+              currentDisplayDriver->current_cyclic_screen = currentDisplayDriver->current_cyclic_screen - 1;      
+              if (currentDisplayDriver->current_cyclic_screen<0) currentDisplayDriver->current_cyclic_screen = currentDisplayDriver->num_cyclic_screens - 1;
+              Serial.println(currentDisplayDriver->current_cyclic_screen);
+            }
+      }
+      previousTouchMillis = currentMillis;
     }
 
-    
-  unsigned long currentMillis = millis();
 
   switch (mMonitor.NerdStatus)
   {
