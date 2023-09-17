@@ -1,4 +1,4 @@
-#include "src/drivers/storage/nvMemory.h"
+#include "nvMemory.h"
 
 #ifdef NVMEM_SPIFFS
 
