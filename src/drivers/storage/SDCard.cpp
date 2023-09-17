@@ -1,6 +1,16 @@
-#include"SDCard.h"
 
-#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4) || defined (BUILD_SDSPI)
+#include <FS.h>
+#include <ArduinoJson.h>
+#include <WiFi.h>
+
+#include "storage.h"
+#include "nvMemory.h"
+#include "..\devices\device.h"
+#include  "SDCard.h"
+
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
+
+#include <SD_MMC.h>
 
 SDCard::SDCard()
 {
@@ -58,6 +68,8 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
+                    if (json.containsKey(JSON_KEY_STATS2NV))
+                        Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
                     return true;
                 }
                 else

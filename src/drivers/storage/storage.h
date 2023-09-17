@@ -1,6 +1,8 @@
 #ifndef _STORAGE_H_
 #define _STORAGE_H_
 
+#include <inttypes.h>
+
 #define DEFAULT_SSID		"NMAP"
 #define DEFAULT_WIFIPW		"1234567890"
 #define DEFAULT_POOLURL		"public-pool.io"
@@ -17,7 +19,7 @@
 #define JSON_KEY_WALLETID	"BtcWallet"
 #define JSON_KEY_POOLPORT	"PoolPort"
 #define JSON_KEY_TIMEZONE	"Timezone"
-#define JSON_KEY_STATS2NV	"saveStatsToNVS"
+#define JSON_KEY_STATS2NV	"saveStats"
 
 struct TSettings
 {

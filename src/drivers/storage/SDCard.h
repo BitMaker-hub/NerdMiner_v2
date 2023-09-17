@@ -1,6 +1,8 @@
 #ifndef _SDCARD_H_
 #define _SDCARD_H_
 
+#include "storage.h"
+#include "nvMemory.h"
 #include "..\devices\device.h"
 
 #if defined (SDMMC_D0) && defined (SDMMC_D1) && defined (SDMMC_D2) && defined (SDMMC_D3)
@@ -12,12 +14,6 @@
 #else
 #warning SD card support disabled!
 #endif
-
-#include <FS.h>
-#include <ArduinoJson.h>
-
-#include "storage.h"
-#include "nvMemory.h"
 
 // Handles the transfer of settings from sd card to nv memory (wifi credentials are handled by wifimanager)
 class SDCard

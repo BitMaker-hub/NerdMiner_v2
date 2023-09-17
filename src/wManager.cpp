@@ -164,15 +164,15 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         
-        if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
+        if (wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
-            Serial.println("failed to connect and hit timeout");
             //Could be break forced after edditing, so save new config
-
+            Serial.println("failed to connect and hit timeout");
             strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
             Settings.PoolPort = atoi(port_text_box_num.getValue());
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
+            Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
 
             nvMem.saveConfig(&Settings);
@@ -180,7 +180,7 @@ void init_WifiManager()
             //reset and try again, or maybe put it to deep sleep
             ESP.restart();
             delay(5000);
-        }
+        };
     }
     else
     {

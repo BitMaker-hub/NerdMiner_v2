@@ -46,8 +46,6 @@ Every time an stratum job notification is received miner update its current work
 - ESP32-2432S028R 2,8" ([Aliexpress link](https://s.click.aliexpress.com/e/_DdXkvLv))
 - ESP32-cam [Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/)
 
-* affiliate link
-
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
@@ -89,14 +87,15 @@ After programming, you will only need to setup your Wifi and BTC address.
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
-1. Create a file named "config.json" in your card's root containing the the following structure. Adjust the settings to your needs:  
+1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
 {  
   "SSID": "myWifiSSID",  
   "PW": "myWifiPassword",  
   "PoolUrl": "public-pool.io",  
   "PoolPort": 21496,  
   "BtcWallet": "walletID",  
-  "Timezone": 2  
+  "Timezone": 2,
+  "saveStats": false
 }
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.

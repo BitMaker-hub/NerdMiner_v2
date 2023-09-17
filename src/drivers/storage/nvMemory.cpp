@@ -6,6 +6,9 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 
+#include "..\devices\device.h"
+#include "storage.h"
+
 nvMemory::nvMemory()
 {
     Initialized_ = false;
@@ -30,7 +33,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         json[JSON_KEY_POOLPORT] = Settings->PoolPort;
         json[JSON_KEY_WALLETID] = Settings->BtcWallet;
         json[JSON_KEY_TIMEZONE] = Settings->Timezone;
-        json[JSON_KEY_TIMEZONE] = Settings->saveStats;
+        json[JSON_KEY_STATS2NV] = Settings->saveStats;
 
         // Open config file
         File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
