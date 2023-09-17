@@ -44,6 +44,9 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-Display S3 AMOLED ([Aliexpress link](https://s.click.aliexpress.com/e/_DmOIK6j))
 - LILYGO T-Dongle S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_DmQCPyj))
 - ESP32-2432S028R 2,8" ([Aliexpress link](https://s.click.aliexpress.com/e/_DdXkvLv))
+- ESP32-cam [Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/)
+
+* affiliate link
 
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
@@ -75,11 +78,31 @@ Update NerdMiner firmware following same flashing steps but only adding 0x10000_
 ### NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
 
+#### Wifi Accesspoint
+
 1. Connect to NerdMinerAP
     - AP:   NerdMinerAP
     - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+
+#### SD card (if available)
+
+1. Format a SD card using Fat32.
+1. Create a file named "config.json" in your card's root containing the the following structure. Adjust the settings to your needs:  
+{  
+  "SSID": "myWifiSSID",  
+  "PW": "myWifiPassword",  
+  "PoolUrl": "public-pool.io",  
+  "PoolPort": 21496,  
+  "BtcWallet": "walletID",  
+  "Timezone": 2  
+}
+1. Insert the SD card.
+1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
+1. Power down to remove the SD card. It is not needed for mining.
+
+#### Pool selection
 
 Recommended low difficulty share pools:
 
@@ -99,6 +122,15 @@ Other standard pools not compatible with low difficulty share:
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
 ### Buttons
+
+#### One button devices:
+
+- One click > change screen.
+- Double click > change screen orientation.
+- Tripple click > turn the screen off and on again.
+- Hold 5 seconds > **reset the configurations and reboot** your NerdMiner. 
+
+#### Two button devices:
 With the USB-C port to the right:
 
 **TOP BUTTON**
