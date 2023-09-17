@@ -3,8 +3,8 @@
 
 #include <inttypes.h>
 
-#define DEFAULT_SSID		"NMAP"
-#define DEFAULT_WIFIPW		"1234567890"
+#define DEFAULT_SSID		"NerdMinerAP"
+#define DEFAULT_WIFIPW		"MineYourCoins"
 #define DEFAULT_POOLURL		"public-pool.io"
 #define DEFAULT_WALLETID	"yourBtcAddress"
 #define DEFAULT_POOLPORT	21496
