@@ -23,7 +23,8 @@ extern double best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
-extern TSettings Settings; //Gotten from saved config
+//from saved config
+extern TSettings Settings; 
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);

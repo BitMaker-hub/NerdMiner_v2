@@ -29,12 +29,10 @@ uint32_t valids; // increased if blockhash <= target
 double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
+//Track mining stats in non volatile memory
 extern TSettings Settings;
 
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
-
-//Track mining stats in non volatile memory
-extern TSettings Settings;
 
 //Global work data 
 static WiFiClient client;
