@@ -10,7 +10,8 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
-#include "drivers/display.h"
+#include "drivers/displays/display.h"
+#include "drivers/storage/storage.h"
 
 nvs_handle_t stat_handle;
 
@@ -28,11 +29,10 @@ uint32_t valids; // increased if blockhash <= target
 double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
-extern char poolString[80];
-extern int portNumber;
-extern char btcString[80];
+//Track mining stats in non volatile memory
+extern TSettings Settings;
+
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
-extern bool saveStatsToNVS; //Track mining stats in non volatile memory
 
 //Global work data 
 static WiFiClient client;
@@ -59,14 +59,14 @@ bool checkPoolConnection(void) {
   
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(poolString, serverIP);
+    WiFi.hostByName(Settings.PoolAddress, serverIP);
     Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
   }
 
   //Try connecting pool IP
-  if (!client.connect(serverIP, portNumber)) {
-    Serial.println("Imposible to connect to : " + String(poolString));
-    WiFi.hostByName(poolString, serverIP);
+  if (!client.connect(serverIP, Settings.PoolPort)) {
+    Serial.println("Imposible to connect to : " + String(Settings.PoolAddress));
+    WiFi.hostByName(Settings.PoolAddress, serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     return false;
@@ -166,7 +166,7 @@ void runStratumWorker(void *name) {
         continue; 
       }
       
-      strcpy(mWorker.wName, btcString);
+      strcpy(mWorker.wName, Settings.BtcWallet);
       strcpy(mWorker.wPass, "x");
       // STEP 2: Pool authorize work (Block Info)
       tx_mining_auth(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
@@ -386,7 +386,7 @@ void runMiner(void * task_id) {
 #define REDRAW_EVERY 10
 
 void restoreStat() {
-  if(!saveStatsToNVS) return;
+  if(!Settings.saveStats) return;
   esp_err_t ret = nvs_flash_init();
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
     Serial.printf("[MONITOR] NVS partition is full or has invalid version, erasing...\n");
@@ -405,7 +405,7 @@ void restoreStat() {
 }
 
 void saveStat() {
-  if(!saveStatsToNVS) return;
+  if(!Settings.saveStats) return;
   Serial.printf("[MONITOR] Saving stats\n");
   nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(double));
   nvs_set_u32(stat_handle, "Mhashes", Mhashes);
@@ -447,8 +447,8 @@ void runMonitor(void *name)
       if (elapsedKHs == 0)
       {
         Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-                      mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
-                      client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+            mMiner.newJob ? "true" : "false", mMiner.inRun ? "true" : "false",
+            client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
       }
 
       #ifdef DEBUG_MEMORY
