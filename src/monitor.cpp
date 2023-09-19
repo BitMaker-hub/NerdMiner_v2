@@ -287,7 +287,7 @@ coin_data getCoinData(unsigned long mElapsed)
   return data;
 }
 
-pool_data updatePoolData(void){
+pool_data getPoolData(void){
     //pool_data pData;    
     if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){      
         if (WiFi.status() != WL_CONNECTED) return pData;
@@ -296,10 +296,12 @@ pool_data updatePoolData(void){
         HTTPClient http;
         http.setReuse(true);        
         try {          
-          http.begin(String(getPublicPool)+btcString);  
+          String btcWallet = btcString;
+          Serial.println(btcWallet);
+          if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
+          http.begin(String(getPublicPool)+btcWallet);
           int httpCode = http.GET();
-
-          if (httpCode > 0) {
+          if (httpCode == HTTP_CODE_OK) {
               String payload = http.getString();
               // Serial.println(payload);
               DynamicJsonDocument doc(1024);
@@ -311,12 +313,13 @@ pool_data updatePoolData(void){
               for (const JsonObject& worker : workers) {
                 totalhashs += worker["hashRate"].as<float>();
               }
-              pData.workersHash = String(totalhashs/1000);
-              
-              String temp = "";
+              pData.workersHash = String(totalhashs/1000);              
+              double temp;
               if (doc.containsKey("bestDifficulty")) {
-              temp = doc["bestDifficulty"].as<float>();
-              pData.bestDifficulty = String(temp);
+              temp = doc["bestDifficulty"].as<double>();            
+              char best_diff_string[16] = {0};
+              suffix_string(temp, best_diff_string, 16, 0);
+              pData.bestDifficulty = String(best_diff_string);
               }
               doc.clear();
               mPoolUpdate = millis();
