@@ -7,8 +7,8 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
-#include "drivers/storage/storage.h"
 
+extern char poolString[80];
 extern uint32_t templates;
 extern uint32_t hashes;
 extern uint32_t Mhashes;
@@ -23,8 +23,7 @@ extern double best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
-//from saved config
-extern TSettings Settings; 
+extern int GMTzone; //Gotten from saved config
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
@@ -40,7 +39,7 @@ void setup_monitor(void){
     
     // Adjust offset depending on your zone
     // GMT +2 in seconds (zona horaria de Europa Central)
-    timeClient.setTimeOffset(3600 * Settings.Timezone);
+    timeClient.setTimeOffset(3600 * GMTzone);
 
     Serial.println("TimeClient setup done");    
 }
@@ -172,6 +171,7 @@ unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
+extern char btcString[80];
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
@@ -296,7 +296,7 @@ pool_data getPoolData(void){
         HTTPClient http;
         http.setReuse(true);        
         try {          
-          String btcWallet = Settings.BtcWallet;
+          String btcWallet = btcString;
           Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
           http.begin(String(getPublicPool)+btcWallet);

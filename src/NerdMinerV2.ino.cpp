@@ -10,7 +10,7 @@
 #include "wManager.h"
 #include "mining.h"
 #include "monitor.h"
-#include "drivers/displays/display.h"
+#include "drivers/display.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -38,12 +38,7 @@ const char* ntpServer = "pool.ntp.org";
 /********* INIT *****/
 void setup()
 {
-#ifdef MONITOR_SPEED
-    Serial.begin(MONITOR_SPEED);
-#else
-    Serial.begin(115200);
-#endif //MONITOR_SPEED
-
+  Serial.begin(115200);
   Serial.setTimeout(0);
   delay(100);
 
@@ -57,8 +52,7 @@ void setup()
     button1.setPressTicks(5000);
     button1.attachClick(switchToNextScreen);
     button1.attachDoubleClick(alternateScreenRotation);
-    button1.attachLongPressStart(reset_configuration);
-    button1.attachMultiClick(alternateScreenState);
+    button1.attachLongPressStart(reset_configurations);
   #endif
 
   #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
@@ -70,7 +64,7 @@ void setup()
   #if defined(PIN_BUTTON_2) //Button 2 of two button device
     button2.setPressTicks(5000);
     button2.attachClick(switchToNextScreen);
-    button2.attachLongPressStart(reset_configuration);
+    button2.attachLongPressStart(reset_configurations);
   #endif
 
   /******** INIT NERDMINER ************/
