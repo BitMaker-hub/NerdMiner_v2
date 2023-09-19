@@ -1,4 +1,4 @@
-#include "../drivers.h"
+#include "DisplayDriver.h"
 
 #ifdef DONGLE_DISPLAY
 
@@ -45,15 +45,15 @@ extern monitor_data mMonitor;
   int32_t x = 8, y = 8;                 \
   background.setTextSize(1);            \
   background.setTextFont(FONT2);        \
-  \    
+  \
     background.setTextColor(KEY_COLOR); \
-  \    
+  \
     render.setFontSize(18);
 
 #define CLEAR_SCREEN()                                                \
   RESET_SCREEN();                                                     \
   background.fillRect(0, 0, BUFFER_WIDTH, BUFFER_HEIGHT, BACK_COLOR); \
-  \    
+  \
 
 
 #define PRINT_STR(str)                                                \
