@@ -116,7 +116,7 @@ void runStratumWorker(void *name) {
   Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
 
   #ifdef DEBUG_MEMORY
-  Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+  Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
   #endif
 
   // connect to pool
@@ -452,7 +452,7 @@ void runMonitor(void *name)
       }
 
       #ifdef DEBUG_MEMORY
-      Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+      Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
       Serial.printf("### Max stack usage: %d\n", uxTaskGetStackHighWaterMark(NULL));
       #endif
 
