@@ -29,11 +29,11 @@ bool nvMemory::saveConfig(TSettings* Settings)
 
         // Create a JSON document
         StaticJsonDocument<512> json;
-        json[JSON_KEY_POOLURL] = Settings->PoolAddress;
-        json[JSON_KEY_POOLPORT] = Settings->PoolPort;
-        json[JSON_KEY_WALLETID] = Settings->BtcWallet;
-        json[JSON_KEY_TIMEZONE] = Settings->Timezone;
-        json[JSON_KEY_STATS2NV] = Settings->saveStats;
+        json[JSON_SPIFFS_KEY_POOLURL] = Settings->PoolAddress;
+        json[JSON_SPIFFS_KEY_POOLPORT] = Settings->PoolPort;
+        json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
+        json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
+        json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
 
         // Open config file
         File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -84,14 +84,14 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 Serial.print('\n');
                 if (!error)
                 {
-                    Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
-                    strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
-                    if (json.containsKey(JSON_KEY_POOLPORT))
-                        Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
-                    if (json.containsKey(JSON_KEY_TIMEZONE))
-                        Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
-                    if (json.containsKey(JSON_KEY_STATS2NV))
-                        Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
+                    Settings->PoolAddress = json[JSON_SPIFFS_KEY_POOLURL] | Settings->PoolAddress;
+                    strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
+                    if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
+                        Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
+                        Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
+                        Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
                     return true;
                 }
                 else
