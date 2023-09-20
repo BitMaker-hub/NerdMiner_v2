@@ -377,8 +377,7 @@ char currentScreen = 0;
 
 void esp32_2432S028R_DoLedStuff(unsigned long frame)
 {
-  unsigned long currentMillis = millis();  
-  
+  unsigned long currentMillis = millis();    
   // / Check the touch coordinates 110x185 210x240
   if (currentMillis - previousTouchMillis >= 500)
     { 
