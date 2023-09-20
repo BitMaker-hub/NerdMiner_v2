@@ -375,7 +375,7 @@ SPI3_HOST = 2
     if ( c & 0x20 ) xset_mask[c] |= (1 << (TFT_D5-MASK_OFFSET)); \
     if ( c & 0x40 ) xset_mask[c] |= (1 << (TFT_D6-MASK_OFFSET)); \
     if ( c & 0x80 ) xset_mask[c] |= (1 << (TFT_D7-MASK_OFFSET)); \
-  }                                                              \
+  }                                                \
 
   // Mask for the 8 data bits to set pin directions
   #define GPIO_DIR_MASK ((1 << (TFT_D0-MASK_OFFSET)) | (1 << (TFT_D1-MASK_OFFSET)) | (1 << (TFT_D2-MASK_OFFSET)) | (1 << (TFT_D3-MASK_OFFSET)) | (1 << (TFT_D4-MASK_OFFSET)) | (1 << (TFT_D5-MASK_OFFSET)) | (1 << (TFT_D6-MASK_OFFSET)) | (1 << (TFT_D7-MASK_OFFSET)))
