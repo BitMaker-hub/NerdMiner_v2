@@ -9,16 +9,22 @@
 #include  "SDCard.h"
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
-
 #include <SD_MMC.h>
+#elif defined (BUILD_SDSPI)
+#include <SD.h>
+#include <SPI.h>
+#endif // interface type
+
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4) || defined (BUILD_SDSPI)
 
 SDCard::SDCard()
 {
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
     iSD_ = &SD_MMC;
 #elif defined (BUILD_SDSPI)
-#error You chose to run the sd card in SPI mode. This is not implemented yet.
-#endif 
+    ispi_ = &SPI;
+    iSD_ = &SD;
+#endif // interface type
 }
 
 SDCard::~SDCard()
@@ -94,6 +100,9 @@ bool SDCard::loadConfigFile(TSettings* Settings)
 void SDCard::unmount()
 {
     iSD_->end();
+#ifdef BUILD_SDSPI_SETUP
+    ispi_->end();
+#endif // BUILD_SDSPI_SETUP 
     Serial.println("SDCard: Unmounted");
 }
 
@@ -111,19 +120,27 @@ bool SDCard::initSDcard()
     if (iSD_->cardType() == CARD_NONE)
     {
         iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
-        Serial.println("SDCard: 4-Bit Mode.");
         cardInitialized = iSD_->begin("/sd", false);
+        Serial.println("SDCard: 4-Bit Mode.");
     }
 #elif defined (BUILD_SDMMC_1)
-    #warning SDMMC : 1 - bit mode is not always working.If you experience issues, try other modes.
-        if (iSD_->cardType() == CARD_NONE)
-        {
-            iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
-            Serial.println("SDCard: 1-Bit Mode.");
-            cardInitialized = iSD_->begin("/sd", true);
-        }
+    #warning SDMMC : 1 - bit mode is not always working. If you experience issues, try other modes.
+    if (iSD_->cardType() == CARD_NONE)
+    {
+        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+        cardInitialized = iSD_->begin("/sd", true);
+        Serial.println("SDCard: 1-Bit Mode.");
+    }
 #elif defined (BUILD_SDSPI)
-#error You chose to run the sd card in SPI mode. This is not implemented yet.
+    if (iSD_->cardType() == CARD_NONE)
+    {
+        #ifdef BUILD_SDSPI_SETUP
+        ispi_->end();
+        ispi_->begin(SDSPI_CLK, SDSPI_MISO, SDSPI_MOSI, SDSPI_CS);      
+        #endif //BUILD_SDSPI_SETUP
+        cardInitialized = iSD_->begin(SDSPI_CS, *ispi_);
+        Serial.println("SDCard: SPI mode.");
+    }
 #else
     Serial.println("SDCard: interface not available.");
     return false;
