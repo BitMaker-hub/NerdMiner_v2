@@ -9,10 +9,7 @@
 #include "..\devices\device.h"
 #include "storage.h"
 
-nvMemory::nvMemory()
-{
-    Initialized_ = false;
-}
+nvMemory::nvMemory() : Initialized_(false){};
 
 nvMemory::~nvMemory()
 {
@@ -20,6 +17,9 @@ nvMemory::~nvMemory()
         SPIFFS.end();
 };
 
+/// @brief Save settings to config file on SPIFFS
+/// @param TSettings* Settings to be saved.
+/// @return true on success
 bool nvMemory::saveConfig(TSettings* Settings)
 {
     if (init())
@@ -60,6 +60,9 @@ bool nvMemory::saveConfig(TSettings* Settings)
     return false;
 }
 
+/// @brief Load settings from config file located in SPIFFS.
+/// @param TSettings* Struct to update with new settings.
+/// @return true on success
 bool nvMemory::loadConfig(TSettings* Settings)
 {
     // Uncomment if we need to format filesystem
@@ -113,12 +116,16 @@ bool nvMemory::loadConfig(TSettings* Settings)
     return false;
 }
 
+/// @brief Delete config file from SPIFFS
+/// @return true on successs
 bool nvMemory::deleteConfig()
 {
     Serial.println("SPIFS: Erasing config file..");
     return SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
 }
 
+/// @brief Prepare and mount SPIFFS
+/// @return true on success
 bool nvMemory::init()
 {
     if (!Initialized_)

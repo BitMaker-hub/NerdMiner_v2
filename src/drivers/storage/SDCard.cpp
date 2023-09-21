@@ -32,6 +32,9 @@ SDCard::~SDCard()
     unmount();
 }
 
+/// @brief Transfer settings from config file on a SD card to the device.
+/// @param nvMemory* where to save
+/// @param TSettings* passing a struct is required, to save memory
 void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings)
 {
     if (loadConfigFile(Settings))
@@ -43,6 +46,9 @@ void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings)
     }
 }
 
+/// @brief Retreives settings from a config file on a SD card.
+/// @param TSettings* Struct to update with new Settings
+/// @return true on success
 bool SDCard::loadConfigFile(TSettings* Settings)
 {
     // Load existing configuration file
