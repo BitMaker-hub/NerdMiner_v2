@@ -27,6 +27,8 @@ extern monitor_data mMonitor;
 
 nvMemory nvMem;
 
+extern SDCard SDCrd;
+
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
 {
@@ -87,7 +89,6 @@ void init_WifiManager()
     if (!nvMem.loadConfig(&Settings))
     {
         //No config file on internal flash.
-        SDCard SDCrd;
         if (SDCrd.loadConfigFile(&Settings))
         {
             //Config file on SD card.

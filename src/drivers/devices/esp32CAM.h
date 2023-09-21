@@ -27,8 +27,8 @@
 // (default SPI unit provided by <SPI.h>)
 // setup SPI pins.
 #define SDSPI_CS    13
-// The following pins will be ignored, if a tft display is set up. (!defined NO_DISPLAY)
-// check display settings to find the appropriate lines. 
+// The following pins can be retreived from the TFT_eSPI lib, 
+// if a display that is using it is activated.
 #define SDSPI_CLK   14
 #define SDSPI_MOSI  15
 #define SDSPI_MISO  2

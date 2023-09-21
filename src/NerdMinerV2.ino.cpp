@@ -11,6 +11,7 @@
 #include "mining.h"
 #include "monitor.h"
 #include "drivers/displays/display.h"
+#include "drivers/storage/SDCard.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -25,8 +26,9 @@
   OneButton button2(PIN_BUTTON_2);
 #endif
 
-
 extern monitor_data mMonitor;
+
+SDCard SDCrd = SDCard();
 
 /**********************⚡ GLOBAL Vars *******************************/
 
