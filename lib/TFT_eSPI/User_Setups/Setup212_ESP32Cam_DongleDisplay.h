@@ -26,9 +26,13 @@
 #define TFT_MISO 2
 #define TFT_MOSI 15
 #define TFT_SCLK 14
-#define TFT_CS    12
-#define TFT_DC    16
-#define TFT_RST   4  // Connect reset to ensure display initialises
+#define TFT_CS   12
+#define TFT_DC   0
+#define TFT_RST  22  // Connect reset to ensure display initialises (not really required).
+
+#if (TFT_MISO == 16) || (TFT_MOSI == 16)|| (TFT_SCLK == 16)|| (TFT_CS == 16)|| (TFT_DC == 16)|| (TFT_RST == 16)
+#warning: Using GPIO16 for display might crash on initializing the display!
+#endif
 
 #define LOAD_GLCD   // Font 1. Original Adafruit 8 pixel font needs ~1820 bytes in FLASH
 #define LOAD_FONT2  // Font 2. Small 16 pixel high font, needs ~3534 bytes in FLASH, 96 characters
