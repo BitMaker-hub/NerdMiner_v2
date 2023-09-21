@@ -21,9 +21,7 @@ private:
     bool Initialized_;
 };
 
-#ifdef NVMEM_SPIFFS
-#define ESP_DRD_USE_SPIFFS true
-#else
+#ifndef NVMEM_SPIFFS
 #error We need some kind of permanent storage implementation!
 #endif //NVMEM_TYPE
 

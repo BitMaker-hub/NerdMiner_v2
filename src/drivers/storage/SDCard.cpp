@@ -26,13 +26,12 @@ SDCard::~SDCard()
     unmount();
 }
 
-void SDCard::SD2nvMemory(nvMemory* nvMem)
+void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings)
 {
-    TSettings Settings;
-    if (loadConfigFile(&Settings))
+    if (loadConfigFile(Settings))
     {
-        nvMem->saveConfig(&Settings);
-        WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
+        nvMem->saveConfig(Settings);
+        WiFi.begin(Settings->WifiSSID, Settings->WifiPW);
         Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
         ESP.restart();
     }
@@ -60,9 +59,9 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                 unmount();
                 if (!error)
                 {
-                    strcpy(Settings->WifiSSID, json[JSON_KEY_SSID] | Settings->WifiSSID);
-                    strcpy(Settings->WifiPW, json[JSON_KEY_PASW] | Settings->WifiPW);
-                    strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
+                    Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
+                    Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
@@ -149,7 +148,7 @@ bool SDCard::initSDcard()
 
 SDCard::SDCard() {}
 SDCard::~SDCard() {}
-void SDCard::SD2nvMemory(nvMemory* nvMem) {};
+void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 void unmount() {}

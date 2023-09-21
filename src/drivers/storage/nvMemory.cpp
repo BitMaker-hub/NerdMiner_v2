@@ -84,7 +84,7 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 Serial.print('\n');
                 if (!error)
                 {
-                    strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
+                    Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();

@@ -21,7 +21,7 @@ class SDCard
 public:
     SDCard();
     ~SDCard();
-    void SD2nvMemory(nvMemory* nvMem);
+    void SD2nvMemory(nvMemory* nvMem, TSettings* Settings);
     bool loadConfigFile(TSettings* Settings);
 private:
     bool initSDcard();
