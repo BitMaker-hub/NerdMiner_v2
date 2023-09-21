@@ -53,17 +53,17 @@ Easyiest way to flash firmware. Build your own miner using the folowing firwmare
 1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
 
 #### Standard tool
-Create your own miner using the online firwmare flash tool **ESPtool** and the **binary files** that you will find in the src/bin folder.
+Create your own miner using the online firwmare flash tool **ESPtool** and one of the **binary files** that you will find in the ``bin`` folder.
 If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
 
 1. Get a TTGO T-display S3 or any supported board
 1. Download this repository
 1. Go to ESPtool online: https://espressif.github.io/esptool-js/
-1. Load the firmware with the binaries from the src/bin folder.
-1. Plug your board and select each file from src/bin with its address 
+1. Load the firmware with the binary from one of the sub-folders of ``bin`` corresponding to your board.
+1. Plug your board and select each file from the sub-folder (``.bin`` files).
 
 ### Update firmware
-Update NerdMiner firmware following same flashing steps but only adding 0x10000_firmware file.
+Update NerdMiner firmware following same flashing steps but only using the file 0x10000_firmware.bin.
 
 #### Build troubleshooting
 1. Online ESPtool works with chrome, chromium, brave
