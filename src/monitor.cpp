@@ -304,14 +304,22 @@ pool_data getPoolData(void){
           if (httpCode == HTTP_CODE_OK) {
               String payload = http.getString();
               // Serial.println(payload);
-              DynamicJsonDocument doc(1024);
-              deserializeJson(doc, payload);
-             
+              StaticJsonDocument<300> filter;
+              filter["bestDifficulty"] = true;
+              filter["workersCount"] = true;
+              filter["workers"][0]["sessionId"] = true;
+              filter["workers"][0]["hashRate"] = true;
+              DynamicJsonDocument doc(2048);
+              deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+              //Serial.println(serializeJsonPretty(doc, Serial));
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
               const JsonArray& workers = doc["workers"].as<JsonArray>();
               float totalhashs = 0;
               for (const JsonObject& worker : workers) {
-                totalhashs += worker["hashRate"].as<float>();
+                totalhashs += worker["hashRate"].as<int>();
+                /* Serial.print(worker["sessionId"].as<String>()+": ");
+                Serial.print(" - "+worker["hashRate"].as<String>()+": ");
+                Serial.println(totalhashs); */
               }
               pData.workersHash = String(totalhashs/1000);              
               double temp;
