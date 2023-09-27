@@ -6,7 +6,6 @@
 #include "nvMemory.h"
 #include "..\devices\device.h"
 #include  "SDCard.h"
-//#include "..\lib\TFT_eSPI\User_Setup_Select.h"
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
 #include <SD_MMC.h>
@@ -17,7 +16,7 @@
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4) || defined (BUILD_SDSPI)
 
-/// @param int ID only relevant in SPI mode, if you want to use a non standard SPI Unit.
+/// @param int ID only relevant in SPI mode, if you want to set up a custom SPI unit. Ignored in SD bus mode.
 SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
 {
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
@@ -35,7 +34,7 @@ SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
     }
     iSD_ = &SD;
 #endif // interface type
-initSDcard();
+    initSDcard();
 }
 
 SDCard::~SDCard()
@@ -53,7 +52,7 @@ SDCard::~SDCard()
 /// @return true if active
 bool SDCard::cardBusy()
 {
-    return !cardBusy_;
+    return cardBusy_;
 }
 
 /// @brief Transfer settings from config file on a SD card to the device.
@@ -189,5 +188,6 @@ void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 bool SDCard::cardAvailable() { return false; }
+bool SDCard::cardBusy() { return false; }
 
 #endif //BUILD_SDMMC
