@@ -40,11 +40,13 @@ SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
 SDCard::~SDCard()
 {
     iSD_->end();
+#ifdef BUILD_SDSPI
     if(newInstance_) 
     {
         ispi_->end();
         delete ispi_;
     }
+#endif // BUILD_SDSPI
     Serial.println("SDCard: Unmounted");  
 }
 
