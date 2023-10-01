@@ -276,11 +276,8 @@ void runMiner(void * task_id) {
     uint8_t temp;
 
     memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
-    if (miner_id == 0)
-      header64 = mMiner.bytearray_blockheader + 64;
-    else
-      header64 = mMiner.bytearray_blockheader2 + 64;
-    
+
+     header64 = getHeader(miner_id);
     bool is16BitShare=true;  
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
@@ -471,4 +468,13 @@ void runMonitor(void *name)
     vTaskDelay(DELAY / portTICK_PERIOD_MS);
     frame++;
   }
+
+  int getHeader(miner_id){
+    if (miner_id == 0){
+      return mMiner.bytearray_blockheader + 64;
+     }
+    
+    return mMiner.bytearray_blockheader2 + 64;
+  }
+
 }
