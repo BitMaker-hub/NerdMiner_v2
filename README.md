@@ -75,7 +75,7 @@ Update NerdMiner firmware following same flashing steps but only using the file 
 1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made. 
 1. In case of ESP32-WROOM Boards, could be necessary to put your board on boot mode. Hold boot button, press reset button and then program.
 
-### NerdMiner configuration
+## NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
 
 #### Wifi Accesspoint
@@ -180,5 +180,7 @@ With the USB-C port to the right:
 
 ### Donations/Project contributions
 If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or using one of the affiliate links above.
+
+If you want to order a fully assembled Nerdminer you can contribute to my job at [bitronics.store](https://bitronics.store).
 
 Enjoy
