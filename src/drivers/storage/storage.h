@@ -1,8 +1,11 @@
 #ifndef _STORAGE_H_
 #define _STORAGE_H_
 
-#include <inttypes.h>
+#include <Arduino.h>
 
+// config files
+
+// default settings
 #define DEFAULT_SSID		"NerdMinerAP"
 #define DEFAULT_WIFIPW		"MineYourCoins"
 #define DEFAULT_POOLURL		"public-pool.io"
@@ -11,24 +14,34 @@
 #define DEFAULT_TIMEZONE	2
 #define DEFAULT_SAVESTATS	false
 
-// JSON config file
-#define JSON_CONFIG_FILE "/config.json"
-#define JSON_KEY_SSID	"SSID"
-#define JSON_KEY_PASW	"PW"
+// JSON config files
+#define JSON_CONFIG_FILE	"/config.json"
+
+// JSON config file SD card (for user interaction, readme.md)
+#define JSON_KEY_SSID		"SSID"
+#define JSON_KEY_PASW		"WifiPW"
 #define JSON_KEY_POOLURL	"PoolUrl"
 #define JSON_KEY_WALLETID	"BtcWallet"
 #define JSON_KEY_POOLPORT	"PoolPort"
 #define JSON_KEY_TIMEZONE	"Timezone"
-#define JSON_KEY_STATS2NV	"saveStats"
+#define JSON_KEY_STATS2NV	"SaveStats"
 
+// JSON config file SPIFFS (different for backward compatibility with existing devices)
+#define JSON_SPIFFS_KEY_POOLURL		"poolString"
+#define JSON_SPIFFS_KEY_POOLPORT	"portNumber"
+#define JSON_SPIFFS_KEY_WALLETID	"btcString"
+#define JSON_SPIFFS_KEY_TIMEZONE	"gmtZone"
+#define JSON_SPIFFS_KEY_STATS2NV	"saveStatsToNVS"
+
+// settings
 struct TSettings
 {
-	char WifiSSID[80]{ DEFAULT_SSID };
-	char WifiPW[80]{ DEFAULT_WIFIPW };
-	char PoolAddress[80]{ DEFAULT_POOLURL };
+	String WifiSSID{ DEFAULT_SSID };
+	String WifiPW{ DEFAULT_WIFIPW };
+	String PoolAddress{ DEFAULT_POOLURL };
 	char BtcWallet[80]{ DEFAULT_WALLETID };
-	uint32_t PoolPort{ DEFAULT_POOLPORT };
-	uint32_t Timezone{ DEFAULT_TIMEZONE };
+	int PoolPort{ DEFAULT_POOLPORT };
+	int Timezone{ DEFAULT_TIMEZONE };
 	bool saveStats{ DEFAULT_SAVESTATS };
 };
 

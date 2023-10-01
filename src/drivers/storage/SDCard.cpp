@@ -1,4 +1,3 @@
-
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -9,41 +8,78 @@
 #include  "SDCard.h"
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
-
 #include <SD_MMC.h>
+#elif defined (BUILD_SDSPI)
+#include <SD.h>
+#include <SPI.h>
+#endif // interface type
 
-SDCard::SDCard()
+#if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4) || defined (BUILD_SDSPI)
+
+/// @param int ID only relevant in SPI mode, if you want to set up a custom SPI unit. Ignored in SD bus mode.
+SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
 {
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
     iSD_ = &SD_MMC;
 #elif defined (BUILD_SDSPI)
-#error You chose to run the sd card in SPI mode. This is not implemented yet.
-#endif 
+    if(ID>=0)
+    {
+        ispi_ = new SPIClass(ID);
+        newInstance_ = true;
+    }
+    else
+    {
+        ispi_ = &SPI;
+        newInstance_ = false;
+    }
+    iSD_ = &SD;
+#endif // interface type
+    initSDcard();
 }
 
 SDCard::~SDCard()
 {
-    unmount();
+    iSD_->end();
+#ifdef BUILD_SDSPI
+    if(newInstance_) 
+    {
+        ispi_->end();
+        delete ispi_;
+    }
+#endif // BUILD_SDSPI
+    Serial.println("SDCard: Unmounted");  
 }
 
-void SDCard::SD2nvMemory(nvMemory* nvMem)
+/// @brief Check if the card is accessed right now.
+/// @return true if active
+bool SDCard::cardBusy()
 {
-    TSettings Settings;
-    if (loadConfigFile(&Settings))
+    return cardBusy_;
+}
+
+/// @brief Transfer settings from config file on a SD card to the device.
+/// @param nvMemory* where to save
+/// @param TSettings* passing a struct is required, to save memory
+void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings)
+{
+    if (loadConfigFile(Settings))
     {
-        nvMem->saveConfig(&Settings);
-        WiFi.begin(Settings.WifiSSID, Settings.WifiPW);
+        nvMem->saveConfig(Settings);
+        WiFi.begin(Settings->WifiSSID, Settings->WifiPW);
         Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
         ESP.restart();
     }
 }
 
+/// @brief Retreives settings from a config file on a SD card.
+/// @param TSettings* Struct to update with new Settings
+/// @return true on success
 bool SDCard::loadConfigFile(TSettings* Settings)
 {
     // Load existing configuration file
     // Read configuration from FS json
 
-    if (initSDcard())
+    if (cardAvailable())
     {
         if (iSD_->exists(JSON_CONFIG_FILE))
         {
@@ -51,18 +87,19 @@ bool SDCard::loadConfigFile(TSettings* Settings)
             File configFile = iSD_->open(JSON_CONFIG_FILE, "r");
             if (configFile)
             {
+                cardBusy_ = true;
                 StaticJsonDocument<512> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
+                cardBusy_ = false;
                 Serial.println("SDCard: Loading config file");
-                serializeJsonPretty(json, Serial);
-                Serial.print('\n');
-                unmount();
                 if (!error)
                 {
-                    strcpy(Settings->WifiSSID, json[JSON_KEY_SSID] | Settings->WifiSSID);
-                    strcpy(Settings->WifiPW, json[JSON_KEY_PASW] | Settings->WifiPW);
-                    strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
+                    serializeJsonPretty(json, Serial);
+                    Serial.print('\n');
+                    Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
+                    Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
@@ -87,71 +124,72 @@ bool SDCard::loadConfigFile(TSettings* Settings)
         {
             Serial.println("SDCard: No config file available!");
         }
-        unmount();
     }
     return false;
 }
 
-void SDCard::unmount()
+/// @brief Check if a SD card is inserted.
+/// @return true if inserted.
+bool SDCard::cardAvailable()
 {
-    iSD_->end();
-    Serial.println("SDCard: Unmounted");
-}
-
-bool SDCard::initSDcard()
-{
-    if (iSD_->cardType() != CARD_NONE)
-    {
-        Serial.println("SDCard: Already mounted.");
-        return true;
-    }
-    Serial.println("SDCard: Mounting card.");
-
-    bool cardInitialized = false;
-#if defined (BUILD_SDMMC_4)
-    if (iSD_->cardType() == CARD_NONE)
-    {
-        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
-        Serial.println("SDCard: 4-Bit Mode.");
-        cardInitialized = iSD_->begin("/sd", false);
-    }
-#elif defined (BUILD_SDMMC_1)
-    #warning SDMMC : 1 - bit mode is not always working.If you experience issues, try other modes.
-        if (iSD_->cardType() == CARD_NONE)
-        {
-            iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
-            Serial.println("SDCard: 1-Bit Mode.");
-            cardInitialized = iSD_->begin("/sd", true);
-        }
-#elif defined (BUILD_SDSPI)
-#error You chose to run the sd card in SPI mode. This is not implemented yet.
-#else
-    Serial.println("SDCard: interface not available.");
-    return false;
-#endif // dataPinsDefined
-    if (cardInitialized)
+    if (cardInitialized_)
     {
         if (iSD_->cardType() != CARD_NONE)
         {
-            Serial.println("SDCard: Mounted.");
+            Serial.println("SDCard: Inserted.");
             return true;
         }
         else
         {
-            Serial.println("SDCard: Mounting failed.");
-            iSD_->end();
+            Serial.println("SDCard: Not inserted.");
         }
+    }
+    else
+    {
+        Serial.println("SDCard: Interface not initialized.");
     }
     return false;
 }
 
+/// @brief Init SD card interface. Normaly not required, as this is called by the constructor.
+/// @return  true on success
+bool SDCard::initSDcard()
+{
+    if (!cardAvailable())
+    {
+        Serial.println("SDCard: init SD card interface.");
+#if defined (BUILD_SDMMC_4)
+        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3);
+        cardInitialized_ = iSD_->begin("/sd", false);
+        Serial.println("SDCard: 4-Bit Mode.");
+    }
+#elif defined (BUILD_SDMMC_1)
+#warning SDMMC : 1 - bit mode is not always working. If you experience issues, try other modes.
+        iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+        cardInitialized_ = iSD_->begin("/sd", true);
+        Serial.println("SDCard: 1-Bit Mode.");
+    }
+#elif defined (BUILD_SDSPI)
+        ispi_->begin(SDSPI_CLK, SDSPI_MISO, SDSPI_MOSI, SDSPI_CS);
+        cardInitialized_ = iSD_->begin(SDSPI_CS, *ispi_);
+        Serial.println("SDCard: SPI mode.");
+    }
+#else
+    Serial.println("SDCard: interface not defined.");
+    return false;
+#endif // dataPinsDefined
+    cardAvailable();
+    return cardInitialized_;
+}
+
 #else
 
-SDCard::SDCard() {}
+SDCard::SDCard(int ID) {}
 SDCard::~SDCard() {}
-void SDCard::SD2nvMemory(nvMemory* nvMem) {};
+void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings) {};
 bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
-void unmount() {}
+bool SDCard::cardAvailable() { return false; }
+bool SDCard::cardBusy() { return false; }
 
 #endif //BUILD_SDMMC

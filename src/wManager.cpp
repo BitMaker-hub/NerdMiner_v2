@@ -1,6 +1,8 @@
+#define ESP_DRD_USE_SPIFFS true
 
 // Include Libraries
 //#include ".h"
+
 #include <WiFi.h>
 
 #include <WiFiManager.h>
@@ -24,6 +26,8 @@ WiFiManager wm;
 extern monitor_data mMonitor;
 
 nvMemory nvMem;
+
+extern SDCard SDCrd;
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -85,11 +89,10 @@ void init_WifiManager()
     if (!nvMem.loadConfig(&Settings))
     {
         //No config file on internal flash.
-        SDCard SDCrd;
         if (SDCrd.loadConfigFile(&Settings))
         {
             //Config file on SD card.
-            SDCrd.SD2nvMemory(&nvMem); // reboot on success.          
+            SDCrd.SD2nvMemory(&nvMem, &Settings); // reboot on success.          
         }
         else
         {
@@ -122,7 +125,7 @@ void init_WifiManager()
     // Custom elements
 
     // Text box (String) - 80 characters maximum
-    WiFiManagerParameter pool_text_box("Poolurl", "Pool url", Settings.PoolAddress, 80);
+    WiFiManagerParameter pool_text_box("Poolurl", "Pool url", Settings.PoolAddress.c_str(), 80);
 
     // Need to convert numerical input to string to display the default value.
     char convertedValue[6];
@@ -168,7 +171,7 @@ void init_WifiManager()
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
-            strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
+            Settings.PoolAddress = pool_text_box.getValue();
             Settings.PoolPort = atoi(port_text_box_num.getValue());
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
@@ -187,7 +190,7 @@ void init_WifiManager()
         //Tratamos de conectar con la configuración inicial ya almacenada
         mMonitor.NerdStatus = NM_Connecting;
         wm.setCaptivePortalEnable(false); // disable captive portal redirection
-        if (!wm.autoConnect(Settings.WifiSSID, Settings.WifiPW))
+        if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
         {
             Serial.println("Failed to connect and hit timeout");
             //delay(3000);
@@ -210,7 +213,8 @@ void init_WifiManager()
         // Lets deal with the user config values
 
         // Copy the string value
-        strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
+        Settings.PoolAddress = pool_text_box.getValue();
+        //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
         Serial.print("PoolString: ");
         Serial.println(Settings.PoolAddress);
 

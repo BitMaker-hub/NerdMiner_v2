@@ -9,10 +9,7 @@
 #include "..\devices\device.h"
 #include "storage.h"
 
-nvMemory::nvMemory()
-{
-    Initialized_ = false;
-}
+nvMemory::nvMemory() : Initialized_(false){};
 
 nvMemory::~nvMemory()
 {
@@ -20,6 +17,9 @@ nvMemory::~nvMemory()
         SPIFFS.end();
 };
 
+/// @brief Save settings to config file on SPIFFS
+/// @param TSettings* Settings to be saved.
+/// @return true on success
 bool nvMemory::saveConfig(TSettings* Settings)
 {
     if (init())
@@ -29,11 +29,11 @@ bool nvMemory::saveConfig(TSettings* Settings)
 
         // Create a JSON document
         StaticJsonDocument<512> json;
-        json[JSON_KEY_POOLURL] = Settings->PoolAddress;
-        json[JSON_KEY_POOLPORT] = Settings->PoolPort;
-        json[JSON_KEY_WALLETID] = Settings->BtcWallet;
-        json[JSON_KEY_TIMEZONE] = Settings->Timezone;
-        json[JSON_KEY_STATS2NV] = Settings->saveStats;
+        json[JSON_SPIFFS_KEY_POOLURL] = Settings->PoolAddress;
+        json[JSON_SPIFFS_KEY_POOLPORT] = Settings->PoolPort;
+        json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
+        json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
+        json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
 
         // Open config file
         File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -60,6 +60,9 @@ bool nvMemory::saveConfig(TSettings* Settings)
     return false;
 }
 
+/// @brief Load settings from config file located in SPIFFS.
+/// @param TSettings* Struct to update with new settings.
+/// @return true on success
 bool nvMemory::loadConfig(TSettings* Settings)
 {
     // Uncomment if we need to format filesystem
@@ -84,14 +87,14 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 Serial.print('\n');
                 if (!error)
                 {
-                    strcpy(Settings->PoolAddress, json[JSON_KEY_POOLURL] | Settings->PoolAddress);
-                    strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
-                    if (json.containsKey(JSON_KEY_POOLPORT))
-                        Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
-                    if (json.containsKey(JSON_KEY_TIMEZONE))
-                        Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
-                    if (json.containsKey(JSON_KEY_STATS2NV))
-                        Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
+                    Settings->PoolAddress = json[JSON_SPIFFS_KEY_POOLURL] | Settings->PoolAddress;
+                    strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
+                    if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
+                        Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
+                        Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
+                        Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
                     return true;
                 }
                 else
@@ -113,12 +116,16 @@ bool nvMemory::loadConfig(TSettings* Settings)
     return false;
 }
 
+/// @brief Delete config file from SPIFFS
+/// @return true on successs
 bool nvMemory::deleteConfig()
 {
     Serial.println("SPIFS: Erasing config file..");
     return SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
 }
 
+/// @brief Prepare and mount SPIFFS
+/// @return true on success
 bool nvMemory::init()
 {
     if (!Initialized_)

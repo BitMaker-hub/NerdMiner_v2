@@ -59,14 +59,14 @@ bool checkPoolConnection(void) {
   
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(Settings.PoolAddress, serverIP);
+    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
     Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
   }
 
   //Try connecting pool IP
   if (!client.connect(serverIP, Settings.PoolPort)) {
-    Serial.println("Imposible to connect to : " + String(Settings.PoolAddress));
-    WiFi.hostByName(Settings.PoolAddress, serverIP);
+    Serial.println("Imposible to connect to : " + Settings.PoolAddress);
+    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
     Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     return false;
@@ -116,7 +116,7 @@ void runStratumWorker(void *name) {
   Serial.printf("\n[WORKER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
 
   #ifdef DEBUG_MEMORY
-  Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+  Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
   #endif
 
   // connect to pool
@@ -452,7 +452,7 @@ void runMonitor(void *name)
       }
 
       #ifdef DEBUG_MEMORY
-      Serial.printf("### [Total Heap / Free heap]: %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap());
+      Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
       Serial.printf("### Max stack usage: %d\n", uxTaskGetStackHighWaterMark(NULL));
       #endif
 

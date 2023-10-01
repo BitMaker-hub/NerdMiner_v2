@@ -90,12 +90,12 @@ After programming, you will only need to setup your Wifi and BTC address.
 1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
 {  
   "SSID": "myWifiSSID",  
-  "PW": "myWifiPassword",  
+  "WifiPW": "myWifiPassword",  
   "PoolUrl": "public-pool.io",  
   "PoolPort": 21496,  
   "BtcWallet": "walletID",  
   "Timezone": 2,  
-  "saveStats": false  
+  "SaveStats": false  
 }
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.

@@ -9,7 +9,10 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+
+#ifdef USE_LED
 #include <FastLED.h>
+#endif
 
 #define WIDTH 160
 #define HEIGHT 80
@@ -26,6 +29,7 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite background = TFT_eSprite(&tft);
 
+#ifdef USE_LED
 #define MAX_BRIGHTNESS 16
 #define SLOW_FADE 1;
 #define FAST_FADE 4;
@@ -34,6 +38,7 @@ CRGB leds(0, 0, 0);
 int brightness = 0;
 int fadeDirection = 1;
 int fadeAmount = 0;
+#endif // USE_LED
 
 extern monitor_data mMonitor;
 
@@ -74,8 +79,10 @@ extern monitor_data mMonitor;
 
 void dongleDisplay_Init(void)
 {
+  #ifdef USE_LED
   FastLED.addLeds<APA102, LED_DI_PIN, LED_CI_PIN, BGR>(&leds, 1);
   FastLED.show();
+  #endif // USE_LED
 
   tft.init();
   tft.setRotation(3);
