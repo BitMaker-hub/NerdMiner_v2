@@ -6,7 +6,7 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 
-#include "..\devices\device.h"
+#include "../devices/device.h"
 #include "storage.h"
 
 nvMemory::nvMemory() : Initialized_(false){};
