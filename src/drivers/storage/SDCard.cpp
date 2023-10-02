@@ -4,7 +4,7 @@
 
 #include "storage.h"
 #include "nvMemory.h"
-#include "..\devices\device.h"
+#include "../devices/device.h"
 #include  "SDCard.h"
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)

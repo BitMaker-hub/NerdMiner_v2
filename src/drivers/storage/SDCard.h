@@ -3,7 +3,7 @@
 
 #include "storage.h"
 #include "nvMemory.h"
-#include "..\devices\device.h"
+#include "../devices/device.h"
 
 // configuration example and description in /devices/esp32cam.h
 

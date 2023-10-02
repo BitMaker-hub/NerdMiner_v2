@@ -1,7 +1,7 @@
 #ifndef DISPLAYDRIVER_H_
 #define DISPLAYDRIVER_H_
 
-#include "..\devices\device.h"
+#include "../devices/device.h"
 
 typedef void (*AlternateFunction)(void);
 typedef void (*DriverInitFunction)(void);
