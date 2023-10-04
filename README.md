@@ -181,6 +181,6 @@ With the USB-C port to the right:
 ### Donations/Project contributions
 If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or using one of the affiliate links above.
 
-If you want to order a fully assembled Nerdminer you can contribute to my job at [bitronics.store](https://bitronics.store).
+If you want to order a fully assembled Nerdminer you can contribute to my job at 🛒[bitronics.store](https://bitronics.store)🛒
 
 Enjoy
