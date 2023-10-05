@@ -316,12 +316,15 @@ pool_data getPoolData(void){
               const JsonArray& workers = doc["workers"].as<JsonArray>();
               float totalhashs = 0;
               for (const JsonObject& worker : workers) {
-                totalhashs += worker["hashRate"].as<int>();
+                totalhashs += worker["hashRate"].as<double>();
                 /* Serial.print(worker["sessionId"].as<String>()+": ");
                 Serial.print(" - "+worker["hashRate"].as<String>()+": ");
                 Serial.println(totalhashs); */
               }
-              pData.workersHash = String(totalhashs/1000);              
+              char totalhashs_s[16] = {0};
+              suffix_string(totalhashs, totalhashs_s, 16, 0);
+              pData.workersHash = String(totalhashs_s);
+
               double temp;
               if (doc.containsKey("bestDifficulty")) {
               temp = doc["bestDifficulty"].as<double>();            
