@@ -37,13 +37,16 @@ Every time an stratum job notification is received miner update its current work
 - 3D BOX [here](3d_files/)
 
 #### Current Supported Boards
-- LILYGO T-Display S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_Ddy7739))
-- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link](https://s.click.aliexpress.com/e/_DCzlUiX))
-- LILYGO T-QT pro ([Aliexpress link](https://s.click.aliexpress.com/e/_DBQIr43))
-- LILYGO T-Display 1.14 ([Aliexpress link](https://s.click.aliexpress.com/e/_DEqGvSJ))
-- LILYGO T-Display S3 AMOLED ([Aliexpress link](https://s.click.aliexpress.com/e/_DmOIK6j))
-- LILYGO T-Dongle S3 ([Aliexpress link](https://s.click.aliexpress.com/e/_DmQCPyj))
-- ESP32-2432S028R 2,8" ([Aliexpress link](https://s.click.aliexpress.com/e/_DdXkvLv))
+- LILYGO T-Display S3 ([Aliexpress link*](https://s.click.aliexpress.com/e/_Ddy7739))
+- ESP32-WROOM-32, ESP32-Devkit1.. ([Aliexpress link*](https://s.click.aliexpress.com/e/_DCzlUiX))
+- LILYGO T-QT pro ([Aliexpress link*](https://s.click.aliexpress.com/e/_DBQIr43))
+- LILYGO T-Display 1.14 ([Aliexpress link*](https://s.click.aliexpress.com/e/_DEqGvSJ))
+- LILYGO T-Display S3 AMOLED ([Aliexpress link*](https://s.click.aliexpress.com/e/_DmOIK6j))
+- LILYGO T-Dongle S3 ([Aliexpress link*](https://s.click.aliexpress.com/e/_DmQCPyj))
+- ESP32-2432S028R 2,8" ([Aliexpress link*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
+- ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
+
+*Affiliate links
 
 ### Flash firmware
 #### microMiners Flashtool [Recommended]
@@ -53,17 +56,17 @@ Easyiest way to flash firmware. Build your own miner using the folowing firwmare
 1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
 
 #### Standard tool
-Create your own miner using the online firwmare flash tool **ESPtool** and the **binary files** that you will find in the src/bin folder.
+Create your own miner using the online firwmare flash tool **ESPtool** and one of the **binary files** that you will find in the ``bin`` folder.
 If you want you can compile the entire project using Arduino, PlatformIO or Expressif IDF.
 
 1. Get a TTGO T-display S3 or any supported board
 1. Download this repository
 1. Go to ESPtool online: https://espressif.github.io/esptool-js/
-1. Load the firmware with the binaries from the src/bin folder.
-1. Plug your board and select each file from src/bin with its address 
+1. Load the firmware with the binary from one of the sub-folders of ``bin`` corresponding to your board.
+1. Plug your board and select each file from the sub-folder (``.bin`` files).
 
 ### Update firmware
-Update NerdMiner firmware following same flashing steps but only adding 0x10000_firmware file.
+Update NerdMiner firmware following same flashing steps but only using the file 0x10000_firmware.bin.
 
 #### Build troubleshooting
 1. Online ESPtool works with chrome, chromium, brave
@@ -72,14 +75,35 @@ Update NerdMiner firmware following same flashing steps but only adding 0x10000_
 1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made. 
 1. In case of ESP32-WROOM Boards, could be necessary to put your board on boot mode. Hold boot button, press reset button and then program.
 
-### NerdMiner configuration
+## NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
+
+#### Wifi Accesspoint
 
 1. Connect to NerdMinerAP
     - AP:   NerdMinerAP
     - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+
+#### SD card (if available)
+
+1. Format a SD card using Fat32.
+1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+{  
+  "SSID": "myWifiSSID",  
+  "WifiPW": "myWifiPassword",  
+  "PoolUrl": "public-pool.io",  
+  "PoolPort": 21496,  
+  "BtcWallet": "walletID",  
+  "Timezone": 2,  
+  "SaveStats": false  
+}
+1. Insert the SD card.
+1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
+1. Power down to remove the SD card. It is not needed for mining.
+
+#### Pool selection
 
 Recommended low difficulty share pools:
 
@@ -99,6 +123,15 @@ Other standard pools not compatible with low difficulty share:
 | eu.stratum.slushpool.com | 3333 | https://braiins.com/pool |
 
 ### Buttons
+
+#### One button devices:
+
+- One click > change screen.
+- Double click > change screen orientation.
+- Tripple click > turn the screen off and on again.
+- Hold 5 seconds > **reset the configurations and reboot** your NerdMiner. 
+
+#### Two button devices:
 With the USB-C port to the right:
 
 **TOP BUTTON**
@@ -137,16 +170,17 @@ With the USB-C port to the right:
 - [x]  Add best difficulty on miner screen
 - [x]  Add suport to standard ESP32 dev-kit / ESP32-WROOM
 - [x]  Code changes to support adding multiple boards
-- [x]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
 - [x]  Add support to TTGO T-display 1.14
 - [x]  Add support to Amoled
 
 ### On process
-
+- [ ]  Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
 - [ ]  Create new screen like clockMiner but with BTC price
 - [ ]  Add support to control BM1397
 
 ### Donations/Project contributions
-If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡
+If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or using one of the affiliate links above.
+
+If you want to order a fully assembled Nerdminer you can contribute to my job at [bitronics.store](https://bitronics.store).
 
 Enjoy
