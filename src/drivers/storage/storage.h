@@ -28,7 +28,7 @@ struct TSettings
 	char PoolAddress[80]{ DEFAULT_POOLURL };
 	char BtcWallet[80]{ DEFAULT_WALLETID };
 	uint32_t PoolPort{ DEFAULT_POOLPORT };
-	int Timezone{ DEFAULT_TIMEZONE };
+	uint32_t Timezone{ DEFAULT_TIMEZONE };
 	bool saveStats{ DEFAULT_SAVESTATS };
 };
 
