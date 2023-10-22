@@ -96,6 +96,7 @@ After programming, you will only need to setup your Wifi and BTC address.
   "PoolUrl": "public-pool.io",  
   "PoolPort": 21496,  
   "BtcWallet": "walletID",  
+  "WorkerName": "ANiceName",
   "Timezone": 2,  
   "SaveStats": false  
 }

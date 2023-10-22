@@ -167,6 +167,10 @@ void runStratumWorker(void *name) {
       }
       
       strcpy(mWorker.wName, Settings.BtcWallet);
+      if (strlen(Settings.WorkerName) > 0) {
+        snprintf(mWorker.wName, sizeof(mWorker.wName), ".%s", Settings.WorkerName);
+      }
+      
       strcpy(mWorker.wPass, "x");
       // STEP 2: Pool authorize work (Block Info)
       tx_mining_auth(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
