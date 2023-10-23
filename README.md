@@ -97,7 +97,7 @@ After programming, you will only need to setup your Wifi and BTC address.
    - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
-   - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address 
+   - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
 
 #### SD card (if available)
 
