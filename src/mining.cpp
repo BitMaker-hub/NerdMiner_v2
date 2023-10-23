@@ -171,7 +171,6 @@ void runStratumWorker(void *name) {
       } else {
         strcpy(mWorker.wName, Settings.BtcWallet);
       }
-      Serial.println(mWorker.wName);
       
       strcpy(mWorker.wPass, "x");
       // STEP 2: Pool authorize work (Block Info)
