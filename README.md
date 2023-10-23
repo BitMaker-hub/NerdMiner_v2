@@ -85,6 +85,7 @@ After programming, you will only need to setup your Wifi and BTC address.
     - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+1. Change the password if needed
 
 #### SD card (if available)
 
@@ -94,7 +95,8 @@ After programming, you will only need to setup your Wifi and BTC address.
   "SSID": "myWifiSSID",  
   "WifiPW": "myWifiPassword",  
   "PoolUrl": "public-pool.io",  
-  "PoolPort": 21496,  
+  "PoolPort": 21496,
+  "PoolPassword": "x",
   "BtcWallet": "walletID",  
   "Timezone": 2,  
   "SaveStats": false  
