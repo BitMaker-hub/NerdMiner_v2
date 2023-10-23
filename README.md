@@ -97,6 +97,7 @@ After programming, you will only need to setup your Wifi and BTC address.
    - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+   - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address 
 
 #### SD card (if available)
 
@@ -195,6 +196,7 @@ With the USB-C port to the right:
 - [ ] Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
 - [ ] Create new screen like clockMiner but with BTC price
 - [ ] Add support to control BM1397
+- [ ] Add password field in web configuration form
 
 ### Donations/Project contributions
 
