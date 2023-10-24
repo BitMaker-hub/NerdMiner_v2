@@ -1,4 +1,4 @@
-#include "DisplayDriver.h"
+#include "displayDriver.h"
 
 #ifdef V1_DISPLAY
 
@@ -96,7 +96,6 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
 
   // Push prepared background to screen
   background.pushSprite(0, 0);
-  background.deleteSprite();
 }
 
 void tDisplay_ClockScreen(unsigned long mElapsed)
@@ -135,7 +134,6 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
 
   // Push prepared background to screen
   background.pushSprite(0, 0);
-  background.deleteSprite();
 }
 
 void tDisplay_GlobalHashScreen(unsigned long mElapsed)
@@ -195,7 +193,6 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed)
 
   // Push prepared background to screen
   background.pushSprite(0, 0);
-  background.deleteSprite();
 }
 
 void tDisplay_LoadingScreen(void)

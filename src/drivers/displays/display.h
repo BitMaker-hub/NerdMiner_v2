@@ -1,7 +1,7 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#include "DisplayDriver.h"
+#include "displayDriver.h"
 
 extern DisplayDriver *currentDisplayDriver;
 

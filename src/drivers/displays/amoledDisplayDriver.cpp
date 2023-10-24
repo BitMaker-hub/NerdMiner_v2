@@ -1,4 +1,4 @@
-#include "DisplayDriver.h"
+#include "displayDriver.h"
 
 #ifdef AMOLED_DISPLAY
 
