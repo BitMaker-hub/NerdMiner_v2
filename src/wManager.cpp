@@ -151,6 +151,14 @@ void init_WifiManager()
   }
   WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER);
 
+  char showTotalHashParams[24] = "type=\"checkbox\"";
+  if (Settings.TotalHash)
+  {
+    strcat(showTotalHashParams, " checked");
+  }
+  WiFiManagerParameter show_total_hash("TotalHash", "Show total workers hash rate in home", "T", 2, showTotalHashParams, WFM_LABEL_AFTER);
+
+
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
@@ -158,6 +166,7 @@ void init_WifiManager()
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
+  wm.addParameter(&show_total_hash);
 
     Serial.println("AllDone: ");
     if (forceConfig)    
@@ -177,6 +186,8 @@ void init_WifiManager()
             Settings.Timezone = atoi(time_text_box_num.getValue());
             Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
+            Serial.println(show_total_hash.getValue());
+            Settings.TotalHash = (strncmp(show_total_hash.getValue(), "T", 1) == 0);
 
             nvMem.saveConfig(&Settings);
             delay(3000);
