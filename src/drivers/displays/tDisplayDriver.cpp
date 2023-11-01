@@ -9,6 +9,7 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include "drivers/storage/storage.h"
 
 #define WIDTH 340
 #define HEIGHT 170
@@ -16,6 +17,8 @@
 OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
+
+extern TSettings Settings; 
 
 void tDisplay_Init(void)
 {
@@ -53,7 +56,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   mining_data data = getMiningData(mElapsed);
   pool_data poolData = getPoolData();
 
-  bool showTotalWorkerHashRate = false;
+  bool showTotalWorkerHashRate = Settings.TotalHash;
 
   // Print background screen
   background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);

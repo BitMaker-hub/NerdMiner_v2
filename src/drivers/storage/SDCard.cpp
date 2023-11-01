@@ -107,6 +107,8 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
+                    if (json.containsKey(JSON_KEY_TOTALHASH))
+                        Settings->saveStats = json[JSON_KEY_TOTALHASH].as<bool>();
                     return true;
                 }
                 else

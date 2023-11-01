@@ -97,7 +97,8 @@ After programming, you will only need to setup your Wifi and BTC address.
   "PoolPort": 21496,  
   "BtcWallet": "walletID",  
   "Timezone": 2,  
-  "SaveStats": false  
+  "SaveStats": false,
+  "TotalHash": false
 }
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
