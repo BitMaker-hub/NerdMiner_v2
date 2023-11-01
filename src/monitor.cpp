@@ -214,7 +214,7 @@ mining_data getMiningData(unsigned long mElapsed)
   mining_data data;
 
   char best_diff_string[16] = {0};
-  suffix_string(best_diff, best_diff_string, 16, 0);
+  suffix_string(best_diff, best_diff_string, 16, 0, true);
 
   char timeMining[15] = {0};
   uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
@@ -322,14 +322,14 @@ pool_data getPoolData(void){
                 Serial.println(totalhashs); */
               }
               char totalhashs_s[16] = {0};
-              suffix_string(totalhashs, totalhashs_s, 16, 0);
+              suffix_string(totalhashs, totalhashs_s, 16, 0, false);
               pData.workersHash = String(totalhashs_s);
 
               double temp;
               if (doc.containsKey("bestDifficulty")) {
               temp = doc["bestDifficulty"].as<double>();            
               char best_diff_string[16] = {0};
-              suffix_string(temp, best_diff_string, 16, 0);
+              suffix_string(temp, best_diff_string, 16, 0, true);
               pData.bestDifficulty = String(best_diff_string);
               }
               doc.clear();

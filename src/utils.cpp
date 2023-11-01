@@ -398,7 +398,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
 /* Convert a double value into a truncated string for displaying with its
  * associated suitable for Mega, Giga etc. Buf array needs to be long enough */
-void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
+void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits, bool addsuffix)
 {
 	const double kilo = 1000;
 	const double mega = 1000000;
@@ -441,6 +441,10 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 		if (dval < min_diff)
 			dval = 0.0;
 	}
+
+    if (!addsuffix) {
+        strcpy(suffix, "");
+    }
 
 	if (!sigdigits) {
 		if (decimal)

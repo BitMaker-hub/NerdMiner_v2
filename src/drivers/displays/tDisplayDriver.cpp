@@ -51,6 +51,9 @@ void tDisplay_AlternateRotation(void)
 void tDisplay_MinerScreen(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
+  pool_data poolData = getPoolData();
+
+  bool showTotalWorkerHashRate = false;
 
   // Print background screen
   background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
@@ -59,11 +62,11 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str());
 
   // Hashrate
-  render.setFontSize(35);
+  render.setFontSize(showTotalWorkerHashRate ? 25 : 35);
   render.setCursor(19, 118);
   render.setFontColor(TFT_BLACK);
 
-  render.rdrawString(data.currentHashRate.c_str(), 118, 114, TFT_BLACK);
+  render.rdrawString(showTotalWorkerHashRate ? poolData.workersHash.c_str() : data.currentHashRate.c_str(), 118, 114, TFT_BLACK);
   // Total hashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268, 138, TFT_BLACK);
@@ -101,6 +104,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
 void tDisplay_ClockScreen(unsigned long mElapsed)
 {
   clock_data data = getClockData(mElapsed);
+  pool_data poolData = getPoolData();
 
   // Print background screen
   background.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen);
