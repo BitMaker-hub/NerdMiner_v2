@@ -13,7 +13,7 @@
 #define UPDATE_PERIOD_h   5
 
 //API BTC price
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USD"
 #define UPDATE_BTC_min   5
 
 //API Block height
