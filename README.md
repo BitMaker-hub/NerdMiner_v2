@@ -126,6 +126,7 @@ Recommended low difficulty share pools:
 | nerdminers.org    |       | https://nerdminers.org     | Team domain for future pool - Currently pointing to public-pool.io |
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
 | pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy                                                |
+| pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
 
 Other standard pools not compatible with low difficulty share:
 
