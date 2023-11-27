@@ -19,6 +19,8 @@
 #include "lilygoV1TDisplay.h"
 #elif defined(ESP32_CAM)
 #include "esp32CAM.h"
+#elif defined(M5_STAMP_S3)
+#include "m5StampS3.h"
 
 #else
 #error "No device defined"
