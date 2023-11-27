@@ -152,7 +152,7 @@ String getBTCprice(void){
 
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-            if (doc.containsKey("bitcoin")) bitcoin_price = doc["bitcoin"]["usd"];
+            if (doc.containsKey("bitcoin")) bitcoin_price = doc["last_trade_price"];
 
             doc.clear();
 
