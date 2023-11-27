@@ -97,21 +97,26 @@ After programming, you will only need to setup your Wifi and BTC address.
    - PASS: MineYourCoins
 1. Setup your Wifi Network
 1. Add your BTCaddress
+1. Change the password if needed
+
    - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
+
 
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
 1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
-   {  
-    "SSID": "myWifiSSID",  
-    "WifiPW": "myWifiPassword",  
-    "PoolUrl": "public-pool.io",  
-    "PoolPort": 21496,  
-    "BtcWallet": "walletID",  
-    "Timezone": 2,  
-    "SaveStats": false  
-   }
+{  
+  "SSID": "myWifiSSID",  
+  "WifiPW": "myWifiPassword",  
+  "PoolUrl": "public-pool.io",  
+  "PoolPort": 21496,
+  "PoolPassword": "x",
+  "BtcWallet": "walletID",  
+  "Timezone": 2,  
+  "SaveStats": false  
+}
+
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
 1. Power down to remove the SD card. It is not needed for mining.
