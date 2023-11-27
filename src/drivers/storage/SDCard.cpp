@@ -4,7 +4,7 @@
 
 #include "storage.h"
 #include "nvMemory.h"
-#include "..\devices\device.h"
+#include "../devices/device.h"
 #include  "SDCard.h"
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
@@ -100,6 +100,7 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
                     Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
                     Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
+                    strcpy(Settings->PoolPassword, json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();

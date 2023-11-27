@@ -1,4 +1,4 @@
-#include "DisplayDriver.h"
+#include "displayDriver.h"
 
 #ifdef ESP32_2432S028R
 
@@ -81,6 +81,8 @@ void printPoolData(){
   background.setSwapBytes(true);
   if (bottomScreenBlue) {
     background.pushImage(0, 0, 320, 70, bottonPoolScreen);
+    //background.fillRect(295,43,25,10,TFT_CYAN);
+    
   } else {
     background.pushImage(0, 0, 320, 70, bottonPoolScreen_g);
   }
@@ -89,12 +91,12 @@ void printPoolData(){
   render.setLineSpaceRatio(1);
   
   render.setFontSize(24);
-  render.cdrawString(String(pData.workersCount).c_str(), 160, 35, TFT_BLACK);
+  render.cdrawString(String(pData.workersCount).c_str(), 155, 35, TFT_BLACK);
   render.setFontSize(18);
   render.setAlignment(Align::BottomRight);
-  render.drawString(pData.workersHash.c_str(), 293, 51, TFT_BLACK);
-  render.setAlignment(Align::TopLeft);
-  render.cdrawString(pData.bestDifficulty.c_str(), 50, 34, TFT_BLACK);
+  render.cdrawString(pData.workersHash.c_str(), 265, 34, TFT_BLACK);
+  render.setAlignment(Align::BottomLeft);
+  render.cdrawString(pData.bestDifficulty.c_str(), 54, 34, TFT_BLACK);
 
   background.pushSprite(0,170);
   background.deleteSprite();
@@ -128,11 +130,15 @@ void esp32_2432S028R_MinerScreen(unsigned long mElapsed)
   //Print background screen    
   background.pushImage(-190, 0, MinerWidth, MinerHeight, MinerScreen);
   
+  
   // Total hashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268-wdtOffset, 138, TFT_BLACK);
+
+  
   // Block templates
   render.setFontSize(18);
+  render.setAlignment(Align::TopLeft);
   render.drawString(data.templates.c_str(), 189-wdtOffset, 20, 0xDEDB);
   // Best diff
   render.drawString(data.bestDiff.c_str(), 189-wdtOffset, 48, 0xDEDB);
@@ -145,7 +151,8 @@ void esp32_2432S028R_MinerScreen(unsigned long mElapsed)
 
   // Valid Blocks
   render.setFontSize(24);
-  render.drawString(data.valids.c_str(), 285-wdtOffset, 56, 0xDEDB);
+  render.setAlignment(Align::TopCenter);
+  render.drawString(data.valids.c_str(), 290-wdtOffset, 56, 0xDEDB);
 
   // Print Temp
   render.setFontSize(10);
@@ -383,7 +390,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
     { 
       int16_t t_x , t_y;  // To store the touch coordinates
       bool pressed = touch.getXY(t_x, t_y);
-      if (pressed) {                     
+      if (pressed) {                        
           if (((t_x > 109)&&(t_x < 211)) && ((t_y > 185)&&(t_y < 241))) bottomScreenBlue ^= true;
           else
             if (t_x > 160) {
