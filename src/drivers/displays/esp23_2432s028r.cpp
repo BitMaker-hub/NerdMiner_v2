@@ -356,6 +356,68 @@ void esp32_2432S028R_GlobalHashScreen(unsigned long mElapsed)
   printheap();
   #endif
 }
+void esp32_2432S028R_BTCprice(unsigned long mElapsed)
+{
+  
+  if (hasChangedScreen) tft.pushImage(0, 0, priceScreenWidth, priceScreenHeight, priceScreen);
+  hasChangedScreen = false;
+
+  clock_data data = getClockData(mElapsed);
+
+  Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
+                data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str());
+
+ // Create background sprite to print data at once
+  createBackgroundSprite(270,36);
+
+  // Print background screen
+  background.pushImage(0, -130, priceScreenWidth, priceScreenHeight, priceScreen);
+  // Hashrate
+  render.setFontSize(25);
+  render.setFontColor(TFT_BLACK);
+  render.rdrawString(data.currentHashRate.c_str(), 95, 0, TFT_BLACK);
+
+  // Print BlockHeight
+  render.setFontSize(18);
+  render.rdrawString(data.blockHeight.c_str(), 254, 9, TFT_WHITE);
+
+  // Push prepared background to screen
+  background.pushSprite(0, 130);
+  // Delete sprite to free the memory heap
+  background.deleteSprite(); 
+
+  createBackgroundSprite(169,105);
+  // Print background screen
+  background.pushImage(-130, -3, priceScreenWidth, priceScreenHeight, priceScreen);
+  
+  // Print BTC Price
+  background.setFreeFont(FSSB9);
+  background.setTextSize(1);
+  background.setTextDatum(TL_DATUM);
+  background.setTextColor(TFT_BLACK);
+  background.drawString(data.currentTime.c_str(), 202-130, 0, GFXFF);
+ 
+  // Print Hour
+  background.setFreeFont(FF23);
+  background.setTextSize(2);
+  background.setTextColor(0xDEDB, TFT_BLACK);
+  background.drawString(data.btcPrice.c_str(), 0, 50, GFXFF);
+ 
+  // Push prepared background to screen
+  background.pushSprite(130, 3);
+
+  // Delete sprite to free the memory heap
+  background.deleteSprite();   
+
+   #ifdef ESP32_2432S028R      
+   printPoolData();
+  #endif      
+
+  #ifdef DEBUG_MEMORY
+  // Print heap
+  printheap();
+  #endif
+}
 
 void esp32_2432S028R_LoadingScreen(void)
 {
@@ -443,7 +505,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
 
 }
 
-CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen};
+CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice};
 
 DisplayDriver esp32_2432S028RDriver = {
     esp32_2432S028R_Init,

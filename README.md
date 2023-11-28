@@ -51,6 +51,7 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-Dongle S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmQCPyj))
 - ESP32-2432S028R 2,8" ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
 - ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
+- M5-StampS3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DevABY3) / Dev support: @gyengus)
 
 \*Affiliate links
 
@@ -61,7 +62,7 @@ Every time an stratum job notification is received miner update its current work
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3 or any other supported board
-1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
+1. Go to NM2 flasher online: https://flasher.bitronics.store/
 
 #### Standard tool
 
@@ -130,7 +131,8 @@ Recommended low difficulty share pools:
 | public-pool.io    | 21496 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
 | nerdminers.org    |       | https://nerdminers.org     | Team domain for future pool - Currently pointing to public-pool.io |
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
-| pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy                                                |
+| pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy - public-pool fork                             |
+| pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
 
 Other standard pools not compatible with low difficulty share:
 
@@ -207,6 +209,6 @@ With the USB-C port to the right:
 
 If you would like to contribute and help dev team with this project you can send a donation to the following LN address ⚡teamnerdminer@getalby.com⚡ or using one of the affiliate links above.
 
-If you want to order a fully assembled Nerdminer you can contribute to my job at [bitronics.store](https://bitronics.store).
+If you want to order a fully assembled Nerdminer you can contribute to my job at 🛒[bitronics.store](https://bitronics.store)🛒
 
 Enjoy

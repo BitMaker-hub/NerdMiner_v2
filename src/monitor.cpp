@@ -152,7 +152,7 @@ String getBTCprice(void){
 
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-            if (doc.containsKey("bitcoin")) bitcoin_price = doc["last_trade_price"];
+            if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
 
             doc.clear();
 
@@ -191,6 +191,24 @@ void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigne
   *currentHours = currentTime % 86400 / 3600;
   *currentMinutes = currentTime % 3600 / 60;
   *currentSeconds = currentTime % 60;
+}
+
+String getDate(){
+  
+  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+
+  // Convierte la hora actual (epoch time) en una estructura tm
+  struct tm *tm = localtime((time_t *)&currentTime);
+
+  int year = tm->tm_year + 1900; // tm_year es el número de años desde 1900
+  int month = tm->tm_mon + 1;    // tm_mon es el mes del año desde 0 (enero) hasta 11 (diciembre)
+  int day = tm->tm_mday;         // tm_mday es el día del mes
+
+  char currentDate[20];
+  sprintf(currentDate, "%02d/%02d/%04d", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
+
+  return String(currentDate);
 }
 
 String getTime(void){
@@ -248,6 +266,7 @@ clock_data getClockData(unsigned long mElapsed)
   data.btcPrice = getBTCprice();
   data.blockHeight = getBlockHeight();
   data.currentTime = getTime();
+  data.currentDate = getDate();
 
   return data;
 }

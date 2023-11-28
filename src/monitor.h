@@ -76,6 +76,7 @@ typedef struct {
   String btcPrice;
   String blockHeight;
   String currentTime;  
+  String currentDate;
 }clock_data;
 
 typedef struct {

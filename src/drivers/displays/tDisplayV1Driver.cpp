@@ -195,6 +195,44 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.pushSprite(0, 0);
 }
 
+void tDisplay_BTCprice(unsigned long mElapsed)
+{
+  clock_data data = getClockData(mElapsed);
+  
+  // Print background screen
+  background.pushImage(0, 0, priceScreenWidth, priceScreenHeight, priceScreen);
+
+  Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
+                data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str());
+
+  // Hashrate
+  render.setFontSize(25);
+  render.setCursor(19, 122);
+  render.setFontColor(TFT_BLACK);
+  render.rdrawString(data.currentHashRate.c_str(), 70, 103, TFT_BLACK);
+
+  // Print BlockHeight
+  render.setFontSize(18);
+  render.rdrawString(data.blockHeight.c_str(), 190, 110, TFT_WHITE);
+
+  // Print Hour
+  background.setFreeFont(FSSB9);
+  background.setTextSize(1);
+  background.setTextDatum(TL_DATUM);
+  background.setTextColor(TFT_BLACK);
+  background.drawString(data.currentTime.c_str(), 148, 1, GFXFF);
+
+  // Print BTC Price 
+  background.setFreeFont(FF24);
+  background.setTextDatum(TR_DATUM);
+  background.setTextSize(1);
+  background.setTextColor(0xDEDB, TFT_BLACK);
+  background.drawString(data.btcPrice.c_str(), 70, 25, GFXFF);
+
+  // Push prepared background to screen
+  background.pushSprite(0, 0);
+}
+
 void tDisplay_LoadingScreen(void)
 {
   tft.fillScreen(TFT_BLACK);
