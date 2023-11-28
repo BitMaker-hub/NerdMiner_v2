@@ -133,26 +133,12 @@ void runStratumWorker(void *name) {
       continue;
     } 
 
-    //Test vars:
-    //************
-    //Nerdminerpool
-    // strcpy(poolString, "nerdminerPool"); 
-    // portNumber = 3002;
-    // strcpy(btcString,"test");
-    //Braiins
-    //strcpy(poolString, "eu.stratum.braiins.com");
-    //portNumber = 3333;
-    //strcpy(btcString,"Bitmaker.01");
-    //CKpool
-    //strcpy(poolString, "solo.ckpool.org");
-    //portNumber = 3333;
-    //strcpy(btcString,"test");
-
-    if(!checkPoolConnection())
+    if(!checkPoolConnection()){
       //If server is not reachable add random delay for connection retries
       srand(millis());
-      //Generate value between 1 and 15 secs
-      vTaskDelay(((1 + rand() % 15) * 1000) / portTICK_PERIOD_MS);
+      //Generate value between 1 and 120 secs
+      vTaskDelay(((1 + rand() % 120) * 1000) / portTICK_PERIOD_MS);
+    }
 
     if(!isMinerSuscribed){
 
