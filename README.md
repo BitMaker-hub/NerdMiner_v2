@@ -51,6 +51,7 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-Dongle S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmQCPyj))
 - ESP32-2432S028R 2,8" ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
 - ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
+- M5-StampS3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DevABY3) / Dev support: @gyengus)
 
 \*Affiliate links
 
@@ -61,7 +62,7 @@ Every time an stratum job notification is received miner update its current work
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3 or any other supported board
-1. Go to NM2 flasher online: https://bitmaker-hub.github.io/diyflasher/
+1. Go to NM2 flasher online: https://flasher.bitronics.store/
 
 #### Standard tool
 

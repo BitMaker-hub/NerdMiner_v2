@@ -4,8 +4,8 @@
 #include <esp_task_wdt.h>
 #include <nvs_flash.h>
 #include <nvs.h>
-#include "ShaTests/nerdSHA256.h"
-//#include "ShaTests/nerdSHA256plus.h"
+//#include "ShaTests/nerdSHA256.h"
+#include "ShaTests/nerdSHA256plus.h"
 #include "stratum.h"
 #include "mining.h"
 #include "utils.h"
@@ -256,14 +256,12 @@ void runMiner(void * task_id) {
     mMonitor.NerdStatus = NM_hashing;
 
     //Prepare Premining data
-    nerd_sha256 nerdMidstate;
-    //nerdSHA256_context nerdMidstate; //NerdShaplus
+    nerdSHA256_context nerdMidstate; //NerdShaplus
     uint8_t hash[32];
     
 
     //Calcular midstate
-    nerd_midstate(&nerdMidstate, mMiner.bytearray_blockheader, 64);
-    //nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
+    nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
 
 
     // search a valid nonce
@@ -290,8 +288,8 @@ void runMiner(void * task_id) {
         memcpy(mMiner.bytearray_blockheader2 + 76, &nonce, 4);
 
 
-      nerd_double_sha2(&nerdMidstate, header64, hash);
-      //is16BitShare=nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
+      //nerd_double_sha2(&nerdMidstate, header64, hash);
+      is16BitShare=nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
 
       /*Serial.print("hash1: ");
       for (size_t i = 0; i < 32; i++)
