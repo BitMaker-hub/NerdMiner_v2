@@ -81,7 +81,7 @@ Update NerdMiner firmware following same flashing steps but only using the file 
 
 #### Build troubleshooting
 
-1. Online ESPtool works with chrome, chromium, brave
+1. Online [ESP Tool[(https://espressif.github.io/esptool-js/) works with chrome, chromium, brave
 1. ESPtool recommendations: use 115200bps
 1. Build errors > If during firmware download upload stops, it's recommended to enter the board in boot mode. Unplug cable, hold right bottom button and then plug cable. Try programming
 1. In extreme case you can "Erase all flash" on ESPtool to clean all current configuration before uploading firmware. There has been cases that experimented Wifi failures until this was made.
