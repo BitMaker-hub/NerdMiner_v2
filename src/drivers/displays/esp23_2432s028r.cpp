@@ -398,7 +398,7 @@ void esp32_2432S028R_BTCprice(unsigned long mElapsed)
   background.drawString(data.currentTime.c_str(), 202-130, 0, GFXFF);
  
   // Print Hour
-  background.setFreeFont(FF23);
+  background.setFreeFont(FF22);
   background.setTextSize(2);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 0, 50, GFXFF);
