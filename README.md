@@ -62,7 +62,7 @@ Every time an stratum job notification is received miner update its current work
 Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3 or any other supported board
-1. Go to NM2 flasher online: https://flasher.bitronics.store/
+1. Go to NM2 flasher online: https://flasher.bitronics.store/ (recommend via Google Chrome incognito mode)
 
 #### Standard tool
 
