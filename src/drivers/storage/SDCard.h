@@ -27,7 +27,10 @@
 
     #include <SPI.h>
     #include <SD.h>
-    #include "..\lib\TFT_eSPI\User_Setup_Select.h"
+
+    #if !defined(NO_DISPLAY)
+        #include "..\lib\TFT_eSPI\User_Setup_Select.h"
+    #endif
 
     #if !defined(NO_DISPLAY) && !defined(LED_DISPLAY)
         #if !defined(SDSPI_CLK) && defined(TFT_CLK)

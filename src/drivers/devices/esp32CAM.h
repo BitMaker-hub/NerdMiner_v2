@@ -4,7 +4,7 @@
 #define PIN_BUTTON_1 0
 #define LED_PIN 33
 
-#define DONGLE_DISPLAY // NO_DISPLAY
+#define NO_DISPLAY
 
 // example how to configure SD card.
 // if you would define everything, 
