@@ -23,6 +23,10 @@
 #include "m5StampS3.h"
 #elif defined(DEVKITV1RGB)
 #include "esp32DevKitRGB.h"
+#elif defined(S3MINIWEMOS)
+#include "esp32S3MiniWemos.h"
+#elif defined(S3MINIWEACT)
+#include "esp32S3MiniWeact.h"
 
 #else
 #error "No device defined"
