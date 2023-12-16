@@ -4,10 +4,6 @@
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 #endif
 
-#ifdef LED_DISPLAY
-DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
-#endif
-
 #ifdef T_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif
@@ -30,6 +26,10 @@ DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 
 #ifdef V1_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
+#endif
+
+#ifdef M5STICKC_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 #endif
 
 
