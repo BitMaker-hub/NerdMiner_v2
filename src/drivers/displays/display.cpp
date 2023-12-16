@@ -1,5 +1,9 @@
 #include "display.h"
 
+#ifdef LED_DISPLAY
+DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
+#endif
+
 #ifdef NO_DISPLAY
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 #endif
