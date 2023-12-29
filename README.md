@@ -77,6 +77,7 @@ Update NerdMiner firmware following same flashing steps but only using the file 
 
 ## NerdMiner configuration
 After programming, you will only need to setup your Wifi and BTC address.
+Note: when BTC address of your selected wallet is not provided, mining will not be started.
 
 #### Wifi Accesspoint
 
