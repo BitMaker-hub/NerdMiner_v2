@@ -1,4 +1,4 @@
-#include "DisplayDriver.h"
+#include "displayDriver.h"
 
 #ifdef DONGLE_DISPLAY
 
@@ -103,6 +103,9 @@ void dongleDisplay_Init(void)
 
 void dongleDisplay_AlternateScreenState(void)
 {
+  int screen_state = digitalRead(TFT_BL);
+  Serial.println("Switching display state");
+  digitalWrite(TFT_BL, !screen_state);
 }
 
 void dongleDisplay_AlternateRotation(void)
@@ -169,6 +172,12 @@ void dongleDisplay_AnimateCurrentScreen(unsigned long frame)
 void dongleDisplay_DoLedStuff(unsigned long frame)
 {
 #ifdef USE_LED
+  if (digitalRead(TFT_BL))
+  {    
+    FastLED.clear(true);
+    return;
+  }
+
   switch (mMonitor.NerdStatus)
   {
   case NM_waitingConfig:

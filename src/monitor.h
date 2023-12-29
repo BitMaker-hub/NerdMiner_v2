@@ -13,8 +13,8 @@
 #define UPDATE_PERIOD_h   5
 
 //API BTC price
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-#define UPDATE_BTC_min   5
+#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USD"
+#define UPDATE_BTC_min   1
 
 //API Block height
 #define getHeightAPI "https://mempool.space/api/blocks/tip/height"
@@ -76,6 +76,7 @@ typedef struct {
   String btcPrice;
   String blockHeight;
   String currentTime;  
+  String currentDate;
 }clock_data;
 
 typedef struct {

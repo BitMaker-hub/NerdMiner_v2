@@ -27,9 +27,12 @@
 
     #include <SPI.h>
     #include <SD.h>
-    #include "..\lib\TFT_eSPI\User_Setup_Select.h"
 
-    #ifndef NO_DISPLAY
+    #if !defined(NO_DISPLAY)
+        #include "..\lib\TFT_eSPI\User_Setup_Select.h"
+    #endif
+
+    #if !defined(NO_DISPLAY) && !defined(LED_DISPLAY)
         #if !defined(SDSPI_CLK) && defined(TFT_CLK)
             #define SDSPI_CLK TFT_CLK
         #endif // SDSPI_CLK
@@ -41,7 +44,7 @@
         #endif // SDSPI_MISO
     #elif !defined(SDSPI_CLK) || !defined(SDSPI_MOSI) || !defined(SDSPI_MISO)
         #error: Please define SDSPI pins!
-    #endif // NO_DISPLAY
+    #endif // NO_DISPLAY or LED_DISPLAY
     
     #warning SD card support in SPI mode enabled!
 #endif
