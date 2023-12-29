@@ -91,6 +91,7 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 
 1. Format a SD card using Fat32.
 1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+```
 {  
   "SSID": "myWifiSSID",  
   "WifiPW": "myWifiPassword",  
@@ -100,6 +101,7 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
   "Timezone": 2,  
   "SaveStats": false  
 }
+```
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
 1. Power down to remove the SD card. It is not needed for mining.
