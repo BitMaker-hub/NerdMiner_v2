@@ -174,7 +174,7 @@ With the USB-C port to the right:
 
 ### Project guidelines
 
-- Current project was addapted to work with PlatformIO
+- Current project was adapted to work with PlatformIO
 - Current project works with ESP32-S3 and ESP32-wroom.
 - Partition squeme should be build as huge app
 - All libraries needed shown on platform.ini
