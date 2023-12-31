@@ -40,6 +40,12 @@ const char* ntpServer = "pool.ntp.org";
 /********* INIT *****/
 void setup()
 {
+      //Init pin 15 to eneble 5V external power (LilyGo bug)
+  #ifdef PIN_ENABLE5V
+      pinMode(PIN_ENABLE5V, OUTPUT);
+      digitalWrite(PIN_ENABLE5V, HIGH);
+  #endif
+
 #ifdef MONITOR_SPEED
     Serial.begin(MONITOR_SPEED);
 #else
