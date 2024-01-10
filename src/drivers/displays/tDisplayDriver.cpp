@@ -20,7 +20,11 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 void tDisplay_Init(void)
 {
   tft.init();
+  #ifdef LILYGO_S3_T_EMBED
+  tft.setRotation(3);
+  #else
   tft.setRotation(1);
+  #endif
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
   background.createSprite(WIDTH, HEIGHT); // Background Sprite
   background.setSwapBytes(true);
