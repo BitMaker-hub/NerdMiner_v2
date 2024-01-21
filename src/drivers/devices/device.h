@@ -25,6 +25,8 @@
 #include "m5StampS3.h"
 #elif defined(ESP32RGB)
 #include "esp32RGB.h"
+#elif defined(NERDMINER_T_HMI)
+#include "lilygoT_HMI.h"
 
 #else
 #error "No device defined"

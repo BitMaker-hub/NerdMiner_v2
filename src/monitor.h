@@ -54,6 +54,12 @@ typedef struct{
   float progressPercent;
   int remainingBlocks;
   int halfHourFee;
+#ifdef NERDMINER_T_HMI
+  int fastestFee;
+  int hourFee;
+  int economyFee;
+  int minimumFee;
+#endif
 }global_data;
 
 typedef struct {
@@ -94,6 +100,10 @@ typedef struct {
   String btcPrice;
   String currentTime;
   String halfHourFee;
+  String hourFee;
+  String fastestFee;
+  String economyFee;
+  String minimumFee;
   String netwrokDifficulty;
   String globalHashRate;
   String blockHeight;
@@ -107,13 +117,15 @@ typedef struct{
   String bestDifficulty;  // Your miners best difficulty
 }pool_data;
 
+
+
+
 void setup_monitor(void);
 
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
 pool_data getPoolData(void);
-
 clock_data_t getClockData_t(unsigned long mElapsed);
 
 
