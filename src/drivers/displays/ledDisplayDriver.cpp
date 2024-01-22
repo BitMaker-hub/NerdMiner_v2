@@ -28,7 +28,7 @@ void ledDisplay_Init(void)
 {
   Serial.println("Led display driver initialized");
   #ifdef USE_LED
-  FastLED.addLeds<WS2812B, RGB_LED_PIN, BGR>(&leds, 1);
+  FastLED.addLeds<RGB_LED_CLASS, RGB_LED_PIN, RGB_LED_ORDER>(&leds, 1);
   FastLED.show();
   #endif // USE_LED
 }

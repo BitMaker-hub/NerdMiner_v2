@@ -95,11 +95,12 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 
 #### Wifi Accesspoint
 
+
 1. Connect to NerdMinerAP
    - AP: NerdMinerAP
    - PASS: MineYourCoins
-1. Setup your Wifi Network
-1. Add your BTCaddress
+1. Set up your Wifi Network
+1. Add your BTC address
 1. Change the password if needed
 
    - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
@@ -137,6 +138,7 @@ Recommended low difficulty share pools:
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
 | pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy - public-pool fork                             |
 | pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
+| pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 
 Other standard pools not compatible with low difficulty share:
 
@@ -178,7 +180,7 @@ With the USB-C port to the right:
 
 ### Project guidelines
 
-- Current project was addapted to work with PlatformIO
+- Current project was adapted to work with PlatformIO
 - Current project works with ESP32-S3 and ESP32-wroom.
 - Partition squeme should be build as huge app
 - All libraries needed shown on platform.ini
@@ -202,7 +204,7 @@ With the USB-C port to the right:
 - [x] Add support to TTGO T-display 1.14
 - [x] Add support to Amoled
 
-### On process
+### In process
 
 - [ ] Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
 - [ ] Create new screen like clockMiner but with BTC price

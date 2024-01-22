@@ -2,8 +2,9 @@
 #define _M5_STAMP_S3_H
 
 #define PIN_BUTTON_1 0
-#define LED_PIN 9
+#define RGB_LED_PIN 21
 
-#define NO_DISPLAY
+#define LED_DISPLAY
+#define USE_LED
 
 #endif

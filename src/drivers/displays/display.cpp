@@ -32,6 +32,10 @@ DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
+#ifdef M5STICKC_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stickCDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()
