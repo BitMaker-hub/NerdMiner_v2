@@ -91,7 +91,10 @@ Update NerdMiner firmware following same flashing steps but only using the file 
 
 After programming, you will only need to setup your Wifi and BTC address.
 
-#### Wifi Configuration
+Note: when BTC address of your selected wallet is not provided, mining will not be started.
+
+#### Wifi Accesspoint
+
 
 1. Connect to NerdMinerAP
    - AP: NerdMinerAP
@@ -107,6 +110,7 @@ After programming, you will only need to setup your Wifi and BTC address.
 
 1. Format a SD card using Fat32.
 1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+```
 {  
   "SSID": "myWifiSSID",  
   "WifiPW": "myWifiPassword",  
@@ -117,6 +121,7 @@ After programming, you will only need to setup your Wifi and BTC address.
   "Timezone": 2,  
   "SaveStats": false  
 }
+```
 
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
