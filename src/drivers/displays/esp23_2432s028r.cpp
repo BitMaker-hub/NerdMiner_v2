@@ -1,6 +1,6 @@
 #include "displayDriver.h"
 
-#ifdef ESP32_2432S028R
+#if defined ESP32_2432S028R || ESP32_2432S028_2USB
 
 #include <TFT_eSPI.h>
 #include <TFT_eTouch.h>
@@ -32,6 +32,17 @@ void esp32_2432S028R_Init(void)
 { 
   tft.init();
   tft.setRotation(1);
+  #ifdef ESP32_2432S028_2USB
+  /*
+  In addition to TFT_INVERSION this adjusts the gamma curve to have better
+  picture quality for this type of ESP32_2432S028 TFT with for example two USB connectors
+  */
+  tft.writecommand(ILI9341_GAMMASET); // Gamma curve selected
+  tft.writedata(2);
+  delay(120);
+  tft.writecommand(ILI9341_GAMMASET); // Gamma curve selected
+  tft.writedata(1);
+  #endif
   tft.setSwapBytes(true); // Swap the colour byte order when rendering
   hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
   touch.init();

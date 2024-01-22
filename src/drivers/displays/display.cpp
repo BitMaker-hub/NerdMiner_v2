@@ -24,6 +24,10 @@ DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
 #endif
 
+#ifdef ESP32_2432S028_2USB
+DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
+#endif
+
 #ifdef T_QT_DISPLAY
 DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 #endif
