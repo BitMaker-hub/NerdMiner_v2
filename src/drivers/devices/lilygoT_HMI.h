@@ -33,9 +33,10 @@
 #define BK_LIGHT_PIN  (38)
 #define LED_PIN       (8)
 
+#ifndef TFT_BL
 // XXX - defined in User_Setups/Setup207_LilyGo_T_HMI.h:37
 #define TFT_BL        (38) // LED back-light
-
+#endif
 
 
 #endif

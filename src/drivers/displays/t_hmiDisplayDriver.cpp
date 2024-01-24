@@ -22,6 +22,7 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
 SPIClass hSPI(HSPI);
 TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
+bool showbtcprice = false;
 
 extern monitor_data mMonitor;
 extern pool_data pData;
@@ -74,10 +75,11 @@ void t_hmiDisplay_AlternateRotation(void)
 
 void printPoolData()
 {
+  // Serial.print("\nPool ============ Free Heap:");
+  // Serial.println(ESP.getFreeHeap()); 
   pData = getPoolData();
 
   background.pushImage(0, 170, 320, 70, bottonPoolScreen);
-
   render.setLineSpaceRatio(1);
   
   render.setFontSize(24);
@@ -91,19 +93,24 @@ void printPoolData()
 
 void printMemPoolFees(unsigned long mElapsed)
 {
-  coin_data data = getCoinData(mElapsed);
-  
-  background.pushImage(0, 170, 320, 70, bottonPoolScreen);
-  // XXX -- remove when bitmap is done
-  background.fillRect( 105, 170,  110, 20, TFT_BLACK);
-  
-  render.setFontSize(18);
-  String st = data.btcPrice;
-  if (st.length()) st.remove(st.length()-1);
-  render.drawString(st.c_str(),  125, 170,  TFT_WHITE);
+  // Serial.print("\nFees ============ Free Heap:");
+  // Serial.println(ESP.getFreeHeap()); 
 
+  coin_data data = getCoinData(mElapsed);
+
+  render.setFontSize(18);
+  background.pushImage(0, 170, 320, 70, bottomMemPoolFees);
+  if (showbtcprice)
+  {
+    // XXX -- remove when bitmap is done
+    background.fillRect( 105, 170,  110, 20, TFT_BLACK);
+    
+    String st = data.btcPrice;
+    if (st.length()) st.remove(st.length()-1);
+    render.drawString(st.c_str(),  125, 170,  TFT_WHITE);
+  }
   render.drawString(data.economyFee.c_str(), 140, 170+38, TFT_BLACK);
-  
+
   render.setFontSize(18);
   // XXX - less than sign in DigitalNumbers
   // render.drawChar('<', 245, 170+32, TFT_RED);
@@ -153,7 +160,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(10);
   render.rdrawString(data.currentTime.c_str(), 286, 1, TFT_BLACK);
 
-  printMemPoolFees(mElapsed);
+  printPoolData();
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -191,7 +198,7 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(0xDEDB, TFT_BLACK);
 
   background.drawString(data.currentTime.c_str(), 130, 50, GFXFF);
-  printPoolData();
+  printMemPoolFees(mElapsed);
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -309,9 +316,11 @@ void t_hmiDisplay_LoadingScreen(void)
   // tft.pushImage(0, 0, initWidth, initHeight, MinerScreen);
   tft.pushImage(0, 0, initWidth, 170, MinerScreen);
   tft.pushImage(0, 170, initWidth, 70, bottonPoolScreen);
-  // XXX -- remove when bitmap is created
-  tft.fillRect( 105, 170,  110, 20, TFT_BLACK);
-
+  if (showbtcprice)
+  {
+    // blackout title
+    tft.fillRect( 105, 170,  110, 20, TFT_BLACK);
+  }
 }
 
 
