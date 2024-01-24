@@ -322,7 +322,7 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
   background.setTextSize(1);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 300, 58, GFXFF);
-  getPoolData();
+  printPoolData();
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
