@@ -4,6 +4,10 @@
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 #endif
 
+#ifdef LED_DISPLAY
+DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
+#endif
+
 #ifdef T_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif
@@ -28,6 +32,13 @@ DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
+#ifdef M5STICKC_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stickCDriver;
+#endif
+
+#ifdef T_HMI_DISPLAY
+DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
+#endif
 
 // Initialize the display
 void initDisplay()

@@ -3,6 +3,8 @@
 
 #if defined(NERDMINERV2)
 #include "nerdMinerV2.h"
+#elif defined(M5STICK_C)
+#include "M5Stick-C.h"
 #elif defined(DEVKITV1)
 #include "esp32DevKit.h"
 #elif defined(TDISPLAY)
@@ -21,6 +23,10 @@
 #include "esp32CAM.h"
 #elif defined(M5_STAMP_S3)
 #include "m5StampS3.h"
+#elif defined(ESP32RGB)
+#include "esp32RGB.h"
+#elif defined(NERDMINER_T_HMI)
+#include "lilygoT_HMI.h"
 
 #else
 #error "No device defined"
