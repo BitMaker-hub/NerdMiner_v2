@@ -93,7 +93,6 @@ void printPoolData()
 
 void printMemPoolFees(unsigned long mElapsed)
 {
-<<<<<<< HEAD
   // Serial.print("\nFees ============ Free Heap:");
   // Serial.println(ESP.getFreeHeap()); 
 
@@ -112,21 +111,6 @@ void printMemPoolFees(unsigned long mElapsed)
   }
   render.drawString(data.economyFee.c_str(), 140, 170+38, TFT_BLACK);
 
-=======
-  coin_data data = getCoinData(mElapsed);
-  
-  background.pushImage(0, 170, 320, 70, bottonPoolScreen);
-  // XXX -- remove when bitmap is done
-  background.fillRect( 105, 170,  110, 20, TFT_BLACK);
-  
-  render.setFontSize(18);
-  String st = data.btcPrice;
-  if (st.length()) st.remove(st.length()-1);
-  render.drawString(st.c_str(),  125, 170,  TFT_WHITE);
-
-  render.drawString(data.economyFee.c_str(), 140, 170+38, TFT_BLACK);
-  
->>>>>>> 3202927 (platform merge)
   render.setFontSize(18);
   // XXX - less than sign in DigitalNumbers
   // render.drawChar('<', 245, 170+32, TFT_RED);
@@ -176,11 +160,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(10);
   render.rdrawString(data.currentTime.c_str(), 286, 1, TFT_BLACK);
 
-<<<<<<< HEAD
   printPoolData();
-=======
-  printMemPoolFees(mElapsed);
->>>>>>> 3202927 (platform merge)
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -218,11 +198,7 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(0xDEDB, TFT_BLACK);
 
   background.drawString(data.currentTime.c_str(), 130, 50, GFXFF);
-<<<<<<< HEAD
   printMemPoolFees(mElapsed);
-=======
-  printPoolData();
->>>>>>> 3202927 (platform merge)
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -340,17 +316,11 @@ void t_hmiDisplay_LoadingScreen(void)
   // tft.pushImage(0, 0, initWidth, initHeight, MinerScreen);
   tft.pushImage(0, 0, initWidth, 170, MinerScreen);
   tft.pushImage(0, 170, initWidth, 70, bottonPoolScreen);
-<<<<<<< HEAD
   if (showbtcprice)
   {
     // blackout title
     tft.fillRect( 105, 170,  110, 20, TFT_BLACK);
   }
-=======
-  // XXX -- remove when bitmap is created
-  tft.fillRect( 105, 170,  110, 20, TFT_BLACK);
-
->>>>>>> 3202927 (platform merge)
 }
 
 
