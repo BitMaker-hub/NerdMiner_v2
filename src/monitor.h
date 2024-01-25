@@ -119,15 +119,13 @@ typedef struct{
   String bestDifficulty;  // Your miners best difficulty
 }pool_data;
 
-
-
-
 void setup_monitor(void);
 
 mining_data getMiningData(unsigned long mElapsed);
 clock_data getClockData(unsigned long mElapsed);
 coin_data getCoinData(unsigned long mElapsed);
 pool_data getPoolData(void);
+
 clock_data_t getClockData_t(unsigned long mElapsed);
 
 
