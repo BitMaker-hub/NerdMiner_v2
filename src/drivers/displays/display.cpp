@@ -28,6 +28,9 @@ DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
+#ifdef T_HMI_DISPLAY
+DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
+#endif
 
 // Initialize the display
 void initDisplay()

@@ -21,6 +21,8 @@
 #include "esp32CAM.h"
 #elif defined(M5_STAMP_S3)
 #include "m5StampS3.h"
+#elif defined(NERDMINER_T_HMI)
+#include "lilygoT_HMI.h"
 
 #else
 #error "No device defined"
