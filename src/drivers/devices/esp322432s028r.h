@@ -7,4 +7,16 @@
 #define LED_PIN      4   // Red pin
 #define LED_PIN_G    17  // Green pin
 
+// Pin defines for the SD card interface
+// This is working 
+// --------------------------------------
+// use SPI interface
+// (default SPI unit provided by <SPI.h>)
+// setup SPI pins.
+
+#define SDSPI_CS    5
+#define SDSPI_CLK   18
+#define SDSPI_MOSI  23
+#define SDSPI_MISO  19
+
 #endif
