@@ -8,7 +8,7 @@
 #define LED_PIN_G    17  // Green pin
 
 // Pin defines for the SD card interface
-// This is working 
+// This is working for both, ESP32 2432S028R and ESP 2432S028_2USB boards 
 // --------------------------------------
 // use SPI interface
 // (default SPI unit provided by <SPI.h>)
