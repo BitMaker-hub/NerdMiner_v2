@@ -39,8 +39,14 @@ void ledDisplay_AlternateScreenState(void)
   ledOn = !ledOn;
 }
 
-void ledDisplay_AlternateRotation(void)
+int ledDisplay_AlternateRotation(void)
 {
+  return 0;
+}
+
+void ledDisplay_SetRotation(int rotation)
+{
+  return;
 }
 
 void ledDisplay_NoScreen(unsigned long mElapsed)
@@ -125,6 +131,7 @@ DisplayDriver ledDisplayDriver = {
     ledDisplay_Init,
     ledDisplay_AlternateScreenState,
     ledDisplay_AlternateRotation,
+    ledDisplay_SetRotation,
     ledDisplay_LoadingScreen,
     ledDisplay_SetupScreen,
     ledDisplayCyclicScreens,

@@ -52,10 +52,16 @@ void amoledDisplay_AlternateScreenState(void)
 }
 
 int screen_rotation = 1;
-void amoledDisplay_AlternateRotation(void)
+int amoledDisplay_AlternateRotation(void)
 {
   screen_rotation == 1 ? lcd_setRotation(3) : lcd_setRotation(1);
   screen_rotation ^= 1;
+  return screen_rotation;
+}
+
+void amoledDisplay_SetRotation(int rotation)
+{
+  lcd_setRotation(rotation);
 }
 
 void amoledDisplay_MinerScreen(unsigned long mElapsed)
@@ -234,6 +240,7 @@ DisplayDriver amoledDisplayDriver = {
     amoledDisplay_Init,
     amoledDisplay_AlternateScreenState,
     amoledDisplay_AlternateRotation,
+    amoledDisplay_SetRotation,
     amoledDisplay_LoadingScreen,
     amoledDisplay_SetupScreen,
     amoledDisplayCyclicScreens,

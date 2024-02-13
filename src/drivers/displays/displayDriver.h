@@ -4,6 +4,8 @@
 #include "../devices/device.h"
 
 typedef void (*AlternateFunction)(void);
+typedef int (*AlternateRotationFunction)(void);
+typedef void (*SetRotationFunction)(int rotation);
 typedef void (*DriverInitFunction)(void);
 typedef void (*ScreenFunction)(void);
 typedef void (*CyclicScreenFunction)(unsigned long mElapsed);
@@ -14,7 +16,8 @@ typedef struct
 {
   DriverInitFunction initDisplay;                    // Initialize the display
   AlternateFunction alternateScreenState;            // Alternate screen state
-  AlternateFunction alternateScreenRotation;         // Alternate screen rotation
+  AlternateRotationFunction alternateScreenRotation;         // Alternate screen rotation
+  SetRotationFunction setRotation;                   // Set the rotation
   ScreenFunction loadingScreen;                      // Explicit loading screen
   ScreenFunction setupScreen;                        // Explicit setup screen
   CyclicScreenFunction *cyclic_screens;              // Array of cyclic screens

@@ -35,6 +35,7 @@
 #define JSON_SPIFFS_KEY_WALLETID	"btcString"
 #define JSON_SPIFFS_KEY_TIMEZONE	"gmtZone"
 #define JSON_SPIFFS_KEY_STATS2NV	"saveStatsToNVS"
+#define JSON_SPIFFS_KEY_SCREENOR	"screenOrientation"
 
 // settings
 struct TSettings
@@ -47,6 +48,7 @@ struct TSettings
 	int PoolPort{ DEFAULT_POOLPORT };
 	int Timezone{ DEFAULT_TIMEZONE };
 	bool saveStats{ DEFAULT_SAVESTATS };
+	int screenOrientation;
 };
 
 #endif // _STORAGE_H_

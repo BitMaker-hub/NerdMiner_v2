@@ -77,10 +77,17 @@ void esp32_2432S028R_AlternateScreenState(void)
   digitalWrite(TFT_BL, !screen_state);
 }
 
-void esp32_2432S028R_AlternateRotation(void)
+int esp32_2432S028R_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  int screen_rotation = tft.getRotation() == 1 ? 3 : 1;
+  tft.setRotation(screen_rotation);
   hasChangedScreen = true;
+  return screen_rotation;
+}
+
+void esp32_2432S028R_SetRotation(int rotation)
+{
+  tft.setRotation(rotation);
 }
 
 bool bottomScreenBlue = true;
@@ -522,6 +529,7 @@ DisplayDriver esp32_2432S028RDriver = {
     esp32_2432S028R_Init,
     esp32_2432S028R_AlternateScreenState,
     esp32_2432S028R_AlternateRotation,
+    esp32_2432S028R_SetRotation,
     esp32_2432S028R_LoadingScreen,
     esp32_2432S028R_SetupScreen,
     esp32_2432S028RCyclicScreens,

@@ -1,4 +1,11 @@
 #include "display.h"
+#include "../storage/storage.h"
+#include "../storage/nvMemory.h"
+
+// Variables to hold data from custom textboxes
+//Track mining stats in non volatile memory
+extern TSettings Settings;
+extern nvMemory nvMem;
 
 #ifdef NO_DISPLAY
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
@@ -44,7 +51,22 @@ DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 // Initialize the display
 void initDisplay()
 {
+  Serial.println("Starting display.");
   currentDisplayDriver->initDisplay();
+  if (!nvMem.loadConfig(&Settings)) {
+    return;
+  }
+
+  if (Settings.screenOrientation>=0) {
+    Serial.println("Setting stored screen orientation.");
+    Serial.println(Settings.screenOrientation);
+    currentDisplayDriver->setRotation(Settings.screenOrientation);
+  } else {
+    Serial.println("No stored screen orientation");
+    Serial.println(Settings.screenOrientation);
+    currentDisplayDriver->setRotation(0);
+  
+  }
 }
 
 // Alternate screen state
@@ -56,7 +78,9 @@ void alternateScreenState()
 // Alternate screen rotation
 void alternateScreenRotation()
 {
-  currentDisplayDriver->alternateScreenRotation();
+  int screen_rotation = currentDisplayDriver->alternateScreenRotation();
+  Settings.screenOrientation = screen_rotation;
+  nvMem.saveConfig(&Settings);
 }
 
 // Draw the loading screen
