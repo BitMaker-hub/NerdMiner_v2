@@ -4,6 +4,9 @@
 #define PIN_BUTTON_1 0
 #define LED_PIN 33
 
+#define ACTIVE_LED HIGH
+#define INACTIVE_LED LOW
+
 #define NO_DISPLAY
 
 // example how to configure SD card.
