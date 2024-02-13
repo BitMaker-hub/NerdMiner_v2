@@ -45,7 +45,7 @@ void t_qtDisplay_AlternateScreenState(void)
 
 int t_qtDisplay_AlternateRotation(void)
 {
-  int screen_rotation = tft.getRotation()+1) % 4);
+  int screen_rotation = ((tft.getRotation()+1) % 4);
   tft.setRotation(screen_rotation);
   return screen_rotation;
 }
@@ -175,7 +175,7 @@ DisplayDriver t_qtDisplayDriver = {
     t_qtDisplay_Init,
     t_qtDisplay_AlternateScreenState,
     t_qtDisplay_AlternateRotation,
-    t_qtDisplayy_SetRotation,
+    t_qtDisplay_SetRotation,
     t_qtDisplay_LoadingScreen,
     t_qtDisplay_SetupScreen,
     t_qtDisplayCyclicScreens,

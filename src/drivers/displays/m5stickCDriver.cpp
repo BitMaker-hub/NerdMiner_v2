@@ -52,7 +52,7 @@ int m5stickCDriver_AlternateRotation(void)
   return screen_rotation;
 }
 
-void dongledDisplay_SetRotation(int rotation)
+void m5stickCDriver_SetRotation(int rotation)
 {
   m5.Lcd.setRotation(rotation);
 }

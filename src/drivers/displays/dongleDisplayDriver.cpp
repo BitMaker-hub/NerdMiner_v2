@@ -115,7 +115,7 @@ int dongleDisplay_AlternateRotation(void)
   return screen_rotation;
 }
 
-void dongledDisplay_SetRotation(int rotation)
+void dongleDisplay_SetRotation(int rotation)
 {
   tft.setRotation(rotation);
 }
