@@ -43,9 +43,16 @@ void t_qtDisplay_AlternateScreenState(void)
   digitalWrite(TFT_BL, !screen_state);
 }
 
-void t_qtDisplay_AlternateRotation(void)
+int t_qtDisplay_AlternateRotation(void)
 {
-  tft.setRotation((tft.getRotation()+1) % 4);
+  int screen_rotation = ((tft.getRotation()+1) % 4);
+  tft.setRotation(screen_rotation);
+  return screen_rotation;
+}
+
+void t_qtDisplay_SetRotation(int rotation)
+{
+  tft.setRotation(rotation);
 }
 
 void t_qtDisplay_MinerScreen(unsigned long mElapsed)
@@ -168,6 +175,7 @@ DisplayDriver t_qtDisplayDriver = {
     t_qtDisplay_Init,
     t_qtDisplay_AlternateScreenState,
     t_qtDisplay_AlternateRotation,
+    t_qtDisplay_SetRotation,
     t_qtDisplay_LoadingScreen,
     t_qtDisplay_SetupScreen,
     t_qtDisplayCyclicScreens,

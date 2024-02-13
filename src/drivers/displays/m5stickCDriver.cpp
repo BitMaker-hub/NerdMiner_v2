@@ -40,10 +40,21 @@ void m5stickCDriver_AlternateScreenState(void)
   }
 }
 
-void m5stickCDriver_AlternateRotation(void)
+int m5stickCDriver_AlternateRotation(void)
 {
-  if (M5.Lcd.getRotation() == 3) M5.Lcd.setRotation(1);
-  else M5.Lcd.setRotation(3);
+  int screen_rotation;
+  if (M5.Lcd.getRotation() == 3) 
+    screen_rotation = 1;
+  else 
+    screen_rotation = 3;
+    
+  m5.Lcd.setRotation(screen_rotation);
+  return screen_rotation;
+}
+
+void m5stickCDriver_SetRotation(int rotation)
+{
+  m5.Lcd.setRotation(rotation);
 }
 
 void m5stickCDriver_MinerScreen(unsigned long mElapsed)
@@ -189,6 +200,7 @@ DisplayDriver m5stickCDriver = {
     m5stickCDriver_Init,
     m5stickCDriver_AlternateScreenState,
     m5stickCDriver_AlternateRotation,
+    m5stickCDriver_SetRotation,
     m5stickCDriver_LoadingScreen,
     m5stickCDriver_SetupScreen,
     m5stickCDriverCyclicScreens,

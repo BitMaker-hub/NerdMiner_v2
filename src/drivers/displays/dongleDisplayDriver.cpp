@@ -108,9 +108,16 @@ void dongleDisplay_AlternateScreenState(void)
   digitalWrite(TFT_BL, !screen_state);
 }
 
-void dongleDisplay_AlternateRotation(void)
+int dongleDisplay_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  int screen_rotation = tft.getRotation() == 1 ? 3 : 1;
+  tft.setRotation(screen_rotation); 
+  return screen_rotation;
+}
+
+void dongleDisplay_SetRotation(int rotation)
+{
+  tft.setRotation(rotation);
 }
 
 void dongleDisplay_MinerScreen(unsigned long mElapsed)
@@ -215,6 +222,7 @@ DisplayDriver dongleDisplayDriver = {
     dongleDisplay_Init,
     dongleDisplay_AlternateScreenState,
     dongleDisplay_AlternateRotation,
+    dongleDisplay_SetRotation,
     dongleDisplay_LoadingScreen,
     dongleDisplay_SetupScreen,
     dongleDisplayCyclicScreens,
