@@ -65,8 +65,17 @@ void initDisplay()
     Serial.println("No stored screen orientation");
     Serial.println(Settings.screenOrientation);
     currentDisplayDriver->setRotation(0);
-  
   }
+
+    if (Settings.currentCyclicScreen>=0) {
+    Serial.println("Setting stored screen.");
+    Serial.println(Settings.currentCyclicScreen);
+    currentDisplayDriver->current_cyclic_screen = Settings.currentCyclicScreen;
+  } else {
+    Serial.println("No stored screen.");
+    Serial.println(Settings.currentCyclicScreen);  
+  }
+
 }
 
 // Alternate screen state
@@ -105,6 +114,8 @@ void resetToFirstScreen()
 void switchToNextScreen()
 {
   currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
+  Settings.currentCyclicScreen = currentDisplayDriver->current_cyclic_screen;
+  nvMem.saveConfig(&Settings);
 }
 
 // Draw the current cyclic screen
