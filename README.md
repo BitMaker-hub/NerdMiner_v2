@@ -50,6 +50,8 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-Display S3 AMOLED ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmOIK6j))
 - LILYGO T-Dongle S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmQCPyj))
 - ESP32-2432S028R 2,8" ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
+- ESP32-2432S024 2,4" ([Aliexpress link](https://www.aliexpress.us/item/3256806115246299.html), [Board 
+Info](https://github.com/NoosaHydro/2.4inch_ESP32-2432S024))
 - ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
 - M5-StampS3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DevABY3) / Dev support: @gyengus)
 
