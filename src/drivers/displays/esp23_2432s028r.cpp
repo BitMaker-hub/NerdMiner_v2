@@ -1,6 +1,6 @@
 #include "displayDriver.h"
 
-#if defined ESP32_2432S028R || ESP32_2432S028_2USB
+#if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024)
 
 #include <TFT_eSPI.h>
 #include <TFT_eTouch.h>

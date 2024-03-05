@@ -20,11 +20,7 @@ DisplayDriver *currentDisplayDriver = &amoledDisplayDriver;
 DisplayDriver *currentDisplayDriver = &dongleDisplayDriver;
 #endif
 
-#ifdef ESP32_2432S028R
-DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
-#endif
-
-#ifdef ESP32_2432S028_2USB
+#if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024)
 DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
 #endif
 
@@ -39,7 +35,6 @@ DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #ifdef M5STICKC_DISPLAY
 DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 #endif
-
 
 // Initialize the display
 void initDisplay()
