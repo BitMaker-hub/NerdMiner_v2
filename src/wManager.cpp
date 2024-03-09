@@ -255,42 +255,41 @@ void init_WifiManager()
         Serial.println("WiFi connected");
         Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
-
-        // Lets deal with the user config values
-
-        // Copy the string value
-        Settings.PoolAddress = pool_text_box.getValue();
-        //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-        Serial.print("PoolString: ");
-        Serial.println(Settings.PoolAddress);
-
-        //Convert the number value
-        Settings.PoolPort = atoi(port_text_box_num.getValue());
-        Serial.print("portNumber: ");
-        Serial.println(Settings.PoolPort);
-
-        // Copy the string value
-        strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-        Serial.print("poolPassword: ");
-        Serial.println(Settings.PoolPassword);
-
-        // Copy the string value
-        strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-        Serial.print("btcString: ");
-        Serial.println(Settings.BtcWallet);
-
-        //Convert the number value
-        Settings.Timezone = atoi(time_text_box_num.getValue());
-        Serial.print("TimeZone fromUTC: ");
-        Serial.println(Settings.Timezone);
-
-        #ifdef ESP32_2432S028R
-        Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-        Serial.print("Invert Colors: ");
-        Serial.println(Settings.invertColors);        
-        #endif
-
     }
+
+    // Lets deal with the user config values
+
+    // Copy the string value
+    Settings.PoolAddress = pool_text_box.getValue();
+    //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
+    Serial.print("PoolString: ");
+    Serial.println(Settings.PoolAddress);
+
+    //Convert the number value
+    Settings.PoolPort = atoi(port_text_box_num.getValue());
+    Serial.print("portNumber: ");
+    Serial.println(Settings.PoolPort);
+
+    // Copy the string value
+    strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
+    Serial.print("poolPassword: ");
+    Serial.println(Settings.PoolPassword);
+
+    // Copy the string value
+    strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+    Serial.print("btcString: ");
+    Serial.println(Settings.BtcWallet);
+
+    //Convert the number value
+    Settings.Timezone = atoi(time_text_box_num.getValue());
+    Serial.print("TimeZone fromUTC: ");
+    Serial.println(Settings.Timezone);
+
+    #ifdef ESP32_2432S028R
+    Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+    Serial.print("Invert Colors: ");
+    Serial.println(Settings.invertColors);
+    #endif
 
     // Save the custom parameters to FS
     if (shouldSaveConfig)
