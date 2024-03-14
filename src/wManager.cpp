@@ -13,6 +13,7 @@
 #include "drivers/storage/SDCard.h"
 #include "drivers/storage/nvMemory.h"
 #include "drivers/storage/storage.h"
+#include "mining.h"
 
 
 // Flag for saving data
@@ -53,6 +54,7 @@ void reset_configuration()
 {
     Serial.println("Erasing Config, restarting");
     nvMem.deleteConfig();
+    resetStat();
     wm.resetSettings();
     ESP.restart();
 }
@@ -149,7 +151,7 @@ void init_WifiManager()
   {
     strcat(checkboxParams, " checked");
   }
-  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER);
+  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Save mining statistics to flash memory.", "T", 2, checkboxParams, WFM_LABEL_AFTER);
   // Text box (String) - 80 characters maximum
   WiFiManagerParameter password_text_box("Poolpassword - Optionl", "Pool password", Settings.PoolPassword, 80);
 
