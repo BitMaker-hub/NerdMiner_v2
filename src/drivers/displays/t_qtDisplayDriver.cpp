@@ -9,6 +9,7 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include "rotation.h"
 
 #define WIDTH 128
 #define HEIGHT 128
@@ -20,7 +21,7 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 void t_qtDisplay_Init(void)
 {
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(LANDSCAPE);
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
   background.createSprite(WIDTH, HEIGHT); // Background Sprite
   background.setSwapBytes(true);
@@ -45,7 +46,7 @@ void t_qtDisplay_AlternateScreenState(void)
 
 void t_qtDisplay_AlternateRotation(void)
 {
-  tft.setRotation((tft.getRotation()+1) % 4);
+  tft.setRotation( rotationRight(tft.getRotation()) );
 }
 
 void t_qtDisplay_MinerScreen(unsigned long mElapsed)

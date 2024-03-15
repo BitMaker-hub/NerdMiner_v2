@@ -9,6 +9,7 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include "rotation.h"
 
 #ifdef USE_LED
 #include <FastLED.h>
@@ -85,7 +86,7 @@ void dongleDisplay_Init(void)
   #endif // USE_LED
 
   tft.init();
-  tft.setRotation(3);
+  tft.setRotation(LANDSCAPE_INVERTED);
   tft.setSwapBytes(true);
   background.createSprite(BUFFER_WIDTH, BUFFER_HEIGHT);
   background.setSwapBytes(true);
@@ -110,7 +111,7 @@ void dongleDisplay_AlternateScreenState(void)
 
 void dongleDisplay_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  tft.setRotation( flipRotation(tft.getRotation()) );
 }
 
 void dongleDisplay_MinerScreen(unsigned long mElapsed)
