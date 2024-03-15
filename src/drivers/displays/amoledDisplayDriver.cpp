@@ -1,5 +1,6 @@
 #include "displayDriver.h"
 
+
 #ifdef AMOLED_DISPLAY
 
 #include <rm67162.h>
@@ -10,6 +11,7 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include "rotation.h"
 
 #define WIDTH 536
 #define HEIGHT 240
@@ -30,7 +32,8 @@ TFT_eSprite background = TFT_eSprite(&tft);
 void amoledDisplay_Init(void)
 {
   rm67162_init();
-  lcd_setRotation(1);
+//  lcd_setRotation(1);
+  lcd_setRotation(LANDSCAPE);
 
   background.createSprite(WIDTH, HEIGHT);
   background.setSwapBytes(true);
@@ -51,11 +54,11 @@ void amoledDisplay_AlternateScreenState(void)
   screen_state ^= 1;
 }
 
-int screen_rotation = 1;
+int screen_rotation = LANDSCAPE;
 void amoledDisplay_AlternateRotation(void)
 {
-  screen_rotation == 1 ? lcd_setRotation(3) : lcd_setRotation(1);
-  screen_rotation ^= 1;
+    screen_rotation = flipRotation(screen_rotation);
+    screen_rotation ^= 1;
 }
 
 void amoledDisplay_MinerScreen(unsigned long mElapsed)

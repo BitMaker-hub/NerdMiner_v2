@@ -12,6 +12,7 @@
 #include "monitor.h"
 #include "OpenFontRender.h"
 #include <SPI.h>
+#include "rotation.h"
 
 #define WIDTH 130 //320
 #define HEIGHT 170 
@@ -31,7 +32,8 @@ bool hasChangedScreen = true;
 void esp32_2432S028R_Init(void)
 { 
   tft.init();
-  tft.setRotation(1);
+//  tft.setRotation(1);
+  tft.setRotation(ROTATION_90);
   #ifdef ESP32_2432S028_2USB
   /*
   In addition to TFT_INVERSION this adjusts the gamma curve to have better
@@ -79,7 +81,7 @@ void esp32_2432S028R_AlternateScreenState(void)
 
 void esp32_2432S028R_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  tft.setRotation(flipRotation(tft.getRotation()));
   hasChangedScreen = true;
 }
 
