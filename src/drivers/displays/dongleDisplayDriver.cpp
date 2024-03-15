@@ -86,7 +86,6 @@ void dongleDisplay_Init(void)
   #endif // USE_LED
 
   tft.init();
-//  tft.setRotation(ROTATION_270);
   tft.setRotation(LANDSCAPE_INVERTED);
   tft.setSwapBytes(true);
   background.createSprite(BUFFER_WIDTH, BUFFER_HEIGHT);
@@ -112,7 +111,7 @@ void dongleDisplay_AlternateScreenState(void)
 
 void dongleDisplay_AlternateRotation(void)
 {
-  tft.setRotation(flipRotation(tft.getRotation()));
+  tft.setRotation( flipRotation(tft.getRotation()) );
 }
 
 void dongleDisplay_MinerScreen(unsigned long mElapsed)

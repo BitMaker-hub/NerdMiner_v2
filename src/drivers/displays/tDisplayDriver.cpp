@@ -22,7 +22,6 @@ void tDisplay_Init(void)
 {
   tft.init();
   #ifdef LILYGO_S3_T_EMBED
-//  tft.setRotation(3);
   tft.setRotation(ROTATION_270);
   #else
   tft.setRotation(ROTATION_90);
@@ -51,7 +50,7 @@ void tDisplay_AlternateScreenState(void)
 
 void tDisplay_AlternateRotation(void)
 {
-  tft.setRotation(flipRotation(tft.getRotation()));
+  tft.setRotation( flipRotation(tft.getRotation()) );
 }
 
 void tDisplay_MinerScreen(unsigned long mElapsed)

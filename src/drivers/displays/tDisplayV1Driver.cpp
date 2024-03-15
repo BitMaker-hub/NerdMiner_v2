@@ -21,7 +21,6 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 void tDisplay_Init(void)
 {
   tft.init();
-//  tft.setRotation(1);
   tft.setRotation(ROTATION_90);
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
   background.createSprite(WIDTH, HEIGHT); // Background Sprite
@@ -47,7 +46,7 @@ void tDisplay_AlternateScreenState(void)
 
 void tDisplay_AlternateRotation(void)
 {
-  tft.setRotation(flipRotation(tft.getRotation()));
+  tft.setRotation( flipRotation(tft.getRotation()) );
 }
 
 void tDisplay_MinerScreen(unsigned long mElapsed)

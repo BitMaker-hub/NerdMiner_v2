@@ -32,7 +32,6 @@ TFT_eSprite background = TFT_eSprite(&tft);
 void amoledDisplay_Init(void)
 {
   rm67162_init();
-//  lcd_setRotation(1);
   lcd_setRotation(LANDSCAPE);
 
   background.createSprite(WIDTH, HEIGHT);

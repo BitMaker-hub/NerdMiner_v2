@@ -22,7 +22,6 @@ int screen_state = 1;
 void m5stickCDriver_Init(void)
 {
   M5.begin();
-//  M5.Lcd.setRotation(1);
   M5.Lcd.setRotation(LANDSCAPE);
   M5.Lcd.setTextSize(1);
   M5.Lcd.fillScreen(BLACK);
@@ -44,7 +43,7 @@ void m5stickCDriver_AlternateScreenState(void)
 
 void m5stickCDriver_AlternateRotation(void)
 {
-    M5.Lcd.setRotation(flipRotation(M5.Lcd.getRotation()));
+    M5.Lcd.setRotation( flipRotation(M5.Lcd.getRotation()) );
 }
 
 void m5stickCDriver_MinerScreen(unsigned long mElapsed)

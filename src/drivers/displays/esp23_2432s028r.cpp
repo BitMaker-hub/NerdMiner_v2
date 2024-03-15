@@ -32,7 +32,6 @@ bool hasChangedScreen = true;
 void esp32_2432S028R_Init(void)
 { 
   tft.init();
-//  tft.setRotation(1);
   tft.setRotation(ROTATION_90);
   #ifdef ESP32_2432S028_2USB
   /*
@@ -81,7 +80,7 @@ void esp32_2432S028R_AlternateScreenState(void)
 
 void esp32_2432S028R_AlternateRotation(void)
 {
-  tft.setRotation(flipRotation(tft.getRotation()));
+  tft.setRotation( flipRotation(tft.getRotation()) );
   hasChangedScreen = true;
 }
 

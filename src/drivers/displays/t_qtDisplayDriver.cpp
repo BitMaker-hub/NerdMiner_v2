@@ -46,7 +46,7 @@ void t_qtDisplay_AlternateScreenState(void)
 
 void t_qtDisplay_AlternateRotation(void)
 {
-  tft.setRotation(rotationRight(tft.getRotation()));
+  tft.setRotation( rotationRight(tft.getRotation()) );
 }
 
 void t_qtDisplay_MinerScreen(unsigned long mElapsed)
