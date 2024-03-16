@@ -27,6 +27,8 @@
 #include "esp32CAM.h"
 #elif defined(ESP32RGB)
 #include "esp32RGB.h"
+#elif defined(NERMINER_S3_GEEK)
+#include "waveshareS3Geek.h"
 
 #else
 #error "No device defined"
