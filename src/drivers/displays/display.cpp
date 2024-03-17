@@ -4,6 +4,10 @@
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 #endif
 
+#ifdef M5STACK_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stackDisplayDriver;
+#endif
+
 #ifdef LED_DISPLAY
 DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 #endif
