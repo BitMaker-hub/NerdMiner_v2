@@ -1,4 +1,5 @@
 
+#include <Wire.h>
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -128,7 +129,6 @@ void setup()
 
   /******** MONITOR SETUP *****/
   setup_monitor();
-  
 }
 
 void app_error_fault_handler(void *arg) {
@@ -152,7 +152,7 @@ void loop() {
     button2.tick();
   #endif
   
-  wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code  
+  wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

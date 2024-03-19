@@ -37,6 +37,8 @@
 #include "esp32S3MiniWeact.h"
 #elif defined(M5STACK_BOARD)
 #include "m5stack.h"
+#elif defined(WT32_BOARD)
+#include "wt32.h"
 #else
 #error "No device defined"
 #endif
