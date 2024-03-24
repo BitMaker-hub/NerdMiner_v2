@@ -6,7 +6,11 @@
 // config files
 
 // default settings
+#ifndef HAN
 #define DEFAULT_SSID		"NerdMinerAP"
+#else
+#define DEFAULT_SSID		"HanSoloAP"
+#endif
 #define DEFAULT_WIFIPW		"MineYourCoins"
 #define DEFAULT_POOLURL		"public-pool.io"
 #define DEFAULT_POOLPASS	"x"

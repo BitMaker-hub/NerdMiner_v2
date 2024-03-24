@@ -28,6 +28,8 @@ typedef struct
 
 extern DisplayDriver *currentDisplayDriver;
 
+extern DisplayDriver m5stackDisplayDriver;
+extern DisplayDriver wt32DisplayDriver;
 extern DisplayDriver noDisplayDriver;
 extern DisplayDriver ledDisplayDriver;
 extern DisplayDriver tDisplayDriver;
