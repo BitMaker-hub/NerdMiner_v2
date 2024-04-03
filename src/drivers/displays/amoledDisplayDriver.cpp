@@ -29,6 +29,10 @@ TFT_eSprite background = TFT_eSprite(&tft);
 
 void amoledDisplay_Init(void)
 {
+#if TOUCH
+  pinMode(38, OUTPUT);
+  digitalWrite(38, OUTPUT);
+#endif
   rm67162_init();
   lcd_setRotation(1);
 
