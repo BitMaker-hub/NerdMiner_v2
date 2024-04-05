@@ -4,7 +4,7 @@
 
 This is a **free and open source project** that let you try to reach a bitcoin block with a small piece of hardware.
 
-The main aim of this project is to let you **learn more about minery** and to have a beautiful piece of hardware in your desktop.
+The main aim of this project is to let you **learn more about mining** and to have a beautiful piece of hardware in your desktop.
 
 Original project https://github.com/valerio-vaccaro/HAN
 
@@ -25,9 +25,9 @@ Currently includes:
 
 - NerdMiner Screen > Mining data of Nerdminer
 - ClockMiner Screen > Fashion style clock miner
-- GlobalStats Screen > Global minery stats and relevant data
+- GlobalStats Screen > Global mining stats and relevant data
 
-This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi stuff.
+This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi.
 Every time an stratum job notification is received miner update its current work to not create stale shares.
 
 **IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
@@ -59,7 +59,7 @@ Every time an stratum job notification is received miner update its current work
 
 #### microMiners Flashtool [Recommended]
 
-Easyiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
+Easiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3 or any other supported board
 1. Go to NM2 flasher online: https://flasher.bitronics.store/ (recommend via Google Chrome incognito mode)
@@ -154,7 +154,7 @@ Other standard pools not compatible with low difficulty share:
 
 - One click > change screen.
 - Double click > change screen orientation.
-- Tripple click > turn the screen off and on again.
+- Triple click > turn the screen off and on again.
 - Hold 5 seconds > **reset the configurations and reboot** your NerdMiner.
 
 #### Two button devices:
