@@ -2,9 +2,9 @@
 
 **The NerdSoloMiner v2**
 
-This is a **free and open source project** that let you try to reach a bitcoin block with a small piece of hardware.
+This is a free and open source project that let's you try to reach a bitcoin block with a small piece of hardware.
 
-The main aim of this project is to let you **learn more about mining** and to have a beautiful piece of hardware in your desktop.
+The main aim of this project is to let you learn more about mining and to have a beautiful piece of hardware on your desktop.
 
 Original project https://github.com/valerio-vaccaro/HAN
 
@@ -27,8 +27,8 @@ Currently includes:
 - ClockMiner Screen > Fashion style clock miner
 - GlobalStats Screen > Global mining stats and relevant data
 
-This miner is multicore and multithreads, both cores are used to mine and several threads are used to implementing stratum work and wifi.
-Every time an stratum job notification is received miner update its current work to not create stale shares.
+This miner is multicore and multithreads, both cores are used to mine and several threads are used to implement stratum work and wifi.
+Every time a stratum job notification is received miner update its current work to not create stale shares.
 
 **IMPORTANT** Miner is not seen by all standard pools due to its low share difficulty. You can check miner work remotely using specific pools specified down or seeing logs via UART.
 
@@ -62,7 +62,7 @@ Every time an stratum job notification is received miner update its current work
 Easiest way to flash firmware. Build your own miner using the folowing firwmare flash tool:
 
 1. Get a TTGO T-display S3 or any other supported board
-1. Go to NM2 flasher online: https://flasher.bitronics.store/ (recommend via Google Chrome incognito mode)
+1. Go to NM2 flasher online: https://flasher.bitronics.store/ (Recommend via Edge)
 
 #### Standard tool
 
