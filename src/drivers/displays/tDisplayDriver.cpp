@@ -9,6 +9,7 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#include "rotation.h"
 
 #define WIDTH 340
 #define HEIGHT 170
@@ -21,9 +22,9 @@ void tDisplay_Init(void)
 {
   tft.init();
   #ifdef LILYGO_S3_T_EMBED
-  tft.setRotation(3);
+  tft.setRotation(ROTATION_270);
   #else
-  tft.setRotation(1);
+  tft.setRotation(ROTATION_90);
   #endif
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
   background.createSprite(WIDTH, HEIGHT); // Background Sprite
@@ -49,7 +50,7 @@ void tDisplay_AlternateScreenState(void)
 
 void tDisplay_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  tft.setRotation( flipRotation(tft.getRotation()) );
 }
 
 void tDisplay_MinerScreen(unsigned long mElapsed)

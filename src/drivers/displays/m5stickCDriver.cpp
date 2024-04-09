@@ -9,6 +9,7 @@
 #include "media/Free_Fonts.h"
 #include "version.h"
 #include "monitor.h"
+#include "rotation.h"
 
 #define WIDTH 80
 #define HEIGHT 160
@@ -21,7 +22,7 @@ int screen_state = 1;
 void m5stickCDriver_Init(void)
 {
   M5.begin();
-  M5.Lcd.setRotation(1);
+  M5.Lcd.setRotation(LANDSCAPE);
   M5.Lcd.setTextSize(1);
   M5.Lcd.fillScreen(BLACK);
   M5.Axp.ScreenBreath(10);  //screen brightness 7-15
@@ -42,8 +43,7 @@ void m5stickCDriver_AlternateScreenState(void)
 
 void m5stickCDriver_AlternateRotation(void)
 {
-  if (M5.Lcd.getRotation() == 3) M5.Lcd.setRotation(1);
-  else M5.Lcd.setRotation(3);
+    M5.Lcd.setRotation( flipRotation(M5.Lcd.getRotation()) );
 }
 
 void m5stickCDriver_MinerScreen(unsigned long mElapsed)

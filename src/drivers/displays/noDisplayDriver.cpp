@@ -7,6 +7,7 @@
 #include "wManager.h"
 
 extern monitor_data mMonitor;
+bool ledOn = false;
 
 void noDisplay_Init(void)
 {
@@ -16,6 +17,8 @@ void noDisplay_Init(void)
 
 void noDisplay_AlternateScreenState(void)
 {
+  Serial.println("Switching display state");
+  ledOn = !ledOn;
 }
 
 void noDisplay_AlternateRotation(void)
@@ -56,11 +59,17 @@ void noDisplay_DoLedStuff(unsigned long frame)
 {
   unsigned long currentMillis = millis();
 
+  if (!ledOn)
+  {
+    digitalWrite(LED_PIN, INACTIVE_LED);
+    return;
+  }
+
   switch (mMonitor.NerdStatus)
   {
 
   case NM_waitingConfig:
-    digitalWrite(LED_PIN, HIGH); // LED encendido de forma continua
+    digitalWrite(LED_PIN, ACTIVE_LED); // LED encendido de forma continua
     break;
 
   case NM_Connecting:

@@ -39,6 +39,9 @@
 #include "m5stack.h"
 #elif defined(WT32_BOARD)
 #include "wt32.h"
+#elif defined(NERMINER_S3_GEEK)
+#include "waveshareS3Geek.h"
+
 #else
 #error "No device defined"
 #endif
