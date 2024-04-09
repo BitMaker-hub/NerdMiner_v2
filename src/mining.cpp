@@ -10,6 +10,7 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "timeconst.h"
 #include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
 

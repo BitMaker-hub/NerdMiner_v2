@@ -13,6 +13,7 @@
 #include "drivers/storage/SDCard.h"
 #include "drivers/storage/nvMemory.h"
 #include "drivers/storage/storage.h"
+#include "timeconst.h"
 
 
 // Flag for saving data
@@ -184,10 +185,10 @@ void init_WifiManager()
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
 
             nvMem.saveConfig(&Settings);
-            delay(3000);
+            delay(3*SECOND_MS);
             //reset and try again, or maybe put it to deep sleep
             ESP.restart();
-            delay(5000);
+            delay(5*SECOND_MS);
         };
     }
     else
