@@ -41,6 +41,9 @@
 #include "wt32.h"
 #elif defined(NERMINER_S3_GEEK)
 #include "waveshareS3Geek.h"
+#elif defined(NERDMINER_T_HMI)
+#include "lilygoT_HMI.h"
+
 
 #else
 #error "No device defined"
