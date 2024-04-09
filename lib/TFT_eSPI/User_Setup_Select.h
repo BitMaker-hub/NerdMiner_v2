@@ -154,6 +154,9 @@
 #ifdef ESP32_CAM
 #include <User_Setups/Setup212_ESP32Cam_DongleDisplay.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
 #endif
+#ifdef NERMINER_S3_GEEK
+#include <User_Setups/Setup303_WaveShare ESP32S3_GEEK.h>            // Setup file for Waveshare Setup303_WaveShare ESP32S3_GEEK with ST7789 135*240 TFT
+#endif
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 
 //#include <User_Setups/SetupX_Template.h>     // Template file for a setup
