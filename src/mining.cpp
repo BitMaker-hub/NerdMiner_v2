@@ -10,6 +10,7 @@
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
+#include "timeconst.h"
 #include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
 
@@ -43,7 +44,7 @@ monitor_data mMonitor;
 bool isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
 
-int saveIntervals[8] = {1 * 60, 5 * 60, 15 * 60, 30 * 60, 1 * 360, 3 * 360, 6 * 360, 12 * 360};
+int saveIntervals[7] = {5 * 60, 15 * 60, 30 * 60, 1 * 3600, 3 * 3600, 6 * 3600, 12 * 3600};
 int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
 int currentIntervalIndex = 0;
 

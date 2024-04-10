@@ -14,6 +14,7 @@
 #include "drivers/storage/nvMemory.h"
 #include "drivers/storage/storage.h"
 #include "mining.h"
+#include "timeconst.h"
 
 
 // Flag for saving data
@@ -137,6 +138,9 @@ void init_WifiManager()
     WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
 
     // Text box (String) - 80 characters maximum
+    WiFiManagerParameter password_text_box("Poolpassword", "Pool password (Optional)", Settings.PoolPassword, 80);
+
+    // Text box (String) - 80 characters maximum
     WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", Settings.BtcWallet, 80);
 
   // Text box (Number) - 2 characters maximum
@@ -185,10 +189,10 @@ void init_WifiManager()
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
 
             nvMem.saveConfig(&Settings);
-            delay(3000);
+            delay(3*SECOND_MS);
             //reset and try again, or maybe put it to deep sleep
             ESP.restart();
-            delay(5000);
+            delay(5*SECOND_MS);
         };
     }
     else
