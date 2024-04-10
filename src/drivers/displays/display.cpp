@@ -4,6 +4,14 @@
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 #endif
 
+#ifdef M5STACK_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stackDisplayDriver;
+#endif
+
+#ifdef WT32_DISPLAY
+DisplayDriver *currentDisplayDriver = &wt32DisplayDriver;
+#endif
+
 #ifdef LED_DISPLAY
 DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 #endif
@@ -38,6 +46,10 @@ DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 
 #ifdef M5STICKC_DISPLAY
 DisplayDriver *currentDisplayDriver = &m5stickCDriver;
+#endif
+
+#ifdef T_HMI_DISPLAY
+DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
 
 

@@ -28,6 +28,8 @@ typedef struct
 
 extern DisplayDriver *currentDisplayDriver;
 
+extern DisplayDriver m5stackDisplayDriver;
+extern DisplayDriver wt32DisplayDriver;
 extern DisplayDriver noDisplayDriver;
 extern DisplayDriver ledDisplayDriver;
 extern DisplayDriver tDisplayDriver;
@@ -37,6 +39,7 @@ extern DisplayDriver esp32_2432S028RDriver;
 extern DisplayDriver t_qtDisplayDriver;
 extern DisplayDriver tDisplayV1Driver;
 extern DisplayDriver m5stickCDriver;
+extern DisplayDriver t_hmiDisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
