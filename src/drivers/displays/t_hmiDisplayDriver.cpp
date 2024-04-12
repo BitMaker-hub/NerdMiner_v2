@@ -12,6 +12,9 @@
 #include "monitor.h"
 #include "OpenFontRender.h"
 
+#include <Arduino.h>
+#include <esp_adc_cal.h>
+
 #define WIDTH 320
 #define HEIGHT 240
 
@@ -21,16 +24,38 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
 
 SPIClass hSPI(HSPI);
-TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
+// TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
 bool showbtcprice = false;
 
 extern monitor_data mMonitor;
 extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
 
+uint32_t readAdcVoltage(int pin) {
+    esp_adc_cal_characteristics_t adc_chars;
+
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+    return esp_adc_cal_raw_to_voltage(analogRead(pin), &adc_chars);
+}
+
+void printBatteryVoltage() {
+    uint32_t voltage = readAdcVoltage(BAT_ADC_PIN) * 2;
+    Serial.print("Battery voltage: ");
+    Serial.println((float)voltage/1000);
+    delay(500);
+}
 
 void t_hmiDisplay_Init(void)
 {
+  pinMode(PWR_ON_PIN, OUTPUT);
+  digitalWrite(PWR_ON_PIN, HIGH);
+
+  delay(10);
+  Serial.println(F("Turn on the main power"));
+
+  pinMode(PWR_EN_PIN, OUTPUT);
+  digitalWrite(PWR_EN_PIN, HIGH);
+
   tft.init();
   tft.setRotation(1);
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
@@ -51,10 +76,10 @@ void t_hmiDisplay_Init(void)
   TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
   touch.setCalibration(calibation);
 */
-  Serial.println(F("Power on peripherals, such as the LCD backlight"));
-  pinMode(PWR_EN_PIN, OUTPUT);
-  digitalWrite(PWR_EN_PIN, HIGH);
+  Serial.println(F("Turn on the LCD backlight"));
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BK_LIGHT_PIN, OUTPUT);
+  digitalWrite(BK_LIGHT_PIN, BK_LIGHT_LEVEL);
   pData.bestDifficulty = "0";
   pData.workersHash = "0";
   pData.workersCount = 0;
@@ -73,6 +98,7 @@ void t_hmiDisplay_AlternateRotation(void)
    tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
 }
 
+
 void printPoolData()
 {
   // Serial.print("\nPool ============ Free Heap:");
@@ -88,6 +114,7 @@ void printPoolData()
   render.setFontSize(18);
   render.drawString(pData.workersHash.c_str(), 216, 170+34, TFT_BLACK);
   render.drawString(pData.bestDifficulty.c_str(), 5, 170+34, TFT_BLACK);
+  // printBatteryVoltage();
 }
 
 
@@ -116,6 +143,7 @@ void printMemPoolFees(unsigned long mElapsed)
   // render.drawChar('<', 245, 170+32, TFT_RED);
   render.drawString(data.minimumFee.c_str(), 250, 170+32, TFT_RED);
   render.drawString(data.fastestFee.c_str(), 30, 170+32, TFT_BLACK);
+  // printBatteryVoltage();
 }
 
 void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
