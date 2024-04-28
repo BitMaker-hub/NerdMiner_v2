@@ -29,7 +29,7 @@
     #include <SD.h>
 
     #if !defined(NO_DISPLAY)
-        #include "..\lib\TFT_eSPI\User_Setup_Select.h"
+        #include "../lib/TFT_eSPI/User_Setup_Select.h"
     #endif
 
     #if !defined(NO_DISPLAY) && !defined(LED_DISPLAY)
