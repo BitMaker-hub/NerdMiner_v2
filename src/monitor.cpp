@@ -25,6 +25,7 @@ extern monitor_data mMonitor;
 
 //from saved config
 extern TSettings Settings; 
+bool invertColors = false;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
@@ -41,7 +42,6 @@ void setup_monitor(void){
     // Adjust offset depending on your zone
     // GMT +2 in seconds (zona horaria de Europa Central)
     timeClient.setTimeOffset(3600 * Settings.Timezone);
-
     Serial.println("TimeClient setup done");    
 }
 
@@ -320,16 +320,20 @@ coin_data getCoinData(unsigned long mElapsed)
 pool_data getPoolData(void){
     //pool_data pData;    
     if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){      
-        if (WiFi.status() != WL_CONNECTED) return pData;
-            
+        if (WiFi.status() != WL_CONNECTED) return pData;            
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
         http.setReuse(true);        
         try {          
           String btcWallet = Settings.BtcWallet;
-          Serial.println(btcWallet);
+          // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
-          http.begin(String(getPublicPool)+btcWallet);
+          if (Settings.PoolAddress == "tn.vkbit.com") {
+            http.begin("https://testnet.vkbit.com/miner/"+btcWallet);
+            // Serial.println("https://testnet.vkbit.com/miner/"+btcWallet);
+          } else {
+            http.begin(String(getPublicPool)+btcWallet);
+          }
           int httpCode = http.GET();
           if (httpCode == HTTP_CODE_OK) {
               String payload = http.getString();
@@ -364,10 +368,28 @@ pool_data getPoolData(void){
               }
               doc.clear();
               mPoolUpdate = millis();
+              Serial.println("\n####### Pool Data OK!");               
+          } else {
+              Serial.println("\n####### Pool Data HTTP Error!");    
+              /* Serial.println(httpCode);
+              String payload = http.getString();
+              Serial.println(payload); */
+              // mPoolUpdate = millis();
+              pData.bestDifficulty = "P";
+              pData.workersHash = "E";
+              pData.workersCount = 0;
+              http.end();
+              return pData; 
           }
           http.end();
         } catch(...) {
+          Serial.println("####### Pool Error!");          
+          // mPoolUpdate = millis();
+          pData.bestDifficulty = "P";
+          pData.workersHash = "Error";
+          pData.workersCount = 0;
           http.end();
+          return pData;
         } 
     }
     return pData;

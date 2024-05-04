@@ -33,15 +33,23 @@ void saveConfigCallback()
 // Callback notifying us of the need to save configuration
 {
     Serial.println("Should save config");
-    shouldSaveConfig = true;
+    shouldSaveConfig = true;    
     //wm.setConfigPortalBlocking(false);
 }
+
+/* void saveParamsCallback()
+// Callback notifying us of the need to save configuration
+{
+    Serial.println("Should save config");
+    shouldSaveConfig = true;
+    nvMem.saveConfig(&Settings);
+} */
 
 void configModeCallback(WiFiManager* myWiFiManager)
 // Called when config mode launched
 {
     Serial.println("Entered Configuration Mode");
-
+    drawSetupScreen();
     Serial.print("Config SSID: ");
     Serial.println(myWiFiManager->getConfigPortalSSID());
 
@@ -109,14 +117,15 @@ void init_WifiManager()
 
     // Set config save notify callback
     wm.setSaveConfigCallback(saveConfigCallback);
+    wm.setSaveParamsCallback(saveConfigCallback);
 
     // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
-    wm.setAPCallback(configModeCallback);
+    wm.setAPCallback(configModeCallback);    
 
     //Advanced settings
     wm.setConfigPortalBlocking(false); //Hacemos que el portal no bloquee el firmware
-    wm.setConnectTimeout(50); // how long to try to connect for before continuing
-    //wm.setConfigPortalTimeout(30); // auto close configportal after n seconds
+    wm.setConnectTimeout(40); // how long to try to connect for before continuing
+    wm.setConfigPortalTimeout(180); // auto close configportal after n seconds
     // wm.setCaptivePortalEnable(false); // disable captive portal redirection
     // wm.setAPClientCheck(true); // avoid timeout if client connected to softap
     //wm.setTimeout(120);
@@ -149,9 +158,10 @@ void init_WifiManager()
   {
     strcat(checkboxParams, " checked");
   }
-  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER);
+  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Track Uptime, Best Diff, Total Hashes in device Flash memory. (Experimental)", "T", 2, checkboxParams, WFM_LABEL_AFTER); 
+  
   // Text box (String) - 80 characters maximum
-  WiFiManagerParameter password_text_box("Poolpassword - Optionl", "Pool password", Settings.PoolPassword, 80);
+  WiFiManagerParameter password_text_box("PoolpasswordOptionl", "Pool password (optional)", Settings.PoolPassword, 80);
 
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
@@ -161,6 +171,15 @@ void init_WifiManager()
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
+  #ifdef ESP32_2432S028R
+  char checkboxParams2[24] = "type=\"checkbox\"";
+  if (Settings.invertColors)
+  {
+    strcat(checkboxParams2, " checked");
+  }
+  WiFiManagerParameter invertColors("inverColors", "Invert Display Colors (if the colors looks weird)", "T", 2, checkboxParams2, WFM_LABEL_AFTER);
+  wm.addParameter(&invertColors);
+  #endif
 
     Serial.println("AllDone: ");
     if (forceConfig)    
@@ -169,8 +188,8 @@ void init_WifiManager()
         //No configuramos timeout al modulo
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
-        
-        if (wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
+        mMonitor.NerdStatus = NM_Connecting;
+        if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
@@ -179,33 +198,48 @@ void init_WifiManager()
             strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
-            Serial.println(save_stats_to_nvs.getValue());
+            //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-
+            #ifdef ESP32_2432S028R
+                Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+            #endif
             nvMem.saveConfig(&Settings);
             delay(3000);
             //reset and try again, or maybe put it to deep sleep
-            ESP.restart();
-            delay(5000);
+            ESP.restart();            
         };
     }
     else
     {
         //Tratamos de conectar con la configuración inicial ya almacenada
         mMonitor.NerdStatus = NM_Connecting;
-        wm.setCaptivePortalEnable(false); // disable captive portal redirection
-        if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
+        // disable captive portal redirection
+        wm.setCaptivePortalEnable(true); 
+        wm.setConfigPortalBlocking(true);
+        wm.setEnableConfigPortal(true);
+        // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
+        if (!wm.autoConnect(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
-            Serial.println("Failed to connect and hit timeout");
-            //delay(3000);
-            // if we still have not connected restart and try all over again
-            //ESP.restart();
-            //delay(5000);
-        }
+            Serial.println("Failed to connect to configured WIFI, and hit timeout");
+            if (shouldSaveConfig) {
+                // Save new config            
+                Settings.PoolAddress = pool_text_box.getValue();
+                Settings.PoolPort = atoi(port_text_box_num.getValue());
+                strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
+                strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+                Settings.Timezone = atoi(time_text_box_num.getValue());
+                // Serial.println(save_stats_to_nvs.getValue());
+                Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
+                #ifdef ESP32_2432S028R
+                Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+                #endif
+                nvMem.saveConfig(&Settings);
+                vTaskDelay(2000 / portTICK_PERIOD_MS);      
+            }        
+            ESP.restart();                            
+        } 
     }
-
-    mMonitor.NerdStatus = NM_Connecting;
-
+    
     //Conectado a la red Wifi
     if (WiFi.status() == WL_CONNECTED) {
         //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
@@ -242,12 +276,21 @@ void init_WifiManager()
         Serial.print("TimeZone fromUTC: ");
         Serial.println(Settings.Timezone);
 
+        #ifdef ESP32_2432S028R
+        Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+        Serial.print("Invert Colors: ");
+        Serial.println(Settings.invertColors);        
+        #endif
+
     }
 
     // Save the custom parameters to FS
     if (shouldSaveConfig)
     {
         nvMem.saveConfig(&Settings);
+        #ifdef ESP32_2432S028R
+         if (Settings.invertColors) ESP.restart();                
+        #endif
     }
 }
 
