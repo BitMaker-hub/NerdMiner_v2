@@ -55,6 +55,7 @@ public:
     bool loadConfigFile(TSettings* Settings);
     bool cardAvailable();
     bool cardBusy();
+    void terminate();
 private:
     bool initSDcard();
     bool cardInitialized_;

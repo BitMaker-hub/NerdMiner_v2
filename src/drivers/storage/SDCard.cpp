@@ -57,6 +57,15 @@ bool SDCard::cardBusy()
     return cardBusy_;
 }
 
+/// @brief End the card to free heap space.
+void SDCard::terminate()
+{
+    iSD_->end();
+#ifdef BUILD_SDSPI
+    ispi_->end(); 
+#endif   
+}
+
 /// @brief Transfer settings from config file on a SD card to the device.
 /// @param nvMemory* where to save
 /// @param TSettings* passing a struct is required, to save memory
@@ -203,5 +212,6 @@ bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 bool SDCard::cardAvailable() { return false; }
 bool SDCard::cardBusy() { return false; }
+void SDCard::terminate() {};
 
 #endif //BUILD_SDMMC
