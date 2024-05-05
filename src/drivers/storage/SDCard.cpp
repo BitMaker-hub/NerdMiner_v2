@@ -96,9 +96,13 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                 if (!error)
                 {
                     serializeJsonPretty(json, Serial);
-                    Serial.print('\n');
-                    Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
-                    Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    Serial.print('\n');    
+                    if (json.containsKey(JSON_KEY_SSID)) {                
+                        Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
+                    }
+                    if (json.containsKey(JSON_KEY_PASW)) {
+                        Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    }
                     Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->PoolPassword, json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
@@ -108,8 +112,13 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
-                    if (json.containsKey(JSON_KEY_INVCOLOR))
-                        Settings->saveStats = json[JSON_KEY_INVCOLOR].as<bool>();
+                    if (json.containsKey(JSON_KEY_INVCOLOR)) {
+                        Settings->invertColors = json[JSON_KEY_INVCOLOR].as<bool>();
+                    } else {
+                        Settings->invertColors = false;
+                    }
+                    // Serial.printf("Carteira Lida SD:%s\n", Settings.BtcWallet);       
+                    Serial.printf("Carteira Lida SDs:%s\n", Settings->BtcWallet);                       
                     return true;
                 }
                 else
