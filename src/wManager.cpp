@@ -109,7 +109,7 @@ void init_WifiManager()
         }
     };
     
-    // Free the memory from SDCard class
+    // Free the memory from SDCard class 
     SDCrd.terminate();
     
     // Reset settings (only for development)

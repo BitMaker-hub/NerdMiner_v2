@@ -176,7 +176,7 @@ bool SDCard::cardAvailable()
 /// @return  true on success
 bool SDCard::initSDcard()
 {
-    if (!cardAvailable())
+    if (!cardAvailable()) 
     {
         Serial.println("SDCard: init SD card interface.");
 #if defined (BUILD_SDMMC_4)
@@ -204,7 +204,6 @@ bool SDCard::initSDcard()
 }
 
 #else
-
 SDCard::SDCard(int ID) {}
 SDCard::~SDCard() {}
 void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings) {};
@@ -212,6 +211,5 @@ bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 bool SDCard::cardAvailable() { return false; }
 bool SDCard::cardBusy() { return false; }
-void SDCard::terminate() {};
-
+void SDCard::terminate() {}
 #endif //BUILD_SDMMC
