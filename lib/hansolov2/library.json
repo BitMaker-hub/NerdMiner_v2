@@ -1,0 +1,17 @@
+{
+  "name": "HANSOLOminerv2",
+  "description": "Libs for HAN SOLOminer v2",
+  "keywords": "hansolominer,bitcoin",
+  "authors": {
+    "name": "valerio vaccaro",
+    "url": "https://github.com/valerio-vaccaro",
+    "maintainer": true
+  },
+  "version": "0.0.1",
+  "frameworks": ["arduino", "espidf"],
+  "platforms": ["espressif32"],
+  "headers": "ui.h",
+  "build": {
+    "libArchive": false
+  }
+}

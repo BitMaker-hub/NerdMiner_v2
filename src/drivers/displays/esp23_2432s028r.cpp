@@ -1,6 +1,6 @@
 #include "displayDriver.h"
 
-#ifdef ESP32_2432S028R
+#if defined ESP32_2432S028R || ESP32_2432S028_2USB
 
 #include <TFT_eSPI.h>
 #include <TFT_eTouch.h>
@@ -12,6 +12,7 @@
 #include "monitor.h"
 #include "OpenFontRender.h"
 #include <SPI.h>
+#include "rotation.h"
 
 #define WIDTH 130 //320
 #define HEIGHT 170 
@@ -31,7 +32,18 @@ bool hasChangedScreen = true;
 void esp32_2432S028R_Init(void)
 { 
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(ROTATION_90);
+  #ifdef ESP32_2432S028_2USB
+  /*
+  In addition to TFT_INVERSION this adjusts the gamma curve to have better
+  picture quality for this type of ESP32_2432S028 TFT with for example two USB connectors
+  */
+  tft.writecommand(ILI9341_GAMMASET); // Gamma curve selected
+  tft.writedata(2);
+  delay(120);
+  tft.writecommand(ILI9341_GAMMASET); // Gamma curve selected
+  tft.writedata(1);
+  #endif
   tft.setSwapBytes(true); // Swap the colour byte order when rendering
   hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
   touch.init();
@@ -68,7 +80,7 @@ void esp32_2432S028R_AlternateScreenState(void)
 
 void esp32_2432S028R_AlternateRotation(void)
 {
-  tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+  tft.setRotation( flipRotation(tft.getRotation()) );
   hasChangedScreen = true;
 }
 
@@ -398,7 +410,7 @@ void esp32_2432S028R_BTCprice(unsigned long mElapsed)
   background.drawString(data.currentTime.c_str(), 202-130, 0, GFXFF);
  
   // Print Hour
-  background.setFreeFont(FF23);
+  background.setFreeFont(FF22);
   background.setTextSize(2);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 0, 50, GFXFF);
