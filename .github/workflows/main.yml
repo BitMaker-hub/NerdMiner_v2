@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - dev
 
 jobs:
   build:
@@ -38,6 +39,7 @@ jobs:
   prerelease:
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
     steps:
       - name: Download binaries
         uses: actions/download-artifact@v4
