@@ -30,7 +30,11 @@
 
 extern monitor_data mMonitor;
 
-SDCard SDCrd = SDCard();
+#ifdef SD_ID
+  SDCard SDCrd = SDCard(SD_ID);
+#else  
+  SDCard SDCrd = SDCard();
+#endif
 
 /**********************⚡ GLOBAL Vars *******************************/
 
