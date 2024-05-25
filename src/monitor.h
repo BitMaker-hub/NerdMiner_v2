@@ -54,6 +54,12 @@ typedef struct{
   float progressPercent;
   int remainingBlocks;
   int halfHourFee;
+#ifdef NERDMINER_T_HMI
+  int fastestFee;
+  int hourFee;
+  int economyFee;
+  int minimumFee;
+#endif
 }global_data;
 
 typedef struct {
@@ -94,6 +100,12 @@ typedef struct {
   String btcPrice;
   String currentTime;
   String halfHourFee;
+#ifdef NERDMINER_T_HMI
+  String hourFee;
+  String fastestFee;
+  String economyFee;
+  String minimumFee;
+#endif
   String netwrokDifficulty;
   String globalHashRate;
   String blockHeight;

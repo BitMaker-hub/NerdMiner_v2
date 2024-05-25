@@ -48,10 +48,19 @@ Every time an stratum job notification is received miner update its current work
 - LILYGO T-QT pro ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DBQIr43))
 - LILYGO T-Display 1.14 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DEqGvSJ))
 - LILYGO T-Display S3 AMOLED ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmOIK6j))
+- LILYGO T-Display S3 AMOLED Touch ([Board Info](https://www.lilygo.cc/products/t-display-s3-amoled?variant=43532279939253))
 - LILYGO T-Dongle S3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DmQCPyj))
 - ESP32-2432S028R 2,8" ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DdXkvLv) / Dev support: @nitroxgas / ⚡jadeddonald78@walletofsatoshi.com)
 - ESP32-cam ([Board Info](https://lastminuteengineers.com/getting-started-with-esp32-cam/) / Dev support: @elmo128)
 - M5-StampS3 ([Aliexpress link\*](https://s.click.aliexpress.com/e/_DevABY3) / Dev support: @gyengus)
+- Wemos Lolin S3 Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/lolin_s3_mini.html))
+- Wemos Lolin S2 Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/lolin_s2_mini.html))
+- Weact S3 Mini ([Board Info](https://github.com/WeActStudio/WeActStudio.ESP32S3-MINI))
+- Weact ESP32-D0WD-V3 ([Board Info](https://github.com/WeActStudio/WeActStudio.ESP32CoreBoard))
+- ESP32-S3 Devkit ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/esp32-s3-devkitm-1.html))
+- ESP32-C3 Devkit ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/esp32-c3-devkitm-1.html))
+- ESP32-C3 Super Mini ([Board Info](https://docs.platformio.org/en/latest/boards/espressif32/seeed_xiao_esp32c3.html))
+- Waveshare ESP32-S3-GEEK ([Board Info](https://www.waveshare.com/wiki/ESP32-S3-GEEK))
 
 \*Affiliate links
 
@@ -91,13 +100,16 @@ Update NerdMiner firmware following same flashing steps but only using the file 
 
 After programming, you will only need to setup your Wifi and BTC address.
 
+Note: when BTC address of your selected wallet is not provided, mining will not be started.
+
 #### Wifi Accesspoint
+
 
 1. Connect to NerdMinerAP
    - AP: NerdMinerAP
    - PASS: MineYourCoins
-1. Setup your Wifi Network
-1. Add your BTCaddress
+1. Set up your Wifi Network
+1. Add your BTC address
 1. Change the password if needed
 
    - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
@@ -107,6 +119,7 @@ After programming, you will only need to setup your Wifi and BTC address.
 
 1. Format a SD card using Fat32.
 1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+```
 {  
   "SSID": "myWifiSSID",  
   "WifiPW": "myWifiPassword",  
@@ -117,6 +130,7 @@ After programming, you will only need to setup your Wifi and BTC address.
   "Timezone": 2,  
   "SaveStats": false  
 }
+```
 
 1. Insert the SD card.
 1. Hold down the "reset configurations" button as described below to reset the configurations and/or boot without settings in your nvmemory.
@@ -133,6 +147,7 @@ Recommended low difficulty share pools:
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
 | pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy - public-pool fork                             |
 | pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
+| pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 
 Other standard pools not compatible with low difficulty share:
 
@@ -198,7 +213,7 @@ With the USB-C port to the right:
 - [x] Add support to TTGO T-display 1.14
 - [x] Add support to Amoled
 
-### On process
+### In process
 
 - [ ] Create a daisy chain protocol via UART or I2C to support ESP32 hashboards
 - [ ] Create new screen like clockMiner but with BTC price
