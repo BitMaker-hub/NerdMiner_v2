@@ -111,8 +111,12 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
+ #ifdef ESP32_2432S028R
+ // Free a little bit of the heap to the screen
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 3, NULL,1);
+ #else
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 3, NULL,1);
-
+ #endif
 
   /******** CREATE MINER TASKS *****/
   //for (size_t i = 0; i < THREADS; i++) {

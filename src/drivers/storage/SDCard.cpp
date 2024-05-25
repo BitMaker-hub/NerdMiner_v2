@@ -57,6 +57,15 @@ bool SDCard::cardBusy()
     return cardBusy_;
 }
 
+/// @brief End the card to free heap space.
+void SDCard::terminate()
+{
+    iSD_->end();
+#ifdef BUILD_SDSPI
+    ispi_->end(); 
+#endif   
+}
+
 /// @brief Transfer settings from config file on a SD card to the device.
 /// @param nvMemory* where to save
 /// @param TSettings* passing a struct is required, to save memory
@@ -96,9 +105,13 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                 if (!error)
                 {
                     serializeJsonPretty(json, Serial);
-                    Serial.print('\n');
-                    Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
-                    Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    Serial.print('\n');    
+                    if (json.containsKey(JSON_KEY_SSID)) {                
+                        Settings->WifiSSID = json[JSON_KEY_SSID] | Settings->WifiSSID;
+                    }
+                    if (json.containsKey(JSON_KEY_PASW)) {
+                        Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
+                    }
                     Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->PoolPassword, json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
@@ -108,6 +121,13 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
+                    if (json.containsKey(JSON_KEY_INVCOLOR)) {
+                        Settings->invertColors = json[JSON_KEY_INVCOLOR].as<bool>();
+                    } else {
+                        Settings->invertColors = false;
+                    }
+                    // Serial.printf("Carteira Lida SD:%s\n", Settings.BtcWallet);       
+                    Serial.printf("Carteira Lida SDs:%s\n", Settings->BtcWallet);                       
                     return true;
                 }
                 else
@@ -156,7 +176,7 @@ bool SDCard::cardAvailable()
 /// @return  true on success
 bool SDCard::initSDcard()
 {
-    if (!cardAvailable())
+    if (!cardAvailable()) 
     {
         Serial.println("SDCard: init SD card interface.");
 #if defined (BUILD_SDMMC_4)
@@ -184,7 +204,6 @@ bool SDCard::initSDcard()
 }
 
 #else
-
 SDCard::SDCard(int ID) {}
 SDCard::~SDCard() {}
 void SDCard::SD2nvMemory(nvMemory* nvMem, TSettings* Settings) {};
@@ -192,5 +211,5 @@ bool SDCard::loadConfigFile(TSettings* Settings) { return false; }
 bool SDCard::initSDcard() { return false; }
 bool SDCard::cardAvailable() { return false; }
 bool SDCard::cardBusy() { return false; }
-
+void SDCard::terminate() {}
 #endif //BUILD_SDMMC
