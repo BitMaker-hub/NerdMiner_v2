@@ -400,6 +400,13 @@ void saveStat() {
   nvs_set_u64(stat_handle, "upTime", upTime + (esp_timer_get_time()/1000000));
 }
 
+void resetStat() {
+    Serial.printf("[MONITOR] Resetting NVS stats\n");
+    templates = hashes = Mhashes = totalKHashes = elapsedKHs = upTime = shares = valids = 0;
+    best_diff = 0.0;
+    saveStat();
+}
+
 void runMonitor(void *name)
 {
 

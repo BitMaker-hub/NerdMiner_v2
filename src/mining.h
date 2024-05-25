@@ -17,6 +17,8 @@ void runStratumWorker(void *name);
 void runMiner(void *name);
 String printLocalTime(void);
 
+void resetStat();
+
 typedef struct{
   uint8_t bytearray_target[32];
   uint8_t bytearray_pooltarget[32];
