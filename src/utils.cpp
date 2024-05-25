@@ -136,21 +136,37 @@ bool checkValid(unsigned char* hash, unsigned char* target) {
   return valid;
 }
 
+/**
+ * get random extranonce2
+*/
+void getRandomExtranonce2(int extranonce2_size, char *extranonce2) {
+  uint8_t b0, b1, b2, b3;
+
+  b0 = rand() % 256;
+  b1 = rand() % 256;
+  b2 = rand() % 256;
+  b3 = rand() % 256;
+
+  unsigned long extranonce2_number = b3 << 24 | b2 <<  16 | b1 << 8 | b0;
+
+  char format[] = "%00x";
+
+  sprintf(&format[1], "%02dx", extranonce2_size * 2);
+  sprintf(extranonce2, format, extranonce2_number);
+}
+
+/**
+ * get linear extranonce2
+*/
 void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
-  
   unsigned long extranonce2_number = strtoul(extranonce2, NULL, 10);
+
   extranonce2_number++;
-  
-  memset(extranonce2, '0', 2 * extranonce2_size);
-  if (extranonce2_number > long(pow(10, 2 * extranonce2_size))) {
-    return;
-  }
-  
-  char next_extranounce2[2 * extranonce2_size + 1];
-  memset(extranonce2, '0', 2 * extranonce2_size);
-  ultoa(extranonce2_number, next_extranounce2, 10);
-  memcpy(extranonce2 + (2 * extranonce2_size) - long(log10(extranonce2_number)) - 1 , next_extranounce2, strlen(next_extranounce2));
-  extranonce2[2 * extranonce2_size] = 0;
+
+  char format[] = "%00x";
+
+  sprintf(&format[1], "%02dx", extranonce2_size * 2);
+  sprintf(extranonce2, format, extranonce2_number);
 }
 
 miner_data init_miner_data(void){
