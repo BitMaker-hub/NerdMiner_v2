@@ -4,14 +4,16 @@ on:
   push:
     branches:
       - master
+      - dev
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    outputs:
+      version: ${{ steps.version_step.outputs.version }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
@@ -22,12 +24,36 @@ jobs:
           python-version: '3.9'
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
-
       - name: Build PlatformIO Project
         run: pio run
-
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: builded artifacts
+          name: builded-binaries-${{ github.sha }}
           path: .pio/build/*/*.bin
+          if-no-files-found: error
+      - name: Get version
+        id: version_step
+        run: echo "version=`cat src/version.h | grep CURRENT_VERSION | awk -F\\" '{print $2}'`" >> $GITHUB_OUTPUT
+
+  prerelease:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/binaries
+          name: builded-binaries-${{ github.sha }}
+      - name: Rename binaries
+        run: find ${{ github.workspace }}/binaries -maxdepth 3 -type f -name "*.bin" -exec sh -c 'cp "$0" "${{ github.workspace }}/binaries/$(basename $(dirname "$0"))_$(basename $0)"' {} \;
+      - name: Pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: nerdminer-prerelease-${{ needs.build.outputs.version }}
+          tag_name: nerdminer-prerelease-${{ needs.build.outputs.version }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: ${{ github.workspace }}/binaries/*.bin
+
