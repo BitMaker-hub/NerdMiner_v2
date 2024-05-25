@@ -134,8 +134,8 @@ void init_WifiManager()
     // Text box (Number) - 7 characters maximum
     WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
 
-    // Text box (String) - 80 characters maximum
-    WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", Settings.BtcWallet, 80);
+    // Text box (String) - 200 characters maximum
+    WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", Settings.BtcWallet, 200);
 
   // Text box (Number) - 2 characters maximum
   char charZone[6];
@@ -170,6 +170,9 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         
+        //randomSeed(temperatureRead());
+        //String ssid_name = String(DEFAULT_SSID) + "_" + String(random(100, 1000));
+        //if (wm.startConfigPortal(ssid_name.c_str(), DEFAULT_WIFIPW))
         if (wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             //Could be break forced after edditing, so save new config
