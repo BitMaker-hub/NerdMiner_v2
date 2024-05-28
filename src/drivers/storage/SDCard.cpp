@@ -34,7 +34,9 @@ SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
     }
     iSD_ = &SD;
 #endif // interface type
+#ifndef NERDMINER_T_HMI
     initSDcard();
+#endif
 }
 
 SDCard::~SDCard()
@@ -167,7 +169,14 @@ bool SDCard::initSDcard()
 #elif defined (BUILD_SDMMC_1)
 #warning SDMMC : 1 - bit mode is not always working. If you experience issues, try other modes.
         iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+#ifdef NERDMINER_T_HMI
+        // Need to lower frequency to 20000
+        // Should work but blows up in SDCard::initSDcard()
+        // see temporary workaround t_hmiCheckForSDCardAndMoveToNVM()
+        cardInitialized_ = iSD_->begin("/sd", true, false, 20000);
+#else
         cardInitialized_ = iSD_->begin("/sd", true);
+#endif
         Serial.println("SDCard: 1-Bit Mode.");
     }
 #elif defined (BUILD_SDSPI)

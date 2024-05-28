@@ -96,7 +96,11 @@ void setup()
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
   doLedStuff(0);
-  
+
+#ifdef NERDMINER_T_HMI
+  extern void t_hmiCheckForSDCardAndMoveToNVM(void);
+  t_hmiCheckForSDCardAndMoveToNVM();
+#endif
   /******** INIT WIFI ************/
   init_WifiManager();
 
@@ -142,6 +146,9 @@ void app_error_fault_handler(void *arg) {
   // restart ESP32
   esp_restart();
 }
+#ifdef NERDMINER_T_HMI
+extern uint16_t t_hmiCheckForTouch();
+#endif
 
 void loop() {
   // keep watching the push buttons:
@@ -153,6 +160,9 @@ void loop() {
     button2.tick();
   #endif
   
+#ifdef NERDMINER_T_HMI
+  t_hmiCheckForTouch();
+#endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);

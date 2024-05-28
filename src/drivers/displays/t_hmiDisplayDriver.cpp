@@ -1,7 +1,8 @@
 #include "displayDriver.h"
 
 #ifdef T_HMI_DISPLAY
-
+#include <FS.h>
+#include <xpt2046.h> // https://github.com/liangyingy/arduino_xpt2046_library
 #include <TFT_eSPI.h>
 #include <TFT_eTouch.h>
 #include "media/images_320_170.h"
@@ -22,14 +23,158 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
-
-SPIClass hSPI(HSPI);
+#define TOUCH_ENABLE
+//SPIClass hSPI(HSPI);
 // TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
+#ifdef TOUCH_ENABLE
+XPT2046 touch = XPT2046(SPI, ETOUCH_CS, TOUCH_IRQ);
+#endif
+
 bool showbtcprice = false;
 
 extern monitor_data mMonitor;
 extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
+
+/*=============================================*/
+#include <FS.h>
+#include <ArduinoJson.h>
+#include <WiFi.h>
+#include "drivers/storage/nvMemory.h"
+#include "drivers/storage/SDCard.h"
+extern nvMemory nvMem;
+extern TSettings Settings;
+
+void t_hmiCheckForSDCardAndMoveToNVM(void)
+{
+  // workaround removing use of class SDCard
+  // SCard SDCrd = SDCard() blows up in SDCard::initSDcard()
+  // Need to lower frequency to 20000
+  SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+  delay(500);
+  bool rlst = SD_MMC.begin("/sd", true, false, 20000);
+  if (!rlst)
+  {
+      Serial.println("SD init failed");
+      Serial.println("➸ No detected SdCard");
+  }
+  else
+  {
+      Serial.println("SD init success");
+      Serial.printf("➸ Detected SdCard insert: %.2f GB\r\n", SD_MMC.cardSize() / 1024.0 / 1024.0 / 1024.0);
+
+      // SDCrd.SD2nvMemory(&nvMem, &Settings);
+
+      if (SD_MMC.exists(JSON_CONFIG_FILE))
+      {
+          // The file exists, reading and loading
+          File configFile = SD_MMC.open(JSON_CONFIG_FILE, "r");
+          if (configFile)
+          {
+              StaticJsonDocument<512> json;
+              DeserializationError error = deserializeJson(json, configFile);
+              configFile.close();
+              Serial.println("SDCard: Loading config file");
+              if (!error)
+              {
+                  serializeJsonPretty(json, Serial);
+                  Serial.print('\n');
+                  TSettings *pSettings = &Settings;
+                  pSettings->WifiSSID = json[JSON_KEY_SSID] | pSettings->WifiSSID;
+                  pSettings->WifiPW = json[JSON_KEY_PASW] | pSettings->WifiPW;
+                  pSettings->PoolAddress = json[JSON_KEY_POOLURL] | pSettings->PoolAddress;
+                  strcpy(pSettings->PoolPassword, json[JSON_KEY_POOLPASS] | pSettings->PoolPassword);
+                  strcpy(pSettings->BtcWallet, json[JSON_KEY_WALLETID] | pSettings->BtcWallet);
+                  if (json.containsKey(JSON_KEY_POOLPORT))
+                      pSettings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
+                  if (json.containsKey(JSON_KEY_TIMEZONE))
+                      pSettings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
+                  if (json.containsKey(JSON_KEY_STATS2NV))
+                      pSettings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
+                  nvMem.saveConfig(pSettings);
+                  WiFi.begin(pSettings->WifiSSID, pSettings->WifiPW);
+                  Serial.println("SDCard: Settings transfered to internal memory. Restarting now.");
+                  ESP.restart();
+              }
+              else
+              {
+                  // Error loading JSON data
+                  Serial.println("SDCard: Error parsing config file!");
+              }
+          }
+          else
+          {
+              Serial.println("SDCard: Error opening config file!");
+          }
+      }
+      else
+      {
+          Serial.println("SDCard: No config file available!");
+      }
+      // delay(15000);
+      SD_MMC.end();
+      Serial.println("SD close");
+  }
+}
+/*=============================================*/
+unsigned int lower_switch = 1;
+#ifdef TOUCH_ENABLE
+extern void switchToNextScreen(void);
+
+unsigned long now = 0;
+unsigned long currentTime;
+bool debounce() {
+  if (now) now = millis();
+
+  unsigned long currentTime = millis();
+  if (currentTime - now >= 2000) {
+    now = 0;
+    return true;
+  }
+  return false;
+
+};
+
+uint16_t t_hmiCheckForTouch()
+{
+  uint16_t touch_x, touch_y, code = 0;
+
+  if (touch.pressed()) {
+    touch_x = touch.RawX();
+    touch_y = touch.RawY();
+    // do something with the touch coordinates
+    /*
+    Serial.print("Touch coordinates: ");
+    Serial.print(touch_x);
+    Serial.print(", ");
+    Serial.println(touch_y);
+    */
+
+    // Perform actions based on touch coordinates
+    /*
+    if (y < y_min + (y_max - y_min) / 2) {
+    */
+    if (touch_x < 200 + (1700 - 200) / 4) {
+        // bottom
+        code = 1;
+        if (debounce())
+          lower_switch = 3 - lower_switch;;
+    } else {
+        // top
+        code = 2;
+        if (debounce())
+          switchToNextScreen();
+    }
+  }
+  if (code) {
+    if (code == 1)
+      Serial.print("Touch bottom\n");
+    else
+      Serial.print("Touch top\n");
+  }
+  return(code);
+}
+#endif
 
 uint32_t readAdcVoltage(int pin) {
     esp_adc_cal_characteristics_t adc_chars;
@@ -70,12 +215,32 @@ void t_hmiDisplay_Init(void)
     Serial.println("Initialise error");
     return;
   }
-/* XXX - Pass for first version
+
   Serial.println(F("Initialize the touch screen"));
-  hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
-  TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
-  touch.setCalibration(calibation);
-*/
+  #ifdef TOUCH_ENABLE
+  // different approach
+  //hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
+  //TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
+  //touch.setCalibration(calibation);
+
+  // Check if the screen is touched and get the coordinates
+  /*
+  if (touch.touched()) {
+    TS_Point p = touch.getPoint();
+    Serial.print("Pressure = ");
+    Serial.print(p.z);
+    Serial.print(", x = ");
+    Serial.print(p.x);
+    Serial.print(", y = ");
+    Serial.print(p.y);
+    delay(30);
+    Serial.println();
+  }
+  */
+  SPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI);
+  touch.begin(240, 320);
+  #endif
+
   Serial.println(F("Turn on the LCD backlight"));
   pinMode(LED_PIN, OUTPUT);
   pinMode(BK_LIGHT_PIN, OUTPUT);
@@ -83,6 +248,7 @@ void t_hmiDisplay_Init(void)
   pData.bestDifficulty = "0";
   pData.workersHash = "0";
   pData.workersCount = 0;
+  lower_switch = 1;
 
 }
 
@@ -188,7 +354,11 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(10);
   render.rdrawString(data.currentTime.c_str(), 286, 1, TFT_BLACK);
 
-  printPoolData();
+  if (lower_switch == 1)
+    printPoolData();
+  else
+    printMemPoolFees(mElapsed);
+
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -226,7 +396,10 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(0xDEDB, TFT_BLACK);
 
   background.drawString(data.currentTime.c_str(), 130, 50, GFXFF);
-  printMemPoolFees(mElapsed);
+  if (lower_switch == 1)
+    printMemPoolFees(mElapsed);
+  else
+    printPoolData();
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -286,7 +459,11 @@ void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.setTextColor(TFT_BLACK);
   background.drawString(data.remainingBlocks.c_str(), 72, 159, FONT2);
 
-  printMemPoolFees(mElapsed);
+  if (lower_switch == 1)
+    printMemPoolFees(mElapsed);
+  else
+    printPoolData();
+
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -326,7 +503,10 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
   background.setTextSize(1);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 300, 58, GFXFF);
-  printPoolData();
+  if (lower_switch == 1)
+    printPoolData();
+  else
+    printMemPoolFees(mElapsed);
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
