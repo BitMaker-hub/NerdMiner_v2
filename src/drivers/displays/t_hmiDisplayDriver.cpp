@@ -12,8 +12,9 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
-
+#endif
 #include <Arduino.h>
 #include <esp_adc_cal.h>
 

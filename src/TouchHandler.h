@@ -1,6 +1,6 @@
 #ifndef _TOUCHHANDLER_H_
 #define _TOUCHHANDLER_H_
-
+#ifdef TOUCH_ENABLE
 #include <TFT_eSPI.h>  // TFT display library
 #include <xpt2046.h>   // https://github.com/liangyingy/arduino_xpt2046_library
 
@@ -25,6 +25,6 @@ private:
   // unsigned int lower_switch;
   void (*screenSwitchCallback)();
 };
-
+#endif
 
 #endif

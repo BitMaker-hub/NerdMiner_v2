@@ -1,4 +1,6 @@
-#include "drivers/displays/display.h"
+
+#include "drivers/devices/device.h"
+#ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
 
 // Global variable declaration
@@ -64,3 +66,4 @@ bool TouchHandler::debounce() {
   }
   return false;
 }
+#endif
