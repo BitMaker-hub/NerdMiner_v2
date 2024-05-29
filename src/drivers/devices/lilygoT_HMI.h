@@ -34,6 +34,8 @@
 #define SDMMC_CMD  (11)
 #define SDMMC_D0   (13)
 
+#define TOUCH_ENABLE (1)
+
 #ifndef TFT_BL
 // XXX - defined in User_Setups/Setup207_LilyGo_T_HMI.h:37
 #define TFT_BL        (38) // LED back-light

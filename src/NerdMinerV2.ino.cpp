@@ -14,6 +14,7 @@
 #include "drivers/displays/display.h"
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
+#include "TouchHandler.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -26,6 +27,10 @@
 
 #ifdef PIN_BUTTON_2
   OneButton button2(PIN_BUTTON_2);
+#endif
+
+#ifdef TOUCH_ENABLE
+extern TouchHandler touchHandler;
 #endif
 
 extern monitor_data mMonitor;
@@ -159,9 +164,9 @@ void loop() {
   #ifdef PIN_BUTTON_2
     button2.tick();
   #endif
-  
-#ifdef NERDMINER_T_HMI
-  t_hmiCheckForTouch();
+
+#ifdef TOUCH_ENABLE
+  touchHandler.isTouched();
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
