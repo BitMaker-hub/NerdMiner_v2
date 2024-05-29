@@ -103,9 +103,9 @@ void setup()
   doLedStuff(0);
 
 #ifdef NERDMINER_T_HMI
-  extern void t_hmiCheckForSDCardAndMoveToNVM(void);
-  t_hmiCheckForSDCardAndMoveToNVM();
+  SDCrd.initSDcard();
 #endif
+
   /******** INIT WIFI ************/
   init_WifiManager();
 
