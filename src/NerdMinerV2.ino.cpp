@@ -14,7 +14,10 @@
 #include "drivers/displays/display.h"
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
+
+#ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
+#endif
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -102,7 +105,7 @@ void setup()
   mMonitor.NerdStatus = NM_waitingConfig;
   doLedStuff(0);
 
-#ifdef NERDMINER_T_HMI
+#ifdef SDMMC_1BIT_FIX
   SDCrd.initSDcard();
 #endif
 
@@ -151,9 +154,6 @@ void app_error_fault_handler(void *arg) {
   // restart ESP32
   esp_restart();
 }
-#ifdef NERDMINER_T_HMI
-extern uint16_t t_hmiCheckForTouch();
-#endif
 
 void loop() {
   // keep watching the push buttons:

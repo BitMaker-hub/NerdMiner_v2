@@ -13,7 +13,7 @@ public:
   void begin(uint16_t xres, uint16_t yres);
   uint16_t isTouched();
   void setScreenSwitchCallback(void (*callback)());
-
+  void setScreenSwitchAltCallback(void (*callback)());
 private:
   bool debounce();
   TFT_eSPI& tft;
@@ -24,6 +24,7 @@ private:
   unsigned long lastTouchTime;
   // unsigned int lower_switch;
   void (*screenSwitchCallback)();
+  void (*screenSwitchAltCallback)();
 };
 #endif
 

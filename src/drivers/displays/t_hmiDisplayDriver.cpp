@@ -38,6 +38,9 @@ extern monitor_data mMonitor;
 extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
 
+void toggleBottomScreen() { lowerScreen = 3 - lowerScreen; }
+
+
 uint32_t readAdcVoltage(int pin) {
     esp_adc_cal_characteristics_t adc_chars;
 
@@ -82,6 +85,7 @@ void t_hmiDisplay_Init(void)
   Serial.println(F("Initialize the touch screen"));
   touchHandler.begin(HEIGHT, WIDTH);
   touchHandler.setScreenSwitchCallback(switchToNextScreen);
+  touchHandler.setScreenSwitchAltCallback(toggleBottomScreen);
   #endif
 
   Serial.println(F("Turn on the LCD backlight"));

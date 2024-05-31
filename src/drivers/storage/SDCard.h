@@ -58,7 +58,7 @@ public:
     bool loadConfigFile(TSettings* Settings);
     bool cardAvailable();
     bool cardBusy();
-#ifdef NERDMINER_T_HMI
+#ifdef SDMMC_1BIT_FIX
     bool initSDcard();
 private:
 #else

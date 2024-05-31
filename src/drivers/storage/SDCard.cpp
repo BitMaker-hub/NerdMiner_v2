@@ -34,7 +34,7 @@ SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
     }
     iSD_ = &SD;
 #endif // interface type
-#ifndef NERDMINER_T_HMI
+#ifndef SDMMC_1BIT_FIX
     initSDcard();
 #endif
 }

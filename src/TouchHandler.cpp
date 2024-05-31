@@ -3,8 +3,6 @@
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
 
-// Global variable declaration
-extern unsigned int lowerScreen;
 
 
 TouchHandler::~TouchHandler() {
@@ -12,7 +10,7 @@ TouchHandler::~TouchHandler() {
 
 TouchHandler::TouchHandler(TFT_eSPI& tft, uint8_t csPin, uint8_t irqPin, SPIClass& spi)
   : tft(tft), csPin(csPin), irqPin(irqPin), spi(spi), lastTouchTime(0),
-  screenSwitchCallback(nullptr), touch(spi, csPin, irqPin) {
+  screenSwitchCallback(nullptr), screenSwitchAltCallback(nullptr), touch(spi, csPin, irqPin) {
 
 }
 
@@ -24,6 +22,11 @@ void TouchHandler::begin(uint16_t xres, uint16_t yres) {
 void TouchHandler::setScreenSwitchCallback(void (*callback)()) {
   screenSwitchCallback = callback;
 }
+
+void TouchHandler::setScreenSwitchAltCallback(void (*callback)()) {
+  screenSwitchAltCallback = callback;
+}
+
 
 uint16_t TouchHandler::isTouched() {
   // XXX - move touch_x, touch_y to private and min_x, min_y,max_x, max_y
@@ -38,8 +41,9 @@ uint16_t TouchHandler::isTouched() {
     if (touch_x < 200 + (1700 - 200) / 4) {
       // bottom
       code = 1;
-      if (debounce())
-        lowerScreen = 3 - lowerScreen;
+      if (debounce() && screenSwitchAltCallback) {
+        screenSwitchAltCallback();
+      }
     } else {
       // top
       code = 2;
