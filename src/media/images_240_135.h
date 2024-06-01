@@ -142,7 +142,7 @@ const unsigned short setupModeScreen[0xFD20] PROGMEM  = {
 
 // Icon width and height
 const uint16_t MinerWidth = 240;
-const uint16_t MinerHeight = 128;
+const uint16_t MinerHeight = 135;
 
 
 const unsigned short MinerScreen[0x7800] PROGMEM  = {
