@@ -169,9 +169,9 @@ bool SDCard::initSDcard()
 #elif defined (BUILD_SDMMC_1)
 #warning SDMMC : 1 - bit mode is not always working. If you experience issues, try other modes.
         iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
-#ifdef NERDMINER_T_HMI
+#ifdef SD_FREQUENCY
         // Need to lower frequency to 20000 for proper detection
-        cardInitialized_ = iSD_->begin("/sd", true, false, 20000);
+        cardInitialized_ = iSD_->begin("/sd", true, false, SD_FREQUENCY);
 #else
         cardInitialized_ = iSD_->begin("/sd", true);
 #endif

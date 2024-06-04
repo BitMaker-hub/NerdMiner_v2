@@ -36,6 +36,7 @@
 
 #define TOUCH_ENABLE (1)
 #define SDMMC_1BIT_FIX (1)
+#define SD_FREQUENCY (20000)
 #ifndef TFT_BL
 // XXX - defined in User_Setups/Setup207_LilyGo_T_HMI.h:37
 #define TFT_BL        (38) // LED back-light
