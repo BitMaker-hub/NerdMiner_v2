@@ -143,9 +143,8 @@ Recommended low difficulty share pools:
 | Pool URL          | Port  | Web URL                    | Status                                                             |
 | ----------------- | ----- | -------------------------- | ------------------------------------------------------------------ |
 | public-pool.io    | 21496 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
-| nerdminers.org    |       | https://nerdminers.org     | Team domain for future pool - Currently pointing to public-pool.io |
+| pool.nerdminers.org    | 3333  | https://nerdminers.org     | The official Nerdminer pool site - Mantained by @golden-guy |
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
-| pool.vkbit.com    | 3333  | https://vkbit.com/         | Mantained by djerfy - public-pool fork                             |
 | pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
 | pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 

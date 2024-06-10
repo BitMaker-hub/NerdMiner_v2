@@ -20,6 +20,12 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
 void tDisplay_Init(void)
 {
+      //Init pin 15 to eneble 5V external power (LilyGo bug)
+#ifdef PIN_ENABLE5V
+    pinMode(PIN_ENABLE5V, OUTPUT);
+    digitalWrite(PIN_ENABLE5V, HIGH);
+#endif
+  
   tft.init();
   #ifdef LILYGO_S3_T_EMBED
   tft.setRotation(ROTATION_270);

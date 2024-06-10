@@ -12,8 +12,8 @@
 //Time update period
 #define UPDATE_PERIOD_h   5
 
-//API BTC price
-#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USD"
+//API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
+#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT"
 #define UPDATE_BTC_min   1
 
 //API Block height
@@ -31,7 +31,7 @@
 #define getPublicPool "https://public-pool.io:40557/api/client/" // +btcString
 #define UPDATE_POOL_min   1
 
-#define NEXT_HALVING_EVENT 840000
+#define NEXT_HALVING_EVENT 1050000 //840000
 #define HALVING_BLOCKS 210000
 
 enum NMState {

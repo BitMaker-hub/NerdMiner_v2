@@ -35,6 +35,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
         json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
         json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
+        json[JSON_SPIFFS_KEY_INVCOLOR] = Settings->invertColors;
 
         // Open config file
         File configFile = SPIFFS.open(JSON_CONFIG_FILE, "w");
@@ -97,6 +98,11 @@ bool nvMemory::loadConfig(TSettings* Settings)
                         Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_INVCOLOR)) {
+                        Settings->invertColors = json[JSON_SPIFFS_KEY_INVCOLOR].as<bool>();
+                    } else {
+                        Settings->invertColors = false;
+                    }
                     return true;
                 }
                 else
