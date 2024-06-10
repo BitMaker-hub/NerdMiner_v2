@@ -4,6 +4,7 @@
 #define T_HMI_DISPLAY
 
 #define PWR_EN_PIN  (10)
+#define PIN_ENABLE5V PWR_EN_PIN
 #define PWR_ON_PIN  (14)
 #define BAT_ADC_PIN (5)
 #define BUTTON1_PIN (0)
@@ -29,12 +30,13 @@
 
 // sd card
 // 1-bit SD MMC
-#ifdef  DEFINE_SDMMC_1BIT
 #define SDMMC_CLK  (12)
 #define SDMMC_CMD  (11)
 #define SDMMC_D0   (13)
-#endif
 
+#define TOUCH_ENABLE (1)
+#define SDMMC_1BIT_FIX (1)
+#define SD_FREQUENCY (20000)
 #ifndef TFT_BL
 // XXX - defined in User_Setups/Setup207_LilyGo_T_HMI.h:37
 #define TFT_BL        (38) // LED back-light

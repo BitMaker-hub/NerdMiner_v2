@@ -34,7 +34,9 @@ SDCard::SDCard(int ID):cardInitialized_(false),cardBusy_(false)
     }
     iSD_ = &SD;
 #endif // interface type
+#ifndef SDMMC_1BIT_FIX
     initSDcard();
+#endif
 }
 
 SDCard::~SDCard()
@@ -187,7 +189,12 @@ bool SDCard::initSDcard()
 #elif defined (BUILD_SDMMC_1)
 #warning SDMMC : 1 - bit mode is not always working. If you experience issues, try other modes.
         iSD_->setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+#ifdef SD_FREQUENCY
+        // Need to lower frequency to 20000 for proper detection
+        cardInitialized_ = iSD_->begin("/sd", true, false, SD_FREQUENCY);
+#else
         cardInitialized_ = iSD_->begin("/sd", true);
+#endif
         Serial.println("SDCard: 1-Bit Mode.");
     }
 #elif defined (BUILD_SDSPI)

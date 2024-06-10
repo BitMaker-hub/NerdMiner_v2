@@ -15,6 +15,10 @@
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
 
+#ifdef TOUCH_ENABLE
+#include "TouchHandler.h"
+#endif
+
 //3 seconds WDT
 #define WDT_TIMEOUT 3
 //15 minutes WDT for miner task
@@ -26,6 +30,10 @@
 
 #ifdef PIN_BUTTON_2
   OneButton button2(PIN_BUTTON_2);
+#endif
+
+#ifdef TOUCH_ENABLE
+extern TouchHandler touchHandler;
 #endif
 
 extern monitor_data mMonitor;
@@ -100,7 +108,11 @@ void setup()
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
   doLedStuff(0);
-  
+
+#ifdef SDMMC_1BIT_FIX
+  SDCrd.initSDcard();
+#endif
+
   /******** INIT WIFI ************/
   init_WifiManager();
 
@@ -160,7 +172,10 @@ void loop() {
   #ifdef PIN_BUTTON_2
     button2.tick();
   #endif
-  
+
+#ifdef TOUCH_ENABLE
+  touchHandler.isTouched();
+#endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);

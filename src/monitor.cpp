@@ -336,13 +336,12 @@ String getPoolAPIUrl(void) {
         else {
             switch (Settings.PoolPort) {
                 case 3333:
-                    if (Settings.PoolAddress == "pool.vkbit.com")
-                        poolAPIUrl = "https://vkbit.com/miner/";
-                    else if (Settings.PoolAddress == "pool.sethforprivacy.com")
+                    if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
+                    // Local instance of public-pool.io on Umbrel or Start9
                     poolAPIUrl = "http://" + Settings.PoolAddress + ":2019/api/client/";
                     break;
                 default:
