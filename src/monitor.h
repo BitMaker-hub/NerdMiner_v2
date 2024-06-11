@@ -13,7 +13,7 @@
 #define UPDATE_PERIOD_h   5
 
 //API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
-#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT"
+#define getBTCAPI "https://api.coinbase.com/v2/prices/BTC-USD/spot"
 #define UPDATE_BTC_min   1
 
 //API Block height
