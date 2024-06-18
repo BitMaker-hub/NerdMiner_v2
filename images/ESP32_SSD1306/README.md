@@ -7,4 +7,6 @@
 | SCL               | GPIO 22       |
 | SDA               | GPIO 21       |
 
+![image](images/ESP32_SSD1306/hashrate.png)
 
+![image](images/ESP32_SSD1306/time.png)
