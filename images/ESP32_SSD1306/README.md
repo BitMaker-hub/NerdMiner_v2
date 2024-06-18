@@ -15,6 +15,10 @@ Single click on "boot" button: switch between time and hashrate
 
 Double click on "boot" button: rotate screen 180°
 
+## Build information
+
+In Platformio, select ENV "ESP32_SSD1306" to build and flash
+
 ![image](hashrate.png)
 
 ![image](time.png)
