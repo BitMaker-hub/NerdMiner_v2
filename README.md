@@ -66,7 +66,7 @@ Every time an stratum job notification is received miner update its current work
 \*Affiliate links
 
 #### Current Supported Boards with stand alone displays
-- ESP32 devkit C - SSD1306 (I²C)
+- ESP32 devkit C - SSD1306 (I²C controller)
 
 ### Flash firmware
 
