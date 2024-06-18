@@ -7,6 +7,8 @@
 | SCL               | GPIO 22       |
 | SDA               | GPIO 21       |
 
+## Button configuration
+
 Boot button is connected to GPIO 0
 
 Single click on "boot" button: switch between time and hashrate
