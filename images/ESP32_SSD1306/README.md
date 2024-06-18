@@ -7,6 +7,11 @@
 | SCL               | GPIO 22       |
 | SDA               | GPIO 21       |
 
+Boot button is connected to GPIO 0
+
+Single click on "boot" button: switch between time and hashrate
+Double click on "boot" button: rotate screen 180°
+
 ![image](hashrate.png)
 
 ![image](time.png)
