@@ -52,6 +52,10 @@ DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
 
+#ifdef ESP32_SSD1306
+DisplayDriver *currentDisplayDriver = &esp32_ssd1306_driver;
+#endif
+
 
 // Initialize the display
 void initDisplay()
