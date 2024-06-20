@@ -5,6 +5,8 @@
 #include "nerdMinerV2.h"
 #elif defined(M5STICK_C)
 #include "M5Stick-C.h"
+#elif defined(M5STICK_CPLUS)
+#include "M5Stick-CPlus.h"
 #elif defined(DEVKITV1)
 #include "esp32DevKit.h"
 #elif defined(TDISPLAY)

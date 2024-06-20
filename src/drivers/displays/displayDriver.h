@@ -39,6 +39,7 @@ extern DisplayDriver esp32_2432S028RDriver;
 extern DisplayDriver t_qtDisplayDriver;
 extern DisplayDriver tDisplayV1Driver;
 extern DisplayDriver m5stickCDriver;
+extern DisplayDriver m5stickCPlusDriver;
 extern DisplayDriver t_hmiDisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))

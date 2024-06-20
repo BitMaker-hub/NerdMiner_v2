@@ -48,6 +48,10 @@ DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 #endif
 
+#ifdef M5STICKCPLUS_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stickCPlusDriver;
+#endif
+
 #ifdef T_HMI_DISPLAY
 DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
