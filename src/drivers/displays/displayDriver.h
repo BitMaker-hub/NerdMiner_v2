@@ -40,6 +40,7 @@ extern DisplayDriver t_qtDisplayDriver;
 extern DisplayDriver tDisplayV1Driver;
 extern DisplayDriver m5stickCDriver;
 extern DisplayDriver t_hmiDisplayDriver;
+extern DisplayDriver sp_kcDisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 

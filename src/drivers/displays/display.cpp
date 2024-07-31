@@ -52,6 +52,10 @@ DisplayDriver *currentDisplayDriver = &m5stickCDriver;
 DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
 
+#ifdef ST7735S_DISPLAY
+DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()
