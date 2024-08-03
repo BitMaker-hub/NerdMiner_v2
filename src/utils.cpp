@@ -77,6 +77,7 @@ void reverse_bytes(uint8_t * data, size_t len) {
 
 static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 /* Converts a little endian 256 bit value to a double */
+double le256todouble(const void *target) 
 {
     const uint8_t *byte_target = static_cast<const uint8_t*>(target);  // Convert to byte pointer
     uint64_t *data64;
