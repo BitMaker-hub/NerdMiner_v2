@@ -14,6 +14,11 @@
 #include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
 
+#ifdef NERD_NOS
+#include "drivers/nerd-nos/mining.h"
+#endif
+
+
 nvs_handle_t stat_handle;
 
 uint32_t templates = 0;
@@ -35,7 +40,7 @@ extern TSettings Settings;
 
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 
-//Global work data 
+//Global work data
 static WiFiClient client;
 static miner_data mMiner; //Global miner data (Create a miner class TODO)
 mining_subscribe mWorker;
@@ -49,15 +54,15 @@ int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
 int currentIntervalIndex = 0;
 
 bool checkPoolConnection(void) {
-  
+
   if (client.connected()) {
     return true;
   }
-  
+
   isMinerSuscribed = false;
 
-  Serial.println("Client not connected, trying to connect..."); 
-  
+  Serial.println("Client not connected, trying to connect...");
+
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
     WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
@@ -76,14 +81,14 @@ bool checkPoolConnection(void) {
   return true;
 }
 
-//Implements a socketKeepAlive function and 
+//Implements a socketKeepAlive function and
 //checks if pool is not sending any data to reconnect again.
 //Even connection could be alive, pool could stop sending new job NOTIFY
 unsigned long mStart0Hashrate = 0;
-bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTime){ 
+bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTime){
 
     unsigned long currentKHashes = (Mhashes*1000) + hashes/1000;
-    unsigned long elapsedKHs = currentKHashes - totalKHashes; 
+    unsigned long elapsedKHs = currentKHashes - totalKHashes;
 
     // If no shares sent to pool
     // send something to pool to hold socket oppened
@@ -100,7 +105,7 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
 
     if(elapsedKHs == 0){
       //Check if hashrate is 0 during inactivityTIme
-      if(mStart0Hashrate == 0) mStart0Hashrate  = millis(); 
+      if(mStart0Hashrate == 0) mStart0Hashrate  = millis();
       if((millis()-mStart0Hashrate) > inactivityTime) { mStart0Hashrate=0; return true;}
       return false;
     }
@@ -121,18 +126,18 @@ void runStratumWorker(void *name) {
   #endif
 
   // connect to pool
-  
+
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
 
   while(true) {
-      
+
     if(WiFi.status() != WL_CONNECTED){
       // WiFi is disconnected, so reconnect now
       mMonitor.NerdStatus = NM_Connecting;
       WiFi.reconnect();
       vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
-    } 
+    }
 
     if(!checkPoolConnection()){
       //If server is not reachable add random delay for connection retries
@@ -148,11 +153,11 @@ void runStratumWorker(void *name) {
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
-      if(!tx_mining_subscribe(client, mWorker)) { 
+      if(!tx_mining_subscribe(client, mWorker)) {
         client.stop();
-        continue; 
+        continue;
       }
-      
+
       strcpy(mWorker.wName, Settings.BtcWallet);
       strcpy(mWorker.wPass, Settings.PoolPassword);
       // STEP 2: Pool authorize work (Block Info)
@@ -172,7 +177,7 @@ void runStratumWorker(void *name) {
       Serial.println("  Detected more than 2 min without data form stratum server. Closing socket and reopening...");
       client.stop();
       isMinerSuscribed=false;
-      continue; 
+      continue;
     }
 
     //Read pending messages from pool
@@ -208,9 +213,9 @@ void runStratumWorker(void *name) {
     }
 
     vTaskDelay(500 / portTICK_PERIOD_MS); //Small delay
-    
+
   }
-  
+
 }
 
 
@@ -218,7 +223,7 @@ void runStratumWorker(void *name) {
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
 
-  
+
 void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
@@ -245,7 +250,7 @@ void runMiner(void * task_id) {
     //Prepare Premining data
     nerdSHA256_context nerdMidstate; //NerdShaplus
     uint8_t hash[32];
-    
+
 
     //Calcular midstate
     nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
@@ -265,8 +270,8 @@ void runMiner(void * task_id) {
       header64 = mMiner.bytearray_blockheader + 64;
     else
       header64 = mMiner.bytearray_blockheader2 + 64;
-    
-    bool is16BitShare=true;  
+
+    bool is16BitShare=true;
     Serial.println(">>> STARTING TO HASH NONCES");
     while(true) {
       if (miner_id == 0)
@@ -281,7 +286,7 @@ void runMiner(void * task_id) {
       /*Serial.print("hash1: ");
       for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash[i]);
-        Serial.println("");  
+        Serial.println("");
       Serial.print("hash2: ");
       for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", hash2[i]);
@@ -302,7 +307,7 @@ void runMiner(void * task_id) {
       //Check target to submit
       //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
       //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
-      //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
+      //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00
       //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
       double diff_hash = diff_from_target(hash);
 
@@ -327,9 +332,9 @@ void runMiner(void * task_id) {
         }
         #endif
         Serial.println("");
-        mLastTXtoPool = millis();  
+        mLastTXtoPool = millis();
       }
-      
+
       // check if 32bit share
       if(hash[29] !=0 || hash[28] !=0) {
         // increment nonce
@@ -365,6 +370,103 @@ void runMiner(void * task_id) {
     if (esp_task_wdt_reset() == ESP_OK)
       Serial.print(">>> Resetting watchdog timer");
   }
+}
+
+void asic_create_job(mining_subscribe *mWorker, mining_job *job, bm_job_t *next_job, uint32_t extranonce_2);
+
+void runASIC(void * task_id) {
+  Serial.printf("[MINER] Started runASIC Task!\n");
+
+  uint32_t extranonce_2 = 0;
+  bm_job_t asic_job;
+  while(1) {
+    // wait for new job
+    while(1) {
+      if (mMiner.newJob == true) {
+        break;
+      }
+      vTaskDelay(100 / portTICK_PERIOD_MS); //Small delay
+    }
+
+    if(mMiner.newJob) {
+      mMiner.newJob = false; //Clear newJob flag
+    }
+    mMiner.inRun = true; //Set inRun flag
+
+    Serial.println(">>> STARTING TO HASH NONCES");
+    uint32_t startT = micros();
+
+    while (mMiner.inRun) {
+      mMonitor.NerdStatus = NM_hashing;
+      extranonce_2++;
+
+      // create the next asic job
+      asic_create_job(&mWorker, &mJob, &asic_job, extranonce_2);
+
+      // send the job and
+      uint8_t asic_job_id = asic_send_work(&asic_job);
+
+      // wait 30ms for the response
+      task_result *result = asic_proccess_work(&asic_job, 30);
+
+      if (!result) {
+        // we haven't received anything in time, so send a new job
+        continue;
+      }
+
+      if (result->job_id != asic_job_id) {
+        // job id mismatch
+        Serial.printf("ID mismatch, expected %02x, got %02x\n", asic_job_id, result->job_id);
+        continue;
+      }
+
+      // check the nonce difficulty
+      double diff_hash = asic_test_nonce_value(
+          &asic_job,
+          result->nonce,
+          result->rolled_version);
+
+      Serial.print("   - Current diff share: "); Serial.println(diff_hash, 12);
+      Serial.print("   - Current pool diff : "); Serial.println(mMiner.poolDifficulty, 12);
+
+      // update best diff
+      if (diff_hash > best_diff)
+        best_diff = diff_hash;
+
+      if(diff_hash > mMiner.poolDifficulty)
+      {
+        tx_mining_submit_with_version(client, mWorker, &asic_job, extranonce_2, result->nonce, result->rolled_version);
+        Serial.println("valid share!");
+/*
+        Serial.print("   - Current diff share: "); Serial.println(diff_hash,12);
+        Serial.print("   - Current pool diff : "); Serial.println(mMiner.poolDifficulty,12);
+*/
+/*
+        Serial.print("   - TX SHARE: ");
+        for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", hash[i]);
+*/
+        #ifdef DEBUG_MINING
+        Serial.println("");
+        Serial.print("   - Current nonce: "); Serial.println(nonce);
+        Serial.print("   - Current block header: ");
+        for (size_t i = 0; i < 80; i++) {
+            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+        }
+        #endif
+        Serial.println("");
+        mLastTXtoPool = millis();
+      }
+    }
+    Serial.println ("MINER WORK ABORTED >> waiting new job");
+    mMiner.inRun = false;
+    uint32_t duration = micros() - startT;
+/*
+    if (esp_task_wdt_reset() == ESP_OK)
+      Serial.print(">>> Resetting watchdog timer");
+*/
+  }
+
 }
 
 #define DELAY 100
@@ -455,7 +557,7 @@ void runMonitor(void *name)
         seconds_elapsed = 0;
         if(currentIntervalIndex < saveIntervalsSize - 1)
           currentIntervalIndex++;
-      }    
+      }
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);

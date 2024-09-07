@@ -3,6 +3,8 @@
 
 #if defined(NERDMINERV2)
 #include "nerdMinerV2.h"
+#elif defined(NERD_NOS)
+#include "nerdnos.h"
 #elif defined(M5STICK_C)
 #include "M5Stick-C.h"
 #elif defined(DEVKITV1)

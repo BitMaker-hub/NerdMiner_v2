@@ -5,7 +5,7 @@
 
 *   Description:
 
-*   NerdSha256plus is a custom C implementation of sha256d based on Blockstream Jade 
+*   NerdSha256plus is a custom C implementation of sha256d based on Blockstream Jade
     code https://github.com/Blockstream/Jade
 
     The folowing file can be used on any ESP32 implementation using both cores
@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 
-struct nerdSHA256_context {
+struct __attribute__((__packed__)) nerdSHA256_context {
     uint8_t buffer[64];
     uint32_t digest[8];
 };

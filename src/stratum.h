@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include "drivers/nerd-nos/mining.h"
 
 #define MAX_MERKLE_BRANCHES 32
 #define HASH_SIZE 32
@@ -61,8 +62,9 @@ bool parse_mining_notify(String line, mining_job& mJob);
 
 //Method Mining.submit
 bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce);
+bool tx_mining_submit_with_version(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, uint32_t extranonce2, unsigned long nonce, uint32_t version);
 
-//Difficulty Methods 
+//Difficulty Methods
 bool tx_suggest_difficulty(WiFiClient& client, double difficulty);
 bool parse_mining_set_difficulty(String line, double& difficulty);
 

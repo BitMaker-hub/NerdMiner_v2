@@ -14,6 +14,9 @@
 #include "drivers/displays/display.h"
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
+#include "drivers/nerd-nos/bm1397.h"
+#include "drivers/nerd-nos/serial.h"
+
 
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
@@ -40,7 +43,7 @@ extern monitor_data mMonitor;
 
 #ifdef SD_ID
   SDCard SDCrd = SDCard(SD_ID);
-#else  
+#else
   SDCard SDCrd = SDCard();
 #endif
 
@@ -49,7 +52,13 @@ extern monitor_data mMonitor;
 unsigned long start = millis();
 const char* ntpServer = "pool.ntp.org";
 
-//void runMonitor(void *name);
+void printBufferHex(const char *prefix, const uint8_t* buf, size_t len) {
+  Serial.printf("%s: ", prefix);
+  for (size_t i = 0; i < len; i++) {
+      Serial.printf("%02X ", buf[i]);
+  }
+  Serial.println();
+}
 
 /********* INIT *****/
 void setup()
@@ -100,7 +109,7 @@ void setup()
 
   /******** INIT DISPLAY ************/
   initDisplay();
-  
+
   /******** PRINT INIT SCREEN *****/
   drawLoadingScreen();
   delay(2*SECOND_MS);
@@ -134,7 +143,19 @@ void setup()
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 3, NULL,1);
  #endif
 
-  /******** CREATE MINER TASKS *****/
+ #ifdef NERD_NOS
+  SERIAL_init();
+  int chips = BM1397_init(200, 1);
+  Serial.printf("found bm1397: %d\n", chips);
+  //SERIAL_set_baud(BM1397_set_max_baud());
+
+  TaskHandle_t ASICTask = NULL;
+  xTaskCreate(runASIC, "Asic0", 6000, (void*)0, 1, &ASICTask);
+
+  //esp_task_wdt_add(ASICTask);
+
+ #else
+   /******** CREATE MINER TASKS *****/
   //for (size_t i = 0; i < THREADS; i++) {
   //  char *name = (char*) malloc(32);
   //  sprintf(name, "(%d)", i);
@@ -144,13 +165,15 @@ void setup()
   TaskHandle_t minerTask1, minerTask2 = NULL;
   xTaskCreate(runMiner, "Miner0", 6000, (void*)0, 1, &minerTask1);
   xTaskCreate(runMiner, "Miner1", 6000, (void*)1, 1, &minerTask2);
- 
+
   esp_task_wdt_add(minerTask1);
   esp_task_wdt_add(minerTask2);
-
+#endif
   /******** MONITOR SETUP *****/
   setup_monitor();
 }
+
+
 
 void app_error_fault_handler(void *arg) {
   // Get stack errors
