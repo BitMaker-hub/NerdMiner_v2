@@ -129,7 +129,6 @@ void nerdnos_create_job(mining_subscribe *mWorker, mining_job *job, bm_job_t *ne
     calculate_merkle_root_hash(coinbase_tx.c_str(), job, merkle_root);
 
     //Serial.printf("asic merkle root: %s\n", merkle_root);
-    // we need malloc because we will save it in the job array
     construct_bm_job(job, merkle_root, 0x1fffe000, next_job);
 
     next_job->jobid = strdup(job->job_id.c_str());

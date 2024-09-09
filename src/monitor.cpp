@@ -11,6 +11,7 @@
 
 #ifdef NERD_NOS
 #include "mining_nerdnos.h"
+#include "drivers/nerd-nos/adc.h"
 #endif
 
 extern uint32_t templates;
@@ -243,10 +244,18 @@ String getCurrentHashRate(unsigned long mElapsed) {
   // we have too little space for 2 digits after the decimal point
   return String(nerdnos_get_avg_hashrate(), 1);
 }
+
+String getCurrentTemperature() {
+  return String(nerdnos_get_temperature(), 2);
+}
 #else
 String getCurrentHashRate(unsigned long mElapsed)
 {
   return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
+}
+
+String getCurrentTemperature() {
+  return String(0.0, 2);
 }
 #endif
 
@@ -269,6 +278,7 @@ mining_data getMiningData(unsigned long mElapsed)
   data.totalMHashes = Mhashes;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
+  data.currentTemperature = getCurrentTemperature();
   data.templates = templates;
   data.bestDiff = best_diff_string;
   data.timeMining = timeMining;

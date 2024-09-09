@@ -16,6 +16,7 @@
 #include "timeconst.h"
 #include "drivers/nerd-nos/bm1397.h"
 #include "drivers/nerd-nos/serial.h"
+#include "drivers/nerd-nos/adc.h"
 
 #ifdef NERD_NOS
 #include "mining_nerdnos.h"
@@ -147,6 +148,7 @@ void setup()
  #endif
 
  #ifdef NERD_NOS
+  nerdnos_adc_init();
   SERIAL_init();
   int chips = BM1397_init(200, 1);
   Serial.printf("found bm1397: %d\n", chips);

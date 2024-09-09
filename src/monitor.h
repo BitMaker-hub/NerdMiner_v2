@@ -12,7 +12,7 @@
 //Time update period
 #define UPDATE_PERIOD_h   5
 
-//API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
+//API BTC price (Update to USDT cus it's more liquidity and flow price updade)
 #define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT"
 #define UPDATE_BTC_min   1
 
@@ -73,6 +73,7 @@ typedef struct {
   String valids;
   String temp;
   String currentTime;
+  String currentTemperature;
 }mining_data;
 
 typedef struct {
@@ -81,7 +82,7 @@ typedef struct {
   String currentHashRate;
   String btcPrice;
   String blockHeight;
-  String currentTime;  
+  String currentTime;
   String currentDate;
 }clock_data;
 
