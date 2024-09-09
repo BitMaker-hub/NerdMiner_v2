@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "../devices/device.h"
 #include "crc.h"
+#include "utils.h"
 
 #define TYPE_JOB 0x20
 #define TYPE_CMD 0x40
@@ -48,7 +49,6 @@ typedef struct __attribute__((__packed__))
 static const char *TAG = "bm1397Module";
 
 static uint8_t asic_response_buffer[CHUNK_SIZE];
-static uint32_t prev_nonce = 0;
 static task_result result;
 
 uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
@@ -101,7 +101,7 @@ static void _send_read_address(void)
 {
     unsigned char read_address[2] = {0x00, 0x00};
     // send serial data
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
 
 static void _send_chain_inactive(void)
@@ -109,7 +109,7 @@ static void _send_chain_inactive(void)
 
     unsigned char read_address[2] = {0x00, 0x00};
     // send serial data
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), read_address, 2, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
 
 static void _set_chip_address(uint8_t chipAddr)
@@ -117,7 +117,7 @@ static void _set_chip_address(uint8_t chipAddr)
 
     unsigned char read_address[2] = {chipAddr, 0x00};
     // send serial data
-    _send_BM1397((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
 
 void BM1397_send_hash_frequency(float frequency)
@@ -187,12 +187,12 @@ void BM1397_send_hash_frequency(float frequency)
     for (i = 0; i < 2; i++)
     {
         vTaskDelay(10 / portTICK_PERIOD_MS);
-        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), prefreqall, 6, BM1937_SERIALTX_DEBUG);
+        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), prefreqall, 6, BM1397_SERIALTX_DEBUG);
     }
     for (i = 0; i < 2; i++)
     {
         vTaskDelay(10 / portTICK_PERIOD_MS);
-        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbufall, 6, BM1937_SERIALTX_DEBUG);
+        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbufall, 6, BM1397_SERIALTX_DEBUG);
     }
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -228,24 +228,24 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
     }
 
     unsigned char init[6] = {0x00, CLOCK_ORDER_CONTROL_0, 0x00, 0x00, 0x00, 0x00}; // init1 - clock_order_control0
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init, 6, BM1397_SERIALTX_DEBUG);
 
     unsigned char init2[6] = {0x00, CLOCK_ORDER_CONTROL_1, 0x00, 0x00, 0x00, 0x00}; // init2 - clock_order_control1
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init2, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init2, 6, BM1397_SERIALTX_DEBUG);
 
     unsigned char init3[9] = {0x00, ORDERED_CLOCK_ENABLE, 0x00, 0x00, 0x00, 0x01}; // init3 - ordered_clock_enable
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init3, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init3, 6, BM1397_SERIALTX_DEBUG);
 
     unsigned char init4[9] = {0x00, CORE_REGISTER_CONTROL, 0x80, 0x00, 0x80, 0x74}; // init4 - init_4_?
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init4, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init4, 6, BM1397_SERIALTX_DEBUG);
 
     BM1397_set_job_difficulty_mask(BM1397_INITIAL_DIFFICULTY);
 
     unsigned char init5[9] = {0x00, PLL3_PARAMETER, 0xC0, 0x70, 0x01, 0x11}; // init5 - pll3_parameter
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6, BM1397_SERIALTX_DEBUG);
 
     unsigned char init6[9] = {0x00, FAST_UART_CONFIGURATION, 0x06, 0x00, 0x00, 0x0F}; // init6 - fast_uart_configuration
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init6, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init6, 6, BM1397_SERIALTX_DEBUG);
 
     BM1397_set_default_baud();
 
@@ -294,7 +294,7 @@ int BM1397_set_default_baud(void)
 {
     // default divider of 26 (11010) for 115,749
     unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01111010, 0b00110001}; // baudrate - misc_control
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
     return 115749;
 }
 
@@ -304,7 +304,7 @@ int BM1397_set_max_baud(void)
     ESP_LOGI(TAG, "Setting max baud of 3125000");
     unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01100000, 0b00110001};
     ; // baudrate - misc_control
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
     return 3125000;
 }
 
@@ -317,7 +317,7 @@ void BM1397_set_job_difficulty_mask(int difficulty)
     // The mask must be a power of 2 so there are no holes
     // Correct:  {0b00000000, 0b00000000, 0b11111111, 0b11111111}
     // Incorrect: {0b00000000, 0b00000000, 0b11100111, 0b11111111}
-    difficulty = _largest_power_of_two(difficulty) - 1; // (difficulty - 1) if it is a pow 2 then step down to second largest for more hashrate sampling
+    difficulty = largest_power_of_two(difficulty) - 1; // (difficulty - 1) if it is a pow 2 then step down to second largest for more hashrate sampling
 
     // convert difficulty into char array
     // Ex: 256 = {0b00000000, 0b00000000, 0b00000000, 0b11111111}, {0x00, 0x00, 0x00, 0xff}
@@ -329,18 +329,18 @@ void BM1397_set_job_difficulty_mask(int difficulty)
         // So a mask of 512 looks like 0b00000000 00000000 00000001 1111111
         // and not 0b00000000 00000000 10000000 1111111
 
-        job_difficulty_mask[5 - i] = _reverse_bits(value);
+        job_difficulty_mask[5 - i] = reverse_bits(value);
     }
 
     ESP_LOGI(TAG, "Setting job ASIC mask to %d", difficulty);
 
-    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6, BM1937_SERIALTX_DEBUG);
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6, BM1397_SERIALTX_DEBUG);
 }
 
 
 void BM1397_send_work(bm_job_t *next_bm_job, uint8_t job_id)
 {
-    job_packet job;
+    job_packet_t job;
     // max job number is 128
     // there is still some really weird logic with the job id bits for the asic to sort out
     // so we have it limited to 128 and it has to increment by 4
@@ -360,7 +360,7 @@ void BM1397_send_work(bm_job_t *next_bm_job, uint8_t job_id)
         memcpy(job.midstate3, next_bm_job->midstate3, 32);
     }
 
-    _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*) &job, sizeof(job_packet), BM1397_DEBUG_WORK);
+    _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*) &job, sizeof(job_packet_t), BM1397_DEBUG_WORK);
 }
 
 asic_result *BM1397_receive_work(uint16_t timeout)
@@ -392,7 +392,6 @@ asic_result *BM1397_receive_work(uint16_t timeout)
 
 task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
 {
-
     asic_result *asic_result = BM1397_receive_work(timeout);
 
     if (asic_result == NULL)
@@ -401,9 +400,6 @@ task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
         return NULL;
     }
 
-    uint8_t nonce_found = 0;
-    uint32_t first_nonce = 0;
-
     uint8_t rx_job_id = (asic_result->job_id & 0xfc) >> 2;
     uint8_t rx_midstate_index = asic_result->job_id & 0x03;
 
@@ -411,29 +407,6 @@ task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
     for (int i = 0; i < rx_midstate_index; i++)
     {
         rolled_version = increment_bitmask(rolled_version, 0x1fffe000);
-    }
-
-    // ASIC may return the same nonce multiple times
-    // or one that was already found
-    // most of the time it behavies however
-    if (nonce_found == 0)
-    {
-        first_nonce = asic_result->nonce;
-        nonce_found = 1;
-    }
-    else if (asic_result->nonce == first_nonce)
-    {
-        // stop if we've already seen this nonce
-        return NULL;
-    }
-
-    if (asic_result->nonce == prev_nonce)
-    {
-        return NULL;
-    }
-    else
-    {
-        prev_nonce = asic_result->nonce;
     }
 
     result.job_id = rx_job_id;

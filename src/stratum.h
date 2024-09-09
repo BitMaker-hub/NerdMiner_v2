@@ -16,7 +16,7 @@
 #define BUFFER_JSON_DOC 4096
 #define BUFFER 1024
 
-typedef struct {
+typedef struct mining_subscribe {
     String sub_details;
     String extranonce1;
     String extranonce2;
@@ -25,7 +25,7 @@ typedef struct {
     char wPass[20];
 } mining_subscribe;
 
-typedef struct {
+typedef struct mining_job {
     String job_id;
     String prev_block_hash;
     String coinb1;

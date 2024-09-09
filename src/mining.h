@@ -20,7 +20,7 @@ String printLocalTime(void);
 
 void resetStat();
 
-typedef struct{
+typedef struct {
   uint8_t bytearray_target[32];
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];

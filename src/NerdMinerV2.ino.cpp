@@ -17,6 +17,9 @@
 #include "drivers/nerd-nos/bm1397.h"
 #include "drivers/nerd-nos/serial.h"
 
+#ifdef NERD_NOS
+#include "mining_nerdnos.h"
+#endif
 
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"

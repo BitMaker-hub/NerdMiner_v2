@@ -10,7 +10,9 @@
 #include "utils.h"
 #include "version.h"
 
+#include <pthread.h>
 
+pthread_mutex_t job_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
 unsigned long id = 1;
@@ -99,9 +101,11 @@ bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
     if (error || checkError(doc)) return false;
     if (!doc.containsKey("result")) return false;
 
+    pthread_mutex_lock(&job_mutex);
     mSubscribe.sub_details = String((const char*) doc["result"][0][0][1]);
     mSubscribe.extranonce1 = String((const char*) doc["result"][1]);
     mSubscribe.extranonce2_size = doc["result"][2];
+    pthread_mutex_unlock(&job_mutex);
 
     return true;
 }
@@ -179,6 +183,7 @@ bool parse_mining_notify(String line, mining_job& mJob)
     if (error) return false;
     if (!doc.containsKey("params")) return false;
 
+    pthread_mutex_lock(&job_mutex);
     mJob.job_id = String((const char*) doc["params"][0]);
     mJob.prev_block_hash = String((const char*) doc["params"][1]);
     mJob.coinb1 = String((const char*) doc["params"][2]);
@@ -188,6 +193,7 @@ bool parse_mining_notify(String line, mining_job& mJob)
     mJob.nbits = String((const char*) doc["params"][6]);
     mJob.ntime = String((const char*) doc["params"][7]);
     mJob.clean_jobs = doc["params"][8]; //bool
+    pthread_mutex_unlock(&job_mutex);
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(mJob.job_id);

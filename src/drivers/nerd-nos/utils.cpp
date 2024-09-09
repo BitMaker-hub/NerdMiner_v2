@@ -307,3 +307,51 @@ uint32_t flip32(uint32_t val)
     ret |= (val & 0xFF000000) >> 24;
     return ret;
 }
+
+
+unsigned char reverse_bits(unsigned char num)
+{
+    unsigned char reversed = 0;
+    int i;
+
+    for (i = 0; i < 8; i++) {
+        reversed <<= 1;      // Left shift the reversed variable by 1
+        reversed |= num & 1; // Use bitwise OR to set the rightmost bit of reversed to the current bit of num
+        num >>= 1;           // Right shift num by 1 to get the next bit
+    }
+
+    return reversed;
+}
+
+int largest_power_of_two(int num)
+{
+    int power = 0;
+
+    while (num > 1) {
+        num = num >> 1;
+        power++;
+    }
+
+    return 1 << power;
+}
+
+
+uint32_t increment_bitmask(const uint32_t value, const uint32_t mask)
+{
+    // if mask is zero, just return the original value
+    if (mask == 0)
+        return value;
+
+    uint32_t carry = (value & mask) + (mask & -mask);      // increment the least significant bit of the mask
+    uint32_t overflow = carry & ~mask;                     // find overflowed bits that are not in the mask
+    uint32_t new_value = (value & ~mask) | (carry & mask); // set bits according to the mask
+
+    // Handle carry propagation
+    if (overflow > 0)
+    {
+        uint32_t carry_mask = (overflow << 1);                // shift left to get the mask where carry should be propagated
+        new_value = increment_bitmask(new_value, carry_mask); // recursively handle carry propagation
+    }
+
+    return new_value;
+}

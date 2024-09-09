@@ -51,12 +51,24 @@ int SERIAL_send(uint8_t *data, int len, bool debug)
     return uart_write_bytes(UART_NUM_1, (const char *)data, len);
 }
 
+int SERIAL_check_for_data() {
+    int length;
+    uart_get_buffered_data_len(UART_NUM_1, (size_t*)&length);
+    return length;
+}
+
+
 /// @brief waits for a serial response from the device
 /// @param buf buffer to read data into
 /// @param buf number of ms to wait before timing out
 /// @return number of bytes read, or -1 on error
 int16_t SERIAL_rx(uint8_t *buf, uint16_t size, uint16_t timeout_ms)
 {
+    // don't return incomplete data
+    if (SERIAL_check_for_data() < size) {
+        return 0;
+    }
+
     int16_t bytes_read = uart_read_bytes(UART_NUM_1, buf, size, timeout_ms / portTICK_PERIOD_MS);
     // if (bytes_read > 0) {
     //     printf("rx: ");

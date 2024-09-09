@@ -1,4 +1,4 @@
-#pragma one
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -33,3 +33,8 @@ void prettyHex(unsigned char *buf, int len);
 
 uint32_t flip32(uint32_t val);
 
+unsigned char reverse_bits(unsigned char num);
+
+int largest_power_of_two(int num);
+
+uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
