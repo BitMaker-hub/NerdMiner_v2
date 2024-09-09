@@ -65,7 +65,9 @@ static void calculate_hashrate(history_t *history, uint32_t diff) {
   // add and store the newest sample
   history->sum += diff;
   history->diffs[history->newest % ASIC_HISTORY_SIZE] = diff;
-  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = micros();
+
+  // micros() wraps around after about 71.58min because it's 32bit casted from 64bit timer :facepalm:
+  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = esp_timer_get_time();
 
   uint64_t oldest_timestamp = history->timestamps[history->oldest % ASIC_HISTORY_SIZE];
   uint64_t newest_timestamp = history->timestamps[history->newest % ASIC_HISTORY_SIZE];
