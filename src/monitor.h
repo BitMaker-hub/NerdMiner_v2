@@ -74,6 +74,7 @@ typedef struct {
   String temp;
   String currentTime;
   String currentTemperature;
+  String vcore;
 }mining_data;
 
 typedef struct {

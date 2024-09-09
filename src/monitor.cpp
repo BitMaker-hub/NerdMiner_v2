@@ -248,6 +248,10 @@ String getCurrentHashRate(unsigned long mElapsed) {
 String getCurrentTemperature() {
   return String(nerdnos_get_temperature(), 2);
 }
+
+String getCurrentVCore() {
+  return String(nerdnos_get_vcore(), 2);
+}
 #else
 String getCurrentHashRate(unsigned long mElapsed)
 {
@@ -255,6 +259,10 @@ String getCurrentHashRate(unsigned long mElapsed)
 }
 
 String getCurrentTemperature() {
+  return String(0.0, 2);
+}
+
+String getCurrentVCore() {
   return String(0.0, 2);
 }
 #endif
@@ -279,6 +287,7 @@ mining_data getMiningData(unsigned long mElapsed)
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
   data.currentTemperature = getCurrentTemperature();
+  data.vcore = getCurrentVCore();
   data.templates = templates;
   data.bestDiff = best_diff_string;
   data.timeMining = timeMining;
