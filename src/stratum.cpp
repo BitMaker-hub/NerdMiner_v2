@@ -230,7 +230,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     return true;
 }
 
-bool tx_mining_submit_with_version(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, uint32_t extranonce2, unsigned long nonce, uint32_t version)
+bool tx_mining_submit_asic(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, task_result *result)
 {
     char payload[BUFFER] = {0};
 
@@ -242,8 +242,8 @@ bool tx_mining_submit_with_version(WiFiClient& client, mining_subscribe mWorker,
         asic_job->jobid,
         asic_job->extranonce2,
         asic_job->ntime,
-        nonce,
-        version ^ asic_job->version
+        result->nonce,
+        result->rolled_version ^ asic_job->version
     );
     Serial.print("  Sending  : "); Serial.print(payload);
     client.print(payload);

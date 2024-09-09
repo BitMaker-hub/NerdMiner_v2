@@ -159,10 +159,17 @@ void asic_create_job(mining_subscribe *mWorker, mining_job *job, bm_job_t *next_
     //next_job->pool_diff = stratum_difficulty;
 }
 
-uint8_t asic_send_work(bm_job_t *next_bm_job) {
-    return BM1397_send_work(next_bm_job);
+void asic_send_work(bm_job_t *next_bm_job, uint8_t job_id) {
+    BM1397_send_work(next_bm_job, job_id);
 }
 
-task_result *asic_proccess_work(bm_job_t *job, uint16_t timeout) {
-    return BM1397_proccess_work(job, timeout);
+task_result *asic_proccess_work(uint32_t version, uint16_t timeout) {
+    return BM1397_proccess_work(version, timeout);
+}
+
+void asic_free_bm_job(bm_job_t *job) {
+    free(job->jobid);
+    free(job->extranonce2);
+    // mark as free
+    job->ntime = 0;
 }

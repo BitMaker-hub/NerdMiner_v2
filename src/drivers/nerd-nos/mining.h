@@ -26,7 +26,8 @@ typedef struct
 } bm_job_t;
 
 
-uint8_t asic_send_work(bm_job_t *next_bm_job);
-task_result *asic_proccess_work(bm_job_t *job, uint16_t timeout);
+void asic_send_work(bm_job_t *next_bm_job, uint8_t job_id);
+task_result *asic_proccess_work(uint32_t version, uint16_t timeout);
 
 double asic_test_nonce_value(const bm_job_t *job, const uint32_t nonce, const uint32_t rolled_version);
+void asic_free_bm_job(bm_job_t *job);

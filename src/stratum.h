@@ -62,7 +62,7 @@ bool parse_mining_notify(String line, mining_job& mJob);
 
 //Method Mining.submit
 bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce);
-bool tx_mining_submit_with_version(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, uint32_t extranonce2, unsigned long nonce, uint32_t version);
+bool tx_mining_submit_asic(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, task_result *result);
 
 //Difficulty Methods
 bool tx_suggest_difficulty(WiFiClient& client, double difficulty);

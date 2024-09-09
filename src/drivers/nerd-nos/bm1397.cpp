@@ -337,17 +337,15 @@ void BM1397_set_job_difficulty_mask(int difficulty)
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6, BM1937_SERIALTX_DEBUG);
 }
 
-static uint8_t id = 0;
 
-uint8_t BM1397_send_work(bm_job_t *next_bm_job)
+void BM1397_send_work(bm_job_t *next_bm_job, uint8_t job_id)
 {
     job_packet job;
     // max job number is 128
     // there is still some really weird logic with the job id bits for the asic to sort out
     // so we have it limited to 128 and it has to increment by 4
-    id = (id + 4) % 128;
 
-    job.job_id = id;
+    job.job_id = (job_id * 4) % 128;
     job.num_midstates = next_bm_job->num_midstates;
     memcpy(&job.starting_nonce, &next_bm_job->starting_nonce, 4);
     memcpy(&job.nbits, &next_bm_job->target, 4);
@@ -363,8 +361,6 @@ uint8_t BM1397_send_work(bm_job_t *next_bm_job)
     }
 
     _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*) &job, sizeof(job_packet), BM1397_DEBUG_WORK);
-
-    return id;
 }
 
 asic_result *BM1397_receive_work(uint16_t timeout)
@@ -394,7 +390,7 @@ asic_result *BM1397_receive_work(uint16_t timeout)
     return (asic_result *)asic_response_buffer;
 }
 
-task_result *BM1397_proccess_work(bm_job_t *job, uint16_t timeout)
+task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
 {
 
     asic_result *asic_result = BM1397_receive_work(timeout);
@@ -408,10 +404,10 @@ task_result *BM1397_proccess_work(bm_job_t *job, uint16_t timeout)
     uint8_t nonce_found = 0;
     uint32_t first_nonce = 0;
 
-    uint8_t rx_job_id = asic_result->job_id & 0xfc;
+    uint8_t rx_job_id = (asic_result->job_id & 0xfc) >> 2;
     uint8_t rx_midstate_index = asic_result->job_id & 0x03;
 
-    uint32_t rolled_version = job->version;
+    uint32_t rolled_version = version;
     for (int i = 0; i < rx_midstate_index; i++)
     {
         rolled_version = increment_bitmask(rolled_version, 0x1fffe000);
@@ -446,3 +442,4 @@ task_result *BM1397_proccess_work(bm_job_t *job, uint16_t timeout)
 
     return &result;
 }
+

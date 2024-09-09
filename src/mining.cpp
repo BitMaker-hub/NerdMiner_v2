@@ -374,11 +374,13 @@ void runMiner(void * task_id) {
 
 void asic_create_job(mining_subscribe *mWorker, mining_job *job, bm_job_t *next_job, uint32_t extranonce_2);
 
+// we can have 32 different job ids
+bm_job_t asic_jobs[32];
+
 void runASIC(void * task_id) {
   Serial.printf("[MINER] Started runASIC Task!\n");
 
   uint32_t extranonce_2 = 0;
-  bm_job_t asic_job;
   while(1) {
     // wait for new job
     while(1) {
@@ -396,33 +398,49 @@ void runASIC(void * task_id) {
     Serial.println(">>> STARTING TO HASH NONCES");
     uint32_t startT = micros();
 
+    memset(asic_jobs, 0, sizeof(asic_jobs));
+
+    // we are assuming the version doesn't change from job to job
+    uint32_t version = strtoul(mJob.version.c_str(), NULL, 16);
+
+    mMonitor.NerdStatus = NM_hashing;
+
     while (mMiner.inRun) {
-      mMonitor.NerdStatus = NM_hashing;
       extranonce_2++;
 
+      // use extranonce2 as job id
+      uint8_t asic_job_id = (uint8_t) (extranonce_2 % 32);
+
+      // if it was used before, we have to free the pointers
+      if (asic_jobs[asic_job_id].ntime) {
+        asic_free_bm_job(&asic_jobs[asic_job_id]);
+      }
+
       // create the next asic job
-      asic_create_job(&mWorker, &mJob, &asic_job, extranonce_2);
+      asic_create_job(&mWorker, &mJob, &asic_jobs[asic_job_id], extranonce_2);
 
       // send the job and
-      uint8_t asic_job_id = asic_send_work(&asic_job);
+      asic_send_work(&asic_jobs[asic_job_id], asic_job_id);
 
       // wait 30ms for the response
-      task_result *result = asic_proccess_work(&asic_job, 30);
+      // the pointer returned is the RS232 receive buffer :shushing-face:
+      // but we only have a single thread so it should be okay
+      task_result *result = asic_proccess_work(version, 30);
 
+      // if we haven't received anything in time, so send a new job
       if (!result) {
-        // we haven't received anything in time, so send a new job
         continue;
       }
 
-      if (result->job_id != asic_job_id) {
-        // job id mismatch
-        Serial.printf("ID mismatch, expected %02x, got %02x\n", asic_job_id, result->job_id);
+      // if we have received a job we don't know
+      if (!asic_jobs[result->job_id].ntime) {
+        Serial.printf("No Job found for received ID %02x\n", result->job_id);
         continue;
       }
 
       // check the nonce difficulty
       double diff_hash = asic_test_nonce_value(
-          &asic_job,
+          &asic_jobs[result->job_id],
           result->nonce,
           result->rolled_version);
 
@@ -435,7 +453,7 @@ void runASIC(void * task_id) {
 
       if(diff_hash > mMiner.poolDifficulty)
       {
-        tx_mining_submit_with_version(client, mWorker, &asic_job, extranonce_2, result->nonce, result->rolled_version);
+        tx_mining_submit_asic(client, mWorker, &asic_jobs[result->job_id], result);
         Serial.println("valid share!");
 /*
         Serial.print("   - Current diff share: "); Serial.println(diff_hash,12);
