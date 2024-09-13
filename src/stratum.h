@@ -31,7 +31,8 @@ typedef struct mining_job {
     String coinb1;
     String coinb2;
     String nbits;
-    JsonArray merkle_branch;
+    String merkle_branch[MAX_MERKLE_BRANCHES];
+    size_t merkle_branch_size;
     String version;
     uint32_t target;
     String ntime;

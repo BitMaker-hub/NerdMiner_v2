@@ -127,6 +127,24 @@ uint8_t hex2val(char c)
     }
 }
 
+bool is_hex_digit(char c) {
+    return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+}
+
+bool is_hex_string(const char* str) {
+    // Check if the string is exactly 64 characters long
+    if (strlen(str) != 64) {
+        return false;
+    }
+    // Check if each character is a valid hexadecimal digit
+    for (size_t i = 0; i < 64; i++) {
+        if (!is_hex_digit(str[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 size_t hex2bin(const char *hex, uint8_t *bin, size_t bin_len)
 {
     size_t len = 0;

@@ -40,7 +40,7 @@ static bm_job_t asic_jobs[ASIC_JOB_COUNT] = {0};
 
 typedef struct {
   uint32_t diffs[ASIC_HISTORY_SIZE];
-  uint32_t timestamps[ASIC_HISTORY_SIZE];
+  uint64_t timestamps[ASIC_HISTORY_SIZE];
   uint32_t newest;
   uint32_t oldest;
   uint64_t sum;
@@ -78,7 +78,7 @@ static void calculate_hashrate(history_t *history, uint32_t diff) {
   history->diffs[history->newest % ASIC_HISTORY_SIZE] = diff;
 
   // micros() wraps around after about 71.58min because it's 32bit casted from 64bit timer :facepalm:
-  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = esp_timer_get_time();
+  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = (uint64_t) esp_timer_get_time();
 
   uint64_t oldest_timestamp = history->timestamps[history->oldest % ASIC_HISTORY_SIZE];
   uint64_t newest_timestamp = history->timestamps[history->newest % ASIC_HISTORY_SIZE];
@@ -172,15 +172,11 @@ void runASIC(void * task_id) {
       // send the job and
       nerdnos_send_work(&asic_jobs[asic_job_id], asic_job_id);
 
-      // the pointer returned is the RS232 receive buffer :shushing-face:
-      // but we only have a single thread so it should be okay
-      // process all results if we have more than one
-      // this is okay because serial uses a buffer and (most likely^^) DMA
-      task_result *result = NULL;
-      while ((result = nerdnos_proccess_work(version, 1)) != NULL) {
+      task_result result = {0};
+      while (nerdnos_proccess_work(version, 1, &result)) {
         // check if the ID is in the valid range and the slot is not empty
-        if (result->job_id >= ASIC_JOB_COUNT || !asic_jobs[result->job_id].ntime) {
-          Serial.printf("Invalid job ID or no job found for ID %02x\n", result->job_id);
+        if (result.job_id >= ASIC_JOB_COUNT || !asic_jobs[result.job_id].ntime) {
+          Serial.printf("Invalid job ID or no job found for ID %02x\n", result.job_id);
           continue;
         }
 
@@ -188,9 +184,9 @@ void runASIC(void * task_id) {
 
         // check the nonce difficulty
         double diff_hash = nerdnos_test_nonce_value(
-            &asic_jobs[result->job_id],
-            result->nonce,
-            result->rolled_version,
+            &asic_jobs[result.job_id],
+            result.nonce,
+            result.rolled_version,
             hash);
 
         // update best diff
@@ -199,14 +195,14 @@ void runASIC(void * task_id) {
         }
 
         // calculate the hashrate
-        if (diff_hash >= asic_jobs[result->job_id].pool_diff) {
-          calculate_hashrate(&history, asic_jobs[result->job_id].pool_diff);
+        if (diff_hash >= asic_jobs[result.job_id].pool_diff) {
+          calculate_hashrate(&history, asic_jobs[result.job_id].pool_diff);
           Serial.printf("avg hashrate: %.2fGH/s (history spans %.2fs, %d shares)\n", history.avg_gh, history.duration, history.shares);
         }
 
         if(diff_hash > mMiner.poolDifficulty)
         {
-          tx_mining_submit_asic(client, mWorker, &asic_jobs[result->job_id], result);
+          tx_mining_submit_asic(client, mWorker, &asic_jobs[result.job_id], &result);
           Serial.println("valid share!");
           Serial.printf("   - Current diff share: %.3f\n", diff_hash);
           Serial.printf("   - Current pool diff : %.3f\n", mMiner.poolDifficulty);

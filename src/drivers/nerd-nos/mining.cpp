@@ -62,8 +62,9 @@ static void calculate_merkle_root_hash(const char *coinbase_tx, mining_job* job,
     double_sha256_bin(coinbase_tx_bin, coinbase_tx_bin_len, new_root);
     memcpy(both_merkles, new_root, 32);
 
-    for (size_t i = 0; i < job->merkle_branch.size(); i++) {
-        hex2bin((const char*) job->merkle_branch[i], &both_merkles[32], 32);
+    for (size_t i = 0; i < job->merkle_branch_size; i++) {
+        const char* m = job->merkle_branch[i].c_str();
+        hex2bin(m, &both_merkles[32], 32);
         double_sha256_bin(both_merkles, 64, new_root);
         memcpy(both_merkles, new_root, 32);
     }
@@ -140,8 +141,8 @@ void nerdnos_send_work(bm_job_t *next_bm_job, uint8_t job_id) {
     BM1397_send_work(next_bm_job, job_id);
 }
 
-task_result *nerdnos_proccess_work(uint32_t version, uint16_t timeout) {
-    return BM1397_proccess_work(version, timeout);
+bool nerdnos_proccess_work(uint32_t version, uint16_t timeout, task_result *result) {
+    return BM1397_proccess_work(version, timeout, result);
 }
 
 void nerdnos_free_bm_job(bm_job_t *job) {

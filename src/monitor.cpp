@@ -250,7 +250,7 @@ String getCurrentTemperature() {
 }
 
 String getCurrentVCore() {
-  return String(nerdnos_get_vcore(), 2);
+  return String(nerdnos_get_vcore(), 0);
 }
 #else
 String getCurrentHashRate(unsigned long mElapsed)
@@ -263,7 +263,7 @@ String getCurrentTemperature() {
 }
 
 String getCurrentVCore() {
-  return String(0.0, 2);
+  return String(0.0, 0);
 }
 #endif
 

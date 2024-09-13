@@ -188,7 +188,20 @@ bool parse_mining_notify(String line, mining_job& mJob)
     mJob.prev_block_hash = String((const char*) doc["params"][1]);
     mJob.coinb1 = String((const char*) doc["params"][2]);
     mJob.coinb2 = String((const char*) doc["params"][3]);
-    mJob.merkle_branch = doc["params"][4];
+
+    // this only copies references to the static json buffer
+    // and can lead to crashes when there is a new stratum response
+    // and the content of the array is still needed like on NerdNOS
+    // that computes the merkle tree new each 30ms^^
+    //mJob.merkle_branch = doc["params"][4];
+
+    // This copies the merkle branch
+    JsonArray merkle_tree = doc["params"][4];
+    mJob.merkle_branch_size = merkle_tree.size();
+    for (size_t i = 0; i < mJob.merkle_branch_size; i++) {
+        mJob.merkle_branch[i] = String((const char*) merkle_tree[i]);
+    }
+
     mJob.version = String((const char*) doc["params"][5]);
     mJob.nbits = String((const char*) doc["params"][6]);
     mJob.ntime = String((const char*) doc["params"][7]);

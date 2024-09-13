@@ -17,5 +17,5 @@ void BM1397_set_job_difficulty_mask(int);
 int BM1397_set_max_baud(void);
 int BM1397_set_default_baud(void);
 void BM1397_send_hash_frequency(float frequency);
-task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout);
+bool BM1397_proccess_work(uint32_t version, uint16_t timeout, task_result *result);
 

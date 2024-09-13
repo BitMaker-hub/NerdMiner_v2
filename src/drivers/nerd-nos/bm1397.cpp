@@ -48,9 +48,6 @@ typedef struct __attribute__((__packed__))
 
 static const char *TAG = "bm1397Module";
 
-static uint8_t asic_response_buffer[CHUNK_SIZE];
-static task_result result;
-
 uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
 
 /// @brief
@@ -195,7 +192,7 @@ void BM1397_send_hash_frequency(float frequency)
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    ESP_LOGI(TAG, "Setting Frequency to %.2fMHz (%.2f)", frequency, newf);
+    Serial.printf("Setting Frequency to %.2fMHz (%.2f)\n", frequency, newf);
 }
 
 
@@ -203,18 +200,19 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 {
     // send the init command
     _send_read_address();
+    uint8_t buf[11] = {0};
 
     int chip_counter = 0;
     while (true) {
-        int received = SERIAL_rx(asic_response_buffer, 11, 1000);
+        int received = SERIAL_rx(buf, 11, 1000);
         if (received > 0) {
-            ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+            //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
             chip_counter++;
         } else {
             break;
         }
     }
-    ESP_LOGI(TAG, "%i chip(s) detected on the chain, expected %i", chip_counter, asic_count);
+    Serial.printf("%i chip(s) detected on the chain, expected %i\n", chip_counter, asic_count);
 
     // send serial data
     vTaskDelay(SLEEP_TIME / portTICK_PERIOD_MS);
@@ -269,9 +267,7 @@ static void _reset(void)
 
 uint8_t BM1397_init(uint64_t frequency, uint16_t asic_count)
 {
-    ESP_LOGI(TAG, "Initializing BM1397");
-
-    memset(asic_response_buffer, 0, sizeof(asic_response_buffer));
+    Serial.println("Initializing BM1397");
 
     gpio_set_direction(NERD_NOS_GPIO_PEN, GPIO_MODE_OUTPUT);
     gpio_set_level(NERD_NOS_GPIO_PEN, 1);
@@ -299,7 +295,7 @@ int BM1397_set_default_baud(void)
 int BM1397_set_max_baud(void)
 {
     // divider of 0 for 3,125,000
-    ESP_LOGI(TAG, "Setting max baud of 3125000");
+    Serial.println("Setting max baud of 3125000");
     unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01100000, 0b00110001};
     ; // baudrate - misc_control
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
@@ -330,7 +326,7 @@ void BM1397_set_job_difficulty_mask(int difficulty)
         job_difficulty_mask[5 - i] = reverse_bits(value);
     }
 
-    ESP_LOGI(TAG, "Setting job ASIC mask to %d", difficulty);
+    Serial.printf("Setting job ASIC mask to %d\n", difficulty);
 
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6, BM1397_SERIALTX_DEBUG);
 }
@@ -361,45 +357,47 @@ void BM1397_send_work(bm_job_t *next_bm_job, uint8_t job_id)
     _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*) &job, sizeof(job_packet_t), BM1397_DEBUG_WORK);
 }
 
-asic_result *BM1397_receive_work(uint16_t timeout)
+bool BM1397_receive_work(uint16_t timeout, asic_result *result)
 {
+    uint8_t *rcv_buf = (uint8_t*) result;
 
     // wait for a response, wait time is pretty arbitrary
-    int received = SERIAL_rx(asic_response_buffer, 9, timeout);
+    int received = SERIAL_rx(rcv_buf, 9, timeout);
 
     if (received < 0)
     {
-        ESP_LOGI(TAG, "Error in serial RX");
-        return NULL;
+        Serial.println("Error in serial RX");
+        return false;
     }
     else if (received == 0)
     {
         // Didn't find a solution, restart and try again
-        return NULL;
+        return false;
     }
 
-    if (received != 9 || asic_response_buffer[0] != 0xAA || asic_response_buffer[1] != 0x55)
+    if (received != 9 || rcv_buf[0] != 0xAA || rcv_buf[1] != 0x55)
     {
-        ESP_LOGI(TAG, "Serial RX invalid %i", received);
-        ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
-        return NULL;
+        Serial.println("Serial RX invalid. Resetting receive buffer ...");
+        //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+        SERIAL_clear_buffer();
+        return false;
     }
+    return true;
 
-    return (asic_result *)asic_response_buffer;
 }
 
-task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
+bool BM1397_proccess_work(uint32_t version, uint16_t timeout, task_result *result)
 {
-    asic_result *asic_result = BM1397_receive_work(timeout);
+    asic_result asic_result;
 
-    if (asic_result == NULL)
+    if (!BM1397_receive_work(timeout, &asic_result))
     {
         ESP_LOGI(TAG, "return null");
-        return NULL;
+        return false;
     }
 
-    uint8_t rx_job_id = (asic_result->job_id & 0xfc) >> 2;
-    uint8_t rx_midstate_index = asic_result->job_id & 0x03;
+    uint8_t rx_job_id = (asic_result.job_id & 0xfc) >> 2;
+    uint8_t rx_midstate_index = asic_result.job_id & 0x03;
 
     uint32_t rolled_version = version;
     for (int i = 0; i < rx_midstate_index; i++)
@@ -407,10 +405,10 @@ task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
         rolled_version = increment_bitmask(rolled_version, 0x1fffe000);
     }
 
-    result.job_id = rx_job_id;
-    result.nonce = asic_result->nonce;
-    result.rolled_version = rolled_version;
+    result->job_id = rx_job_id;
+    result->nonce = asic_result.nonce;
+    result->rolled_version = rolled_version;
 
-    return &result;
+    return true;
 }
 
