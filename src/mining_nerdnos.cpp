@@ -40,7 +40,7 @@ static bm_job_t asic_jobs[ASIC_JOB_COUNT] = {0};
 
 typedef struct {
   uint32_t diffs[ASIC_HISTORY_SIZE];
-  uint32_t timestamps[ASIC_HISTORY_SIZE];
+  uint64_t timestamps[ASIC_HISTORY_SIZE];
   uint32_t newest;
   uint32_t oldest;
   uint64_t sum;
@@ -78,7 +78,7 @@ static void calculate_hashrate(history_t *history, uint32_t diff) {
   history->diffs[history->newest % ASIC_HISTORY_SIZE] = diff;
 
   // micros() wraps around after about 71.58min because it's 32bit casted from 64bit timer :facepalm:
-  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = esp_timer_get_time();
+  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = (uint64_t) esp_timer_get_time();
 
   uint64_t oldest_timestamp = history->timestamps[history->oldest % ASIC_HISTORY_SIZE];
   uint64_t newest_timestamp = history->timestamps[history->newest % ASIC_HISTORY_SIZE];
