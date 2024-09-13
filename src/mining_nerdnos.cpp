@@ -16,6 +16,8 @@
 
 #include "drivers/nerd-nos/nerdnos.h"
 #include "mining_nerdnos.h"
+#include "drivers/nerd-nos/adc.h"
+#include "drivers/nerd-nos/bm1397.h"
 
 extern WiFiClient client;
 extern mining_subscribe mWorker;
@@ -37,6 +39,10 @@ static bm_job_t asic_jobs[ASIC_JOB_COUNT] = {0};
 
 // to track hashrate
 #define ASIC_HISTORY_SIZE 128
+
+// define temperature readings
+#define MAX_SAFE_TEMP 80.0  // Define maximum safe temperature (in Celsius)
+#define TEMP_CHECK_INTERVAL 5000  // Check temperature every 5 seconds (in milliseconds)
 
 typedef struct {
   uint32_t diffs[ASIC_HISTORY_SIZE];
@@ -120,6 +126,8 @@ void runASIC(void * task_id) {
   }
 
   uint32_t extranonce_2 = 0;
+  unsigned long lastTempCheck = 0;
+
   while(1) {
     // wait for new job
     while(!mMiner.newJob) {
@@ -142,6 +150,28 @@ void runASIC(void * task_id) {
     uint32_t current_difficulty = 0;
 
     while (mMiner.inRun) {
+      // Temperature check
+      unsigned long currentTime = millis();
+      if (currentTime - lastTempCheck > TEMP_CHECK_INTERVAL) {
+        float currentTemp = nerdnos_get_temperature();  // Get ASIC temperature
+        
+        if (currentTemp > MAX_SAFE_TEMP) {
+          gpio_set_level(NERD_NOS_GPIO_PEN, 0);  // Disable Buck
+          Serial.println("ASIC temperature too high. Disabling power.");
+          
+          // Wait for temperature to drop
+          while (nerdnos_get_temperature() > (MAX_SAFE_TEMP - 15)) {  // 15 degree hysteresis
+            vTaskDelay(2000 / portTICK_PERIOD_MS);  // Check every 2 second
+          }
+          
+          gpio_set_level(NERD_NOS_GPIO_PEN, 1);  // Enable Buck again
+          Serial.println("Temperature safe. Re-enabling ASIC.");
+          BM1397_init(200, 1); // Re-Init ASIC
+        }
+        
+        lastTempCheck = currentTime;
+      }
+      
       // wait for the timer to start a new job
       // also yields the CPU
       pthread_mutex_lock(&job_interval_mutex);
