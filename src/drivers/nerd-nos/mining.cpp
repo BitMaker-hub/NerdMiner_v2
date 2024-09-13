@@ -51,21 +51,6 @@ double nerdnos_test_nonce_value(const bm_job_t *job, const uint32_t nonce, const
     return ds;
 }
 
-static void dump(mining_job *job) {
-    Serial.printf("job_id: %s\n", job->job_id.c_str());
-    Serial.printf("prev_block_hash: %s\n", job->prev_block_hash.c_str());
-    Serial.printf("coinb1: %s\n", job->coinb1.c_str());
-    Serial.printf("coinb2: %s\n", job->coinb2.c_str());
-    Serial.printf("nbits: %s\n", job->nbits.c_str());
-    Serial.printf("version: %s\n", job->version.c_str());
-    Serial.printf("ntime: %s\n", job->ntime.c_str());
-    Serial.printf("taget: %lu\n", job->target);
-    Serial.printf("clean_jobs: %s\n", job->clean_jobs ? "true" : "false");
-    for (size_t i = 0; i < job->merkle_branch_size; i++) {
-        const char* m = job->merkle_branch[i].c_str();
-        Serial.printf("merkle_branch[%d]: %s\n", i, m);
-    }
-}
 static void calculate_merkle_root_hash(const char *coinbase_tx, mining_job* job, char merkle_root_hash[65])
 {
     size_t coinbase_tx_bin_len = strlen(coinbase_tx) / 2;
@@ -79,10 +64,6 @@ static void calculate_merkle_root_hash(const char *coinbase_tx, mining_job* job,
 
     for (size_t i = 0; i < job->merkle_branch_size; i++) {
         const char* m = job->merkle_branch[i].c_str();
-        // if merkle branch is not what we expect, dump the job
-        if (!is_hex_string(m)) {
-            dump(job);
-        }
         hex2bin(m, &both_merkles[32], 32);
         double_sha256_bin(both_merkles, 64, new_root);
         memcpy(both_merkles, new_root, 32);
