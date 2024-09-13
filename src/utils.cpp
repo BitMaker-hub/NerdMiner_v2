@@ -170,13 +170,13 @@ void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
 }
 
 miner_data init_miner_data(void){
-  
+
   miner_data newMinerData;
 
   newMinerData.poolDifficulty = DEFAULT_DIFFICULTY;
   newMinerData.inRun = false;
   newMinerData.newJob = false;
-  
+
   return newMinerData;
 }
 
@@ -185,14 +185,14 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
   miner_data mMiner = init_miner_data();
 
   // calculate target - target = (nbits[2:]+'00'*(int(nbits[:2],16) - 3)).zfill(64)
-    
+
     char target[TARGET_BUFFER_SIZE+1];
     memset(target, '0', TARGET_BUFFER_SIZE);
     int zeros = (int) strtol(mJob.nbits.substring(0, 2).c_str(), 0, 16) - 3;
     memcpy(target + zeros - 2, mJob.nbits.substring(2).c_str(), mJob.nbits.length() - 2);
     target[TARGET_BUFFER_SIZE] = 0;
     Serial.print("    target: "); Serial.println(target);
-    
+
     // bytearray target
     size_t size_target = to_byte_array(target, 32, mMiner.bytearray_target);
 
@@ -204,12 +204,12 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
     // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
     //To review
-    char extranonce2_char[2 * mWorker.extranonce2_size+1];	
+    char extranonce2_char[2 * mWorker.extranonce2_size+1];
 	  mWorker.extranonce2.toCharArray(extranonce2_char, 2 * mWorker.extranonce2_size + 1);
     getNextExtranonce2(mWorker.extranonce2_size, extranonce2_char);
     mWorker.extranonce2 = String(extranonce2_char);
     //mWorker.extranonce2 = "00000002";
-    
+
     //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
     String coinbase = mJob.coinb1 + mWorker.extranonce1 + mWorker.extranonce2 + mJob.coinb2;
     Serial.print("    coinbase: "); Serial.println(coinbase);
@@ -229,10 +229,10 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
-  
+
     byte interResult[32]; // 256 bit
     byte shaResult[32]; // 256 bit
-  
+
     mbedtls_sha256_starts_ret(&ctx,0);
     mbedtls_sha256_update_ret(&ctx, bytearray, str_len);
     mbedtls_sha256_finish_ret(&ctx, interResult);
@@ -249,13 +249,13 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     Serial.println("");
     #endif
 
-    
+
     // copy coinbase hash
     memcpy(mMiner.merkle_result, shaResult, sizeof(shaResult));
-    
+
     byte merkle_concatenated[32 * 2];
-    for (size_t k=0; k < mJob.merkle_branch.size(); k++) {
-        const char* merkle_element = (const char*) mJob.merkle_branch[k];
+    for (size_t k=0; k < mJob.merkle_branch_size; k++) {
+        const char* merkle_element = (const char*) mJob.merkle_branch[k].c_str();
         uint8_t bytearray[32];
         size_t res = to_byte_array(merkle_element, 64, bytearray);
 
@@ -294,7 +294,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
         #endif
     }
     // merkle root from merkle_result
-    
+
     Serial.print("    merkle sha         : ");
     char merkle_root[65];
     for (int i = 0; i < 32; i++) {
@@ -308,7 +308,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])
     String blockheader = mJob.version + mJob.prev_block_hash + String(merkle_root) + mJob.ntime + mJob.nbits + "00000000";
     str_len = blockheader.length()/2;
-    
+
     //uint8_t bytearray_blockheader[str_len];
     res = to_byte_array(blockheader.c_str(), str_len*2, mMiner.bytearray_blockheader);
 
@@ -375,7 +375,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
 
     #ifdef DEBUG_MINING
-    Serial.print(" >>> bytearray_blockheader     : "); 
+    Serial.print(" >>> bytearray_blockheader     : ");
     for (size_t i = 0; i < 4; i++)
         Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
     Serial.println("");

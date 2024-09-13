@@ -61,8 +61,8 @@ static void dump(mining_job *job) {
     Serial.printf("ntime: %s\n", job->ntime.c_str());
     Serial.printf("taget: %lu\n", job->target);
     Serial.printf("clean_jobs: %s\n", job->clean_jobs ? "true" : "false");
-    for (size_t i = 0; i < job->merkle_branch.size(); i++) {
-        const char* m = job->merkle_branch[i];
+    for (size_t i = 0; i < job->merkle_branch_size; i++) {
+        const char* m = job->merkle_branch[i].c_str();
         Serial.printf("merkle_branch[%d]: %s\n", i, m);
     }
 }
@@ -77,8 +77,8 @@ static void calculate_merkle_root_hash(const char *coinbase_tx, mining_job* job,
     double_sha256_bin(coinbase_tx_bin, coinbase_tx_bin_len, new_root);
     memcpy(both_merkles, new_root, 32);
 
-    for (size_t i = 0; i < job->merkle_branch.size(); i++) {
-        const char* m = job->merkle_branch[i];
+    for (size_t i = 0; i < job->merkle_branch_size; i++) {
+        const char* m = job->merkle_branch[i].c_str();
         // if merkle branch is not what we expect, dump the job
         if (!is_hex_string(m)) {
             dump(job);
