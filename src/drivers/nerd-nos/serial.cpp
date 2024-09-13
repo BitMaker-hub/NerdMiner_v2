@@ -51,8 +51,8 @@ int SERIAL_send(uint8_t *data, int len, bool debug)
     return uart_write_bytes(UART_NUM_1, (const char *)data, len);
 }
 
-int SERIAL_check_for_data() {
-    int length;
+size_t SERIAL_check_for_data() {
+    size_t length;
     uart_get_buffered_data_len(UART_NUM_1, (size_t*)&length);
     return length;
 }
@@ -65,7 +65,9 @@ int SERIAL_check_for_data() {
 int16_t SERIAL_rx(uint8_t *buf, uint16_t size, uint16_t timeout_ms)
 {
     // don't return incomplete data
-    if (SERIAL_check_for_data() < size) {
+    size_t available = SERIAL_check_for_data();
+    if (available && available < size) {
+        Serial.printf("not returning parts of data ... %d vs %d\n", (int) available, (int) size);
         return 0;
     }
 

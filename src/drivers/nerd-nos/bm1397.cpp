@@ -48,9 +48,6 @@ typedef struct __attribute__((__packed__))
 
 static const char *TAG = "bm1397Module";
 
-static uint8_t asic_response_buffer[CHUNK_SIZE];
-static task_result result;
-
 uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
 
 /// @brief
@@ -203,10 +200,11 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 {
     // send the init command
     _send_read_address();
+    uint8_t buf[11] = {0};
 
     int chip_counter = 0;
     while (true) {
-        int received = SERIAL_rx(asic_response_buffer, 11, 1000);
+        int received = SERIAL_rx(buf, 11, 1000);
         if (received > 0) {
             //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
             chip_counter++;
@@ -270,8 +268,6 @@ static void _reset(void)
 uint8_t BM1397_init(uint64_t frequency, uint16_t asic_count)
 {
     Serial.println("Initializing BM1397");
-
-    memset(asic_response_buffer, 0, sizeof(asic_response_buffer));
 
     gpio_set_direction(NERD_NOS_GPIO_PEN, GPIO_MODE_OUTPUT);
     gpio_set_level(NERD_NOS_GPIO_PEN, 1);
@@ -361,46 +357,47 @@ void BM1397_send_work(bm_job_t *next_bm_job, uint8_t job_id)
     _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*) &job, sizeof(job_packet_t), BM1397_DEBUG_WORK);
 }
 
-asic_result *BM1397_receive_work(uint16_t timeout)
+bool BM1397_receive_work(uint16_t timeout, asic_result *result)
 {
+    uint8_t *rcv_buf = (uint8_t*) result;
 
     // wait for a response, wait time is pretty arbitrary
-    int received = SERIAL_rx(asic_response_buffer, 9, timeout);
+    int received = SERIAL_rx(rcv_buf, 9, timeout);
 
     if (received < 0)
     {
         Serial.println("Error in serial RX");
-        return NULL;
+        return false;
     }
     else if (received == 0)
     {
         // Didn't find a solution, restart and try again
-        return NULL;
+        return false;
     }
 
-    if (received != 9 || asic_response_buffer[0] != 0xAA || asic_response_buffer[1] != 0x55)
+    if (received != 9 || rcv_buf[0] != 0xAA || rcv_buf[1] != 0x55)
     {
         Serial.println("Serial RX invalid. Resetting receive buffer ...");
         //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
         SERIAL_clear_buffer();
-        return NULL;
+        return false;
     }
+    return true;
 
-    return (asic_result *)asic_response_buffer;
 }
 
-task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
+bool BM1397_proccess_work(uint32_t version, uint16_t timeout, task_result *result)
 {
-    asic_result *asic_result = BM1397_receive_work(timeout);
+    asic_result asic_result;
 
-    if (asic_result == NULL)
+    if (!BM1397_receive_work(timeout, &asic_result))
     {
         ESP_LOGI(TAG, "return null");
-        return NULL;
+        return false;
     }
 
-    uint8_t rx_job_id = (asic_result->job_id & 0xfc) >> 2;
-    uint8_t rx_midstate_index = asic_result->job_id & 0x03;
+    uint8_t rx_job_id = (asic_result.job_id & 0xfc) >> 2;
+    uint8_t rx_midstate_index = asic_result.job_id & 0x03;
 
     uint32_t rolled_version = version;
     for (int i = 0; i < rx_midstate_index; i++)
@@ -408,10 +405,10 @@ task_result *BM1397_proccess_work(uint32_t version, uint16_t timeout)
         rolled_version = increment_bitmask(rolled_version, 0x1fffe000);
     }
 
-    result.job_id = rx_job_id;
-    result.nonce = asic_result->nonce;
-    result.rolled_version = rolled_version;
+    result->job_id = rx_job_id;
+    result->nonce = asic_result.nonce;
+    result->rolled_version = rolled_version;
 
-    return &result;
+    return true;
 }
 

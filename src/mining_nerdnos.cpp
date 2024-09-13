@@ -172,15 +172,11 @@ void runASIC(void * task_id) {
       // send the job and
       nerdnos_send_work(&asic_jobs[asic_job_id], asic_job_id);
 
-      // the pointer returned is the RS232 receive buffer :shushing-face:
-      // but we only have a single thread so it should be okay
-      // process all results if we have more than one
-      // this is okay because serial uses a buffer and (most likely^^) DMA
-      task_result *result = NULL;
-      while ((result = nerdnos_proccess_work(version, 1)) != NULL) {
+      task_result result = {0};
+      while (nerdnos_proccess_work(version, 1, &result)) {
         // check if the ID is in the valid range and the slot is not empty
-        if (result->job_id >= ASIC_JOB_COUNT || !asic_jobs[result->job_id].ntime) {
-          Serial.printf("Invalid job ID or no job found for ID %02x\n", result->job_id);
+        if (result.job_id >= ASIC_JOB_COUNT || !asic_jobs[result.job_id].ntime) {
+          Serial.printf("Invalid job ID or no job found for ID %02x\n", result.job_id);
           continue;
         }
 
@@ -188,9 +184,9 @@ void runASIC(void * task_id) {
 
         // check the nonce difficulty
         double diff_hash = nerdnos_test_nonce_value(
-            &asic_jobs[result->job_id],
-            result->nonce,
-            result->rolled_version,
+            &asic_jobs[result.job_id],
+            result.nonce,
+            result.rolled_version,
             hash);
 
         // update best diff
@@ -199,14 +195,14 @@ void runASIC(void * task_id) {
         }
 
         // calculate the hashrate
-        if (diff_hash >= asic_jobs[result->job_id].pool_diff) {
-          calculate_hashrate(&history, asic_jobs[result->job_id].pool_diff);
+        if (diff_hash >= asic_jobs[result.job_id].pool_diff) {
+          calculate_hashrate(&history, asic_jobs[result.job_id].pool_diff);
           Serial.printf("avg hashrate: %.2fGH/s (history spans %.2fs, %d shares)\n", history.avg_gh, history.duration, history.shares);
         }
 
         if(diff_hash > mMiner.poolDifficulty)
         {
-          tx_mining_submit_asic(client, mWorker, &asic_jobs[result->job_id], result);
+          tx_mining_submit_asic(client, mWorker, &asic_jobs[result.job_id], &result);
           Serial.println("valid share!");
           Serial.printf("   - Current diff share: %.3f\n", diff_hash);
           Serial.printf("   - Current pool diff : %.3f\n", mMiner.poolDifficulty);
