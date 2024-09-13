@@ -195,7 +195,7 @@ void BM1397_send_hash_frequency(float frequency)
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    ESP_LOGI(TAG, "Setting Frequency to %.2fMHz (%.2f)", frequency, newf);
+    Serial.printf("Setting Frequency to %.2fMHz (%.2f)\n", frequency, newf);
 }
 
 
@@ -208,13 +208,13 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
     while (true) {
         int received = SERIAL_rx(asic_response_buffer, 11, 1000);
         if (received > 0) {
-            ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+            //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
             chip_counter++;
         } else {
             break;
         }
     }
-    ESP_LOGI(TAG, "%i chip(s) detected on the chain, expected %i", chip_counter, asic_count);
+    Serial.printf("%i chip(s) detected on the chain, expected %i\n", chip_counter, asic_count);
 
     // send serial data
     vTaskDelay(SLEEP_TIME / portTICK_PERIOD_MS);
@@ -269,7 +269,7 @@ static void _reset(void)
 
 uint8_t BM1397_init(uint64_t frequency, uint16_t asic_count)
 {
-    ESP_LOGI(TAG, "Initializing BM1397");
+    Serial.println("Initializing BM1397");
 
     memset(asic_response_buffer, 0, sizeof(asic_response_buffer));
 
@@ -299,7 +299,7 @@ int BM1397_set_default_baud(void)
 int BM1397_set_max_baud(void)
 {
     // divider of 0 for 3,125,000
-    ESP_LOGI(TAG, "Setting max baud of 3125000");
+    Serial.println("Setting max baud of 3125000");
     unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01100000, 0b00110001};
     ; // baudrate - misc_control
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
@@ -330,7 +330,7 @@ void BM1397_set_job_difficulty_mask(int difficulty)
         job_difficulty_mask[5 - i] = reverse_bits(value);
     }
 
-    ESP_LOGI(TAG, "Setting job ASIC mask to %d", difficulty);
+    Serial.printf("Setting job ASIC mask to %d\n", difficulty);
 
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6, BM1397_SERIALTX_DEBUG);
 }
@@ -369,7 +369,7 @@ asic_result *BM1397_receive_work(uint16_t timeout)
 
     if (received < 0)
     {
-        ESP_LOGI(TAG, "Error in serial RX");
+        Serial.println("Error in serial RX");
         return NULL;
     }
     else if (received == 0)
@@ -380,8 +380,9 @@ asic_result *BM1397_receive_work(uint16_t timeout)
 
     if (received != 9 || asic_response_buffer[0] != 0xAA || asic_response_buffer[1] != 0x55)
     {
-        ESP_LOGI(TAG, "Serial RX invalid %i", received);
-        ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+        Serial.println("Serial RX invalid. Resetting receive buffer ...");
+        //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+        SERIAL_clear_buffer();
         return NULL;
     }
 

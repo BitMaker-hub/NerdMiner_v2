@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 int hex2char(uint8_t x, char *c);
 
@@ -38,3 +39,6 @@ unsigned char reverse_bits(unsigned char num);
 int largest_power_of_two(int num);
 
 uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
+
+bool is_hex_digit(char c);
+bool is_hex_string(const char* str);
