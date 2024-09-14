@@ -364,7 +364,7 @@ pool_data getPoolData(void){
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_WORKERS_ENABLE
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
           http.begin(poolAPIUrl+btcWallet);
 #else
