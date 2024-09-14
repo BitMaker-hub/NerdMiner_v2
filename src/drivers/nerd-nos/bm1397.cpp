@@ -48,6 +48,8 @@ typedef struct __attribute__((__packed__))
 
 static const char *TAG = "bm1397Module";
 
+static const uint8_t chip_id[] = {0xAA, 0x55, 0x13, 0x97, 0x18, 0x00};
+
 uint32_t increment_bitmask(const uint32_t value, const uint32_t mask);
 
 /// @brief
@@ -204,9 +206,8 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 
     int chip_counter = 0;
     while (true) {
-        int received = SERIAL_rx(buf, 11, 1000);
-        if (received > 0) {
-            //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
+        int received = SERIAL_rx(buf, 9, 1000);
+        if (received > 0 && !memcmp(chip_id, buf, sizeof(chip_id))) {
             chip_counter++;
         } else {
             break;
