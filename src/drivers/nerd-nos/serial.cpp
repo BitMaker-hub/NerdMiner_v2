@@ -57,6 +57,28 @@ size_t SERIAL_check_for_data() {
     return length;
 }
 
+/// @brief waits for a serial response from the device
+/// @param buf buffer to read data into
+/// @param buf number of ms to wait before timing out
+/// @return number of bytes read, or -1 on error
+int16_t SERIAL_rx_non_blocking(uint8_t *buf, uint16_t size) {
+    // check how much data we have
+    size_t available = SERIAL_check_for_data();
+
+    // no data available, return 0
+    if (!available) {
+        return 0;
+    }
+
+    // check for incomplete data
+    if (available && available < size) {
+        Serial.printf("not returning incomplete data ... %d vs %d\n", (int) available, (int) size);
+        return 0;
+    }
+    // timeout 0 means non_blocking read
+    return SERIAL_rx(buf, size, 0);
+}
+
 
 /// @brief waits for a serial response from the device
 /// @param buf buffer to read data into
@@ -64,13 +86,6 @@ size_t SERIAL_check_for_data() {
 /// @return number of bytes read, or -1 on error
 int16_t SERIAL_rx(uint8_t *buf, uint16_t size, uint16_t timeout_ms)
 {
-    // don't return incomplete data
-    size_t available = SERIAL_check_for_data();
-    if (available && available < size) {
-        Serial.printf("not returning parts of data ... %d vs %d\n", (int) available, (int) size);
-        return 0;
-    }
-
     int16_t bytes_read = uart_read_bytes(UART_NUM_1, buf, size, timeout_ms / portTICK_PERIOD_MS);
     // if (bytes_read > 0) {
     //     printf("rx: ");
@@ -81,21 +96,6 @@ int16_t SERIAL_rx(uint8_t *buf, uint16_t size, uint16_t timeout_ms)
         printBufferHex("RX", buf, bytes_read);
     }
     return bytes_read;
-}
-
-void SERIAL_debug_rx(void)
-{
-    int ret;
-    uint8_t buf[CHUNK_SIZE];
-
-    ret = SERIAL_rx(buf, 100, 20);
-    if (ret < 0)
-    {
-        fprintf(stderr, "unable to read data\n");
-        return;
-    }
-
-    memset(buf, 0, 1024);
 }
 
 void SERIAL_clear_buffer(void)

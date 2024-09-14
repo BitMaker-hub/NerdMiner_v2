@@ -362,24 +362,23 @@ bool BM1397_receive_work(uint16_t timeout, asic_result *result)
 {
     uint8_t *rcv_buf = (uint8_t*) result;
 
-    // wait for a response, wait time is pretty arbitrary
-    int received = SERIAL_rx(rcv_buf, 9, timeout);
+    // non blocking read
+    int received = SERIAL_rx_non_blocking(rcv_buf, 9);
 
     if (received < 0)
     {
         Serial.println("Error in serial RX");
         return false;
     }
-    else if (received == 0)
+    else if (!received)
     {
-        // Didn't find a solution, restart and try again
+        // we have not received any data
         return false;
     }
 
     if (received != 9 || rcv_buf[0] != 0xAA || rcv_buf[1] != 0x55)
     {
         Serial.println("Serial RX invalid. Resetting receive buffer ...");
-        //ESP_LOG_BUFFER_HEX(TAG, asic_response_buffer, received);
         SERIAL_clear_buffer();
         return false;
     }
