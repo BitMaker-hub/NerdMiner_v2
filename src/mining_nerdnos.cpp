@@ -150,33 +150,33 @@ void runASIC(void * task_id) {
     uint32_t current_difficulty = 0;
 
     while (mMiner.inRun) {
-      // Temperature check
-      unsigned long currentTime = millis();
-      if (currentTime - lastTempCheck > TEMP_CHECK_INTERVAL) {
-        float currentTemp = nerdnos_get_temperature();  // Get ASIC temperature
-        
-        if (currentTemp > MAX_SAFE_TEMP) {
-          gpio_set_level(NERD_NOS_GPIO_PEN, 0);  // Disable Buck
-          Serial.println("ASIC temperature too high. Disabling power.");
-          
-          // Wait for temperature to drop
-          while (nerdnos_get_temperature() > (MAX_SAFE_TEMP - 15)) {  // 15 degree hysteresis
-            vTaskDelay(2000 / portTICK_PERIOD_MS);  // Check every 2 second
-          }
-          
-          gpio_set_level(NERD_NOS_GPIO_PEN, 1);  // Enable Buck again
-          Serial.println("Temperature safe. Re-enabling ASIC.");
-          BM1397_init(200, 1); // Re-Init ASIC
-        }
-        
-        lastTempCheck = currentTime;
-      }
-      
       // wait for the timer to start a new job
       // also yields the CPU
       pthread_mutex_lock(&job_interval_mutex);
       pthread_cond_wait(&job_interval_cond, &job_interval_mutex);
       pthread_mutex_unlock(&job_interval_mutex);
+
+      // Temperature check
+      unsigned long currentTime = millis();
+      if (currentTime - lastTempCheck > TEMP_CHECK_INTERVAL) {
+        float currentTemp = nerdnos_get_temperature();  // Get ASIC temperature
+
+        if (currentTemp > MAX_SAFE_TEMP) {
+          gpio_set_level(NERD_NOS_GPIO_PEN, 0);  // Disable Buck
+          Serial.println("ASIC temperature too high. Disabling power.");
+
+          // Wait for temperature to drop
+          while (nerdnos_get_temperature() > (MAX_SAFE_TEMP - 15)) {  // 15 degree hysteresis
+            vTaskDelay(2000 / portTICK_PERIOD_MS);  // Check every 2 second
+          }
+
+          gpio_set_level(NERD_NOS_GPIO_PEN, 1);  // Enable Buck again
+          Serial.println("Temperature safe. Re-enabling ASIC.");
+          BM1397_init(200, 1); // Re-Init ASIC
+        }
+
+        lastTempCheck = currentTime;
+      }
 
       // increment extranonce2
       extranonce_2++;
@@ -191,13 +191,15 @@ void runASIC(void * task_id) {
       // make sure that another task doesn't mess with the data while
       // we are using it
       pthread_mutex_lock(&job_mutex);
-      if (current_difficulty != mMiner.poolDifficulty) {
-        current_difficulty = mMiner.poolDifficulty;
+      nerdnos_create_job(&mWorker, &mJob, &asic_jobs[asic_job_id], extranonce_2, mMiner.poolDifficulty);
+      pthread_mutex_unlock(&job_mutex);
+
+      // don't send difficulty while the job mutex is locked
+      if (current_difficulty != asic_jobs[asic_job_id].pool_diff) {
+        current_difficulty = asic_jobs[asic_job_id].pool_diff;
         nerdnos_set_asic_difficulty(current_difficulty);
         Serial.printf("Set difficulty to %lu\n", current_difficulty);
       }
-      nerdnos_create_job(&mWorker, &mJob, &asic_jobs[asic_job_id], extranonce_2, current_difficulty);
-      pthread_mutex_unlock(&job_mutex);
 
       // send the job and
       nerdnos_send_work(&asic_jobs[asic_job_id], asic_job_id);
