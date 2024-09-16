@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include "drivers/nerd-nos/mining.h"
 
 #define MAX_MERKLE_BRANCHES 32
 #define HASH_SIZE 32
@@ -15,7 +16,7 @@
 #define BUFFER_JSON_DOC 4096
 #define BUFFER 1024
 
-typedef struct {
+typedef struct mining_subscribe {
     String sub_details;
     String extranonce1;
     String extranonce2;
@@ -24,13 +25,14 @@ typedef struct {
     char wPass[20];
 } mining_subscribe;
 
-typedef struct {
+typedef struct mining_job {
     String job_id;
     String prev_block_hash;
     String coinb1;
     String coinb2;
     String nbits;
-    JsonArray merkle_branch;
+    String merkle_branch[MAX_MERKLE_BRANCHES];
+    size_t merkle_branch_size;
     String version;
     uint32_t target;
     String ntime;
@@ -61,8 +63,9 @@ bool parse_mining_notify(String line, mining_job& mJob);
 
 //Method Mining.submit
 bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce);
+bool tx_mining_submit_asic(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, task_result *result);
 
-//Difficulty Methods 
+//Difficulty Methods
 bool tx_suggest_difficulty(WiFiClient& client, double difficulty);
 bool parse_mining_set_difficulty(String line, double& difficulty);
 

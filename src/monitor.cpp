@@ -9,6 +9,11 @@
 #include "monitor.h"
 #include "drivers/storage/storage.h"
 
+#ifdef NERD_NOS
+#include "mining_nerdnos.h"
+#include "drivers/nerd-nos/adc.h"
+#endif
+
 extern uint32_t templates;
 extern uint32_t hashes;
 extern uint32_t Mhashes;
@@ -24,7 +29,7 @@ extern double best_diff; // track best diff
 extern monitor_data mMonitor;
 
 //from saved config
-extern TSettings Settings; 
+extern TSettings Settings;
 bool invertColors = false;
 
 WiFiUDP ntpUDP;
@@ -40,7 +45,7 @@ void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
 
     timeClient.begin();
-    
+
     // Adjust offset depending on your zone
     // GMT +2 in seconds (zona horaria de Europa Central)
     timeClient.setTimeOffset(3600 * Settings.Timezone);
@@ -55,11 +60,11 @@ void setup_monitor(void){
 unsigned long mGlobalUpdate =0;
 
 void updateGlobalData(void){
-    
+
     if((mGlobalUpdate == 0) || (millis() - mGlobalUpdate > UPDATE_Global_min * 60 * 1000)){
-    
+
         if (WiFi.status() != WL_CONNECTED) return;
-            
+
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
         try {
@@ -68,7 +73,7 @@ void updateGlobalData(void){
 
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
-            
+
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
@@ -86,14 +91,14 @@ void updateGlobalData(void){
         }
         http.end();
 
-      
+
         //Make third API call to get fees
         http.begin(getFees);
         httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
-            
+
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
@@ -108,7 +113,7 @@ void updateGlobalData(void){
 
             mGlobalUpdate = millis();
         }
-        
+
         http.end();
         } catch(...) {
           http.end();
@@ -119,11 +124,11 @@ void updateGlobalData(void){
 unsigned long mHeightUpdate = 0;
 
 String getBlockHeight(void){
-    
+
     if((mHeightUpdate == 0) || (millis() - mHeightUpdate > UPDATE_Height_min * 60 * 1000)){
-    
+
         if (WiFi.status() != WL_CONNECTED) return current_block;
-            
+
         HTTPClient http;
         try {
         http.begin(getHeightAPI);
@@ -136,24 +141,24 @@ String getBlockHeight(void){
             current_block = payload;
 
             mHeightUpdate = millis();
-        }        
+        }
         http.end();
         } catch(...) {
           http.end();
         }
     }
-  
+
   return current_block;
 }
 
 unsigned long mBTCUpdate = 0;
 
 String getBTCprice(void){
-    
+
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
-    
+
         if (WiFi.status() != WL_CONNECTED) return (String(bitcoin_price) + "$");
-        
+
         HTTPClient http;
         try {
         http.begin(getBTCAPI);
@@ -170,13 +175,13 @@ String getBTCprice(void){
 
             mBTCUpdate = millis();
         }
-        
+
         http.end();
         } catch(...) {
           http.end();
         }
     }
-  
+
   return (String(bitcoin_price) + "$");
 }
 
@@ -186,7 +191,7 @@ unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
-  
+
   //Check if need an NTP call to check current time
   if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
     if(WiFi.status() == WL_CONNECTED) {
@@ -206,7 +211,7 @@ void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigne
 }
 
 String getDate(){
-  
+
   unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
@@ -229,15 +234,38 @@ String getTime(void){
 
   char LocalHour[10];
   sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
-  
+
   String mystring(LocalHour);
   return LocalHour;
 }
 
+#ifdef NERD_NOS
+String getCurrentHashRate(unsigned long mElapsed) {
+  // we have too little space for 2 digits after the decimal point
+  return String(nerdnos_get_avg_hashrate(), 1);
+}
+
+String getCurrentTemperature() {
+  return String(nerdnos_get_temperature(), 2);
+}
+
+String getCurrentVCore() {
+  return String(nerdnos_get_vcore(), 0);
+}
+#else
 String getCurrentHashRate(unsigned long mElapsed)
 {
   return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
 }
+
+String getCurrentTemperature() {
+  return String(0.0, 2);
+}
+
+String getCurrentVCore() {
+  return String(0.0, 0);
+}
+#endif
 
 mining_data getMiningData(unsigned long mElapsed)
 {
@@ -258,6 +286,8 @@ mining_data getMiningData(unsigned long mElapsed)
   data.totalMHashes = Mhashes;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
+  data.currentTemperature = getCurrentTemperature();
+  data.vcore = getCurrentVCore();
   data.templates = templates;
   data.bestDiff = best_diff_string;
   data.timeMining = timeMining;
@@ -328,7 +358,7 @@ String getPoolAPIUrl(void) {
     poolAPIUrl = String(getPublicPool);
     if (Settings.PoolAddress == "public-pool.io") {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
-    } 
+    }
     else {
         if (Settings.PoolAddress == "nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
@@ -354,13 +384,13 @@ String getPoolAPIUrl(void) {
 }
 
 pool_data getPoolData(void){
-    //pool_data pData;    
-    if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){      
-        if (WiFi.status() != WL_CONNECTED) return pData;            
+    //pool_data pData;
+    if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){
+        if (WiFi.status() != WL_CONNECTED) return pData;
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setReuse(true);        
-        try {          
+        http.setReuse(true);
+        try {
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
@@ -397,16 +427,16 @@ pool_data getPoolData(void){
 
               double temp;
               if (doc.containsKey("bestDifficulty")) {
-              temp = doc["bestDifficulty"].as<double>();            
+              temp = doc["bestDifficulty"].as<double>();
               char best_diff_string[16] = {0};
               suffix_string(temp, best_diff_string, 16, 0);
               pData.bestDifficulty = String(best_diff_string);
               }
               doc.clear();
               mPoolUpdate = millis();
-              Serial.println("\n####### Pool Data OK!");               
+              Serial.println("\n####### Pool Data OK!");
           } else {
-              Serial.println("\n####### Pool Data HTTP Error!");    
+              Serial.println("\n####### Pool Data HTTP Error!");
               /* Serial.println(httpCode);
               String payload = http.getString();
               Serial.println(payload); */
@@ -415,18 +445,18 @@ pool_data getPoolData(void){
               pData.workersHash = "E";
               pData.workersCount = 0;
               http.end();
-              return pData; 
+              return pData;
           }
           http.end();
         } catch(...) {
-          Serial.println("####### Pool Error!");          
+          Serial.println("####### Pool Error!");
           // mPoolUpdate = millis();
           pData.bestDifficulty = "P";
           pData.workersHash = "Error";
           pData.workersCount = 0;
           http.end();
           return pData;
-        } 
+        }
     }
     return pData;
 }

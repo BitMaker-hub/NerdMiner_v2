@@ -10,7 +10,9 @@
 #include "utils.h"
 #include "version.h"
 
+#include <pthread.h>
 
+pthread_mutex_t job_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
 unsigned long id = 1;
@@ -30,57 +32,61 @@ bool verifyPayload (String* line){
   line->trim();
   if(line->isEmpty()) return false;
   return true;
-  
+
 }
 
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
-  
+
   if (!doc.containsKey("error")) return false;
-  
+
   if (doc["error"].size() == 0) return false;
 
   Serial.printf("ERROR: %d | reason: %s \n", (const int) doc["error"][0], (const char*) doc["error"][1]);
 
-  return true;  
+  return true;
 }
 
 
 // STEP 1: Pool server connection (SUBSCRIBE)
-    // Docs: 
+    // Docs:
     // - https://cs.braiins.com/stratum-v1/docs
     // - https://github.com/aeternity/protocol/blob/master/STRATUM.md#mining-subscribe
 bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe)
 {
     char payload[BUFFER] = {0};
-    
+
     // Subscribe
     id = 1; //Initialize id messages
+    #ifdef NERD_NOS
+    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdNOS/%s\"]}\n", id, CURRENT_VERSION);
+    #else
     #ifndef HAN
     sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
     #else
     sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\"]}\n", id, CURRENT_VERSION);
     #endif
-    
+    #endif
+
     Serial.printf("[WORKER] ==> Mining subscribe\n");
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
-    
+
     vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
-    
+
     String line = client.readStringUntil('\n');
     if(!parse_mining_subscribe(line, mSubscribe)) return false;
 
-  
+
     Serial.print("    sub_details: "); Serial.println(mSubscribe.sub_details);
     Serial.print("    extranonce1: "); Serial.println(mSubscribe.extranonce1);
     Serial.print("    extranonce2_size: "); Serial.println(mSubscribe.extranonce2_size);
 
-    if((mSubscribe.extranonce1.length() == 0) ) { 
-        Serial.printf("[WORKER] >>>>>>>>> Work aborted\n"); 
+    if((mSubscribe.extranonce1.length() == 0) ) {
+        Serial.printf("[WORKER] >>>>>>>>> Work aborted\n");
         Serial.printf("extranonce1 length: %u \n", mSubscribe.extranonce1.length());
         doc.clear();
         doc.garbageCollect();
-        return false; 
+        return false;
     }
     return true;
 }
@@ -89,15 +95,17 @@ bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
 {
     if(!verifyPayload(&line)) return false;
     Serial.print("  Receiving: "); Serial.println(line);
-   
+
     DeserializationError error = deserializeJson(doc, line);
 
     if (error || checkError(doc)) return false;
     if (!doc.containsKey("result")) return false;
 
+    pthread_mutex_lock(&job_mutex);
     mSubscribe.sub_details = String((const char*) doc["result"][0][0][1]);
     mSubscribe.extranonce1 = String((const char*) doc["result"][1]);
     mSubscribe.extranonce2_size = doc["result"][2];
+    pthread_mutex_unlock(&job_mutex);
 
     return true;
 }
@@ -122,9 +130,9 @@ bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass)
 
     // Authorize
     id = getNextId(id);
-    sprintf(payload, "{\"params\": [\"%s\", \"%s\"], \"id\": %u, \"method\": \"mining.authorize\"}\n", 
+    sprintf(payload, "{\"params\": [\"%s\", \"%s\"], \"id\": %u, \"method\": \"mining.authorize\"}\n",
       user, pass, id);
-    
+
     Serial.printf("[WORKER] ==> Autorize work\n");
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
@@ -142,7 +150,7 @@ stratum_method parse_mining_method(String line)
 {
     if(!verifyPayload(&line)) return STRATUM_PARSE_ERROR;
     Serial.print("  Receiving: "); Serial.println(line);
-    
+
     DeserializationError error = deserializeJson(doc, line);
 
     if (error || checkError(doc)) return STRATUM_PARSE_ERROR;
@@ -169,21 +177,36 @@ bool parse_mining_notify(String line, mining_job& mJob)
 {
     Serial.println("    Parsing Method [MINING NOTIFY]");
     if(!verifyPayload(&line)) return false;
-   
+
     DeserializationError error = deserializeJson(doc, line);
 
     if (error) return false;
     if (!doc.containsKey("params")) return false;
 
+    pthread_mutex_lock(&job_mutex);
     mJob.job_id = String((const char*) doc["params"][0]);
     mJob.prev_block_hash = String((const char*) doc["params"][1]);
     mJob.coinb1 = String((const char*) doc["params"][2]);
     mJob.coinb2 = String((const char*) doc["params"][3]);
-    mJob.merkle_branch = doc["params"][4];
+
+    // this only copies references to the static json buffer
+    // and can lead to crashes when there is a new stratum response
+    // and the content of the array is still needed like on NerdNOS
+    // that computes the merkle tree new each 30ms^^
+    //mJob.merkle_branch = doc["params"][4];
+
+    // This copies the merkle branch
+    JsonArray merkle_tree = doc["params"][4];
+    mJob.merkle_branch_size = merkle_tree.size();
+    for (size_t i = 0; i < mJob.merkle_branch_size; i++) {
+        mJob.merkle_branch[i] = String((const char*) merkle_tree[i]);
+    }
+
     mJob.version = String((const char*) doc["params"][5]);
     mJob.nbits = String((const char*) doc["params"][6]);
     mJob.ntime = String((const char*) doc["params"][7]);
     mJob.clean_jobs = doc["params"][8]; //bool
+    pthread_mutex_unlock(&job_mutex);
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(mJob.job_id);
@@ -198,7 +221,7 @@ bool parse_mining_notify(String line, mining_job& mJob)
     #endif
     //Check if parameters where correctly received
     if (checkError(doc)) {
-      Serial.printf("[WORKER] >>>>>>>>> Work aborted\n"); 
+      Serial.printf("[WORKER] >>>>>>>>> Work aborted\n");
       return false;
     }
     return true;
@@ -226,11 +249,33 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     return true;
 }
 
+bool tx_mining_submit_asic(WiFiClient& client, mining_subscribe mWorker, const bm_job_t* asic_job, task_result *result)
+{
+    char payload[BUFFER] = {0};
+
+    // Submit
+    id = getNextId(id);
+    sprintf(payload, "{\"id\": %u, \"method\": \"mining.submit\", \"params\": [\"%s\",\"%s\",\"%s\",\"%08lx\",\"%08lx\",\"%08lx\"]}\n",
+        id,
+        mWorker.wName,
+        asic_job->jobid,
+        asic_job->extranonce2,
+        asic_job->ntime,
+        result->nonce,
+        result->rolled_version ^ asic_job->version
+    );
+    Serial.print("  Sending  : "); Serial.print(payload);
+    client.print(payload);
+    //Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
+
+    return true;
+}
+
 bool parse_mining_set_difficulty(String line, double& difficulty)
 {
     Serial.println("    Parsing Method [SET DIFFICULTY]");
     if(!verifyPayload(&line)) return false;
-   
+
     DeserializationError error = deserializeJson(doc, line);
 
     if (error) return false;
@@ -248,7 +293,7 @@ bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
 
     id = getNextId(id);
     sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%.10g]}\n", id, difficulty);
-    
+
     Serial.print("  Sending  : "); Serial.print(payload);
     return client.print(payload);
 

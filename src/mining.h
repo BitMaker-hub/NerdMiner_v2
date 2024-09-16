@@ -6,7 +6,7 @@
 #define MAX_NONCE_STEP  5000000U
 #define MAX_NONCE       25000000U
 #define TARGET_NONCE    471136297U
-#define DEFAULT_DIFFICULTY  1e-4
+#define DEFAULT_DIFFICULTY  64 // 1e-4 TODO-NOS
 #define KEEPALIVE_TIME_ms       30000
 #define POOLINACTIVITY_TIME_ms  60000
 
@@ -15,11 +15,12 @@
 void runMonitor(void *name);
 void runStratumWorker(void *name);
 void runMiner(void *name);
+void runASIC(void *name);
 String printLocalTime(void);
 
 void resetStat();
 
-typedef struct{
+typedef struct {
   uint8_t bytearray_target[32];
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];

@@ -126,12 +126,12 @@
 
 //#include <User_Setups/Setup202_SSD1351_128.h>      // Setup file for ESP32/ESP8266 based SSD1351 128x128 1.5inch OLED display
 
-//#include <User_Setups/Setup203_ST7789.h>     // Setup file for ESP32/ESP8266 based ST7789 240X280 1.69inch TFT 
+//#include <User_Setups/Setup203_ST7789.h>     // Setup file for ESP32/ESP8266 based ST7789 240X280 1.69inch TFT
 
-//#include <User_Setups/Setup204_ESP32_TouchDown.h>     // Setup file for the ESP32 TouchDown based on ILI9488 480 x 320 TFT 
+//#include <User_Setups/Setup204_ESP32_TouchDown.h>     // Setup file for the ESP32 TouchDown based on ILI9488 480 x 320 TFT
 
-//#include <User_Setups/Setup205_ESP32_TouchDown_S3.h>     // Setup file for the ESP32 TouchDown S3 based on ILI9488 480 x 320 TFT 
-#ifdef NERDMINERV2
+//#include <User_Setups/Setup205_ESP32_TouchDown_S3.h>     // Setup file for the ESP32 TouchDown S3 based on ILI9488 480 x 320 TFT
+#if defined(NERDMINERV2) || defined(NERD_NOS)
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 #endif
 #ifdef NERMINER_S3_AMOLED
@@ -196,7 +196,7 @@
 #endif
 
 // Legacy setup support, RPI_ILI9486_DRIVER form is deprecated
-// Instead define RPI_DISPLAY_TYPE and also define driver (e.g. ILI9486_DRIVER) 
+// Instead define RPI_DISPLAY_TYPE and also define driver (e.g. ILI9486_DRIVER)
 #if defined (RPI_ILI9486_DRIVER)
   #if !defined (ILI9486_DRIVER)
     #define ILI9486_DRIVER
