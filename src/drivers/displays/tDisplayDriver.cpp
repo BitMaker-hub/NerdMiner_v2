@@ -3,13 +3,18 @@
 #ifdef T_DISPLAY
 
 #include <TFT_eSPI.h>
-#include "media/images_320_170.h"
 #include "media/myFonts.h"
 #include "media/Free_Fonts.h"
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
 #include "rotation.h"
+
+#ifdef NERD_NOS
+  #include "media/images_NOS_320_170.h"
+#else
+  #include "media/images_320_170.h"
+#endif
 
 #define WIDTH 340
 #define HEIGHT 170
