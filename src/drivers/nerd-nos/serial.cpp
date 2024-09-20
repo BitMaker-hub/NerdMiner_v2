@@ -32,7 +32,7 @@ void SERIAL_init() {
 
 void SERIAL_set_baud(int baud)
 {
-    ESP_LOGI(TAG, "Changing UART baud to %i", baud);
+    Serial.printf("Changing UART baud to %i\n", baud);
     uart_set_baudrate(UART_NUM_1, baud);
 }
 

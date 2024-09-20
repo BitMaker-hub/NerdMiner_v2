@@ -39,6 +39,7 @@ extern uint32_t valids;
 // to track the jobs
 static bm_job_t asic_jobs[ASIC_JOB_COUNT] = {0};
 
+static pthread_mutex_t asic_job_mutexes[ASIC_JOB_COUNT];
 
 // to track hashrate
 #define ASIC_HISTORY_SIZE 128
@@ -60,6 +61,8 @@ typedef struct {
 
 static pthread_mutex_t job_interval_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t job_interval_cond = PTHREAD_COND_INITIALIZER;
+
+static volatile uint32_t version = 0x20000000;
 
 history_t history = {0};
 
@@ -114,8 +117,76 @@ static void create_job_timer(TimerHandle_t xTimer)
     pthread_mutex_unlock(&job_interval_mutex);
 }
 
+void runASIC_RX(void * task_id) {
+  while (1) {
+    task_result result = {0};
+    nerdnos_proccess_work(version, 10000, &result);
+    // check if the ID is in the valid range and the slot is not empty
+    if (result.job_id >= ASIC_JOB_COUNT) {
+      Serial.printf("Invalid job ID %02x\n", result.job_id);
+      continue;
+    }
+    pthread_mutex_lock(&asic_job_mutexes[result.job_id]);
+
+    // check if the ID is in the valid range and the slot is not empty
+    if (!asic_jobs[result.job_id].ntime) {
+      Serial.printf("No job found for ID %02x\n", result.job_id);
+      pthread_mutex_unlock(&asic_job_mutexes[result.job_id]);
+      continue;
+    }
+
+    uint8_t hash[32];
+
+    // check the nonce difficulty
+    double diff_hash = nerdnos_test_nonce_value(
+        &asic_jobs[result.job_id],
+        result.nonce,
+        result.rolled_version,
+        hash);
+
+    // update best diff
+    if (diff_hash > best_diff) {
+      best_diff = diff_hash;
+    }
+
+    // calculate the hashrate
+    if (diff_hash >= asic_jobs[result.job_id].pool_diff) {
+      calculate_hashrate(&history, asic_jobs[result.job_id].pool_diff);
+      Serial.printf("avg hashrate: %.2fGH/s (history spans %.2fs, %d shares)\n", history.avg_gh, history.duration, history.shares);
+    }
+
+    if(diff_hash > mMiner.poolDifficulty)
+    {
+      tx_mining_submit_asic(client, mWorker, &asic_jobs[result.job_id], &result);
+      Serial.println("valid share!");
+      Serial.printf("   - Current diff share: %.3f\n", diff_hash);
+      Serial.printf("   - Current pool diff : %.3f\n", mMiner.poolDifficulty);
+      Serial.printf("Free heap after share: %u bytes\n", ESP.getFreeHeap());
+      for (size_t i = 0; i < 32; i++) {
+          Serial.printf("%02x", hash[i]);
+      }
+      Serial.println();
+#ifdef DEBUG_MINING
+      Serial.print("   - Current nonce: "); Serial.println(nonce);
+      Serial.print("   - Current block header: ");
+      for (size_t i = 0; i < 80; i++) {
+          Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
+      }
+      Serial.println();
+#endif
+
+      mLastTXtoPool = millis();
+    }
+    pthread_mutex_unlock(&asic_job_mutexes[result.job_id]);
+  }
+}
+
 void runASIC(void * task_id) {
   Serial.printf("[MINER] Started runASIC Task!\n");
+
+  for (int i=0;i<ASIC_JOB_COUNT;i++) {
+    asic_job_mutexes[i] = PTHREAD_MUTEX_INITIALIZER;
+  }
 
   // Create the timer
   TimerHandle_t job_timer = xTimerCreate("NERDNOS_Job_Timer", NERDNOS_JOB_INTERVAL_MS / portTICK_PERIOD_MS, pdTRUE, NULL, create_job_timer);
@@ -149,7 +220,7 @@ void runASIC(void * task_id) {
     memset(asic_jobs, 0, sizeof(asic_jobs));
 
     // we are assuming the version doesn't change from job to job
-    uint32_t version = strtoul(mJob.version.c_str(), NULL, 16);
+    version = strtoul(mJob.version.c_str(), NULL, 16);
 
     mMonitor.NerdStatus = NM_hashing;
 
@@ -190,6 +261,7 @@ void runASIC(void * task_id) {
       // use extranonce2 as job id
       uint8_t asic_job_id = (uint8_t) (extranonce_2 % ASIC_JOB_COUNT);
 
+      pthread_mutex_lock(&asic_job_mutexes[asic_job_id]);
       // free memory if this slot was used before
       safe_free_job(&asic_jobs[asic_job_id]);
 
@@ -209,58 +281,7 @@ void runASIC(void * task_id) {
 
       // send the job and
       nerdnos_send_work(&asic_jobs[asic_job_id], asic_job_id);
-
-      task_result result = {0};
-      while (nerdnos_proccess_work(version, 1, &result)) {
-        // check if the ID is in the valid range and the slot is not empty
-        if (result.job_id >= ASIC_JOB_COUNT || !asic_jobs[result.job_id].ntime) {
-          Serial.printf("Invalid job ID or no job found for ID %02x\n", result.job_id);
-          continue;
-        }
-
-        uint8_t hash[32];
-
-        // check the nonce difficulty
-        double diff_hash = nerdnos_test_nonce_value(
-            &asic_jobs[result.job_id],
-            result.nonce,
-            result.rolled_version,
-            hash);
-
-        // update best diff
-        if (diff_hash > best_diff) {
-          best_diff = diff_hash;
-        }
-
-        // calculate the hashrate
-        if (diff_hash >= asic_jobs[result.job_id].pool_diff) {
-          calculate_hashrate(&history, asic_jobs[result.job_id].pool_diff);
-          Serial.printf("avg hashrate: %.2fGH/s (history spans %.2fs, %d shares)\n", history.avg_gh, history.duration, history.shares);
-        }
-
-        if(diff_hash > mMiner.poolDifficulty)
-        {
-          tx_mining_submit_asic(client, mWorker, &asic_jobs[result.job_id], &result);
-          Serial.println("valid share!");
-          Serial.printf("   - Current diff share: %.3f\n", diff_hash);
-          Serial.printf("   - Current pool diff : %.3f\n", mMiner.poolDifficulty);
-          Serial.printf("Free heap after share: %u bytes\n", ESP.getFreeHeap());
-          for (size_t i = 0; i < 32; i++) {
-              Serial.printf("%02x", hash[i]);
-          }
-          Serial.println();
-#ifdef DEBUG_MINING
-          Serial.print("   - Current nonce: "); Serial.println(nonce);
-          Serial.print("   - Current block header: ");
-          for (size_t i = 0; i < 80; i++) {
-              Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
-          }
-          Serial.println();
-#endif
-
-          mLastTXtoPool = millis();
-        }
-      }
+      pthread_mutex_unlock(&asic_job_mutexes[asic_job_id]);
     }
     Serial.println("MINER WORK ABORTED >> waiting new job");
     mMiner.inRun = false;
