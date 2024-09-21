@@ -289,52 +289,13 @@ void BM1397_send_hash_frequency(float frequency)
     ESP_LOGI(TAG, "Setting Frequency to %.2fMHz (%.2f)", frequency, newf);
 }
 
-void BM1397_test() {
-    uint8_t buf[11] = {0};
-    for (int baud=115200;baud<4000000;baud+=500) {
-        //SERIAL_set_baud(baud);
-        _send_read_address();
-        Serial.printf("trying %d ...\n", baud);
-        int received = SERIAL_rx(buf, 9, 100);
-        if (received > 0 && !memcmp(chip_id, buf, sizeof(chip_id))) {
-            Serial.printf("found: %d\n", baud);
-        }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        //SERIAL_clear_buffer();
-    }
-
-    while (true) {
-
-    }
-}
-
 static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 {
     // send the init command
-/*
-    uint8_t buf[11] = {0};
-    SERIAL_set_baud(115200);
-    int baud = BM1397_set_max_baud();
-
-
-    for (int baud=115200;baud<4000000;baud+=500) {
-        SERIAL_set_baud(baud);
-        _send_read_address();
-        Serial.printf("trying %d ...\n", baud);
-        int received = SERIAL_rx(buf, 9, 100);
-        if (received > 0 && !memcmp(chip_id, buf, sizeof(chip_id))) {
-            Serial.printf("found: %d\n", baud);
-        }
-        SERIAL_clear_buffer();
-    }
-
-    while (true) {
-
-    }
-*/
-    uint8_t buf[11] = {0};
-    int chip_counter = 0;
     _send_read_address();
+    uint8_t buf[11] = {0};
+
+    int chip_counter = 0;
     while (true) {
         int received = SERIAL_rx(buf, 9, 1000);
         if (received > 0 && !memcmp(chip_id, buf, sizeof(chip_id))) {
@@ -370,17 +331,14 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 
     unsigned char init5[9] = {0x00, PLL3_PARAMETER, 0xC0, 0x70, 0x01, 0x11}; // init5 - pll3_parameter
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6, BM1397_SERIALTX_DEBUG);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-    //_send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6, BM1397_SERIALTX_DEBUG);
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     unsigned char init6[9] = {0x00, FAST_UART_CONFIGURATION, 0x06, 0x00, 0x00, 0x0F}; // init6 - fast_uart_configuration
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init6, 6, BM1397_SERIALTX_DEBUG);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-
-    //BM1397_set_default_baud();
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     BM1397_send_hash_frequency(frequency);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     return chip_counter;
 }
@@ -501,9 +459,9 @@ bool BM1397_receive_work(uint16_t timeout, asic_result *result)
 {
     uint8_t *rcv_buf = (uint8_t*) result;
 
-    // non blocking read
     int received;
     if (!timeout) {
+    // non blocking read
         received = SERIAL_rx_non_blocking(rcv_buf, 9);
     } else {
         received = SERIAL_rx(rcv_buf, 9, timeout);

@@ -64,7 +64,6 @@ void printBufferHex(const char *prefix, const uint8_t* buf, size_t len) {
   Serial.println();
 }
 
-void BM1397_test();
 /********* INIT *****/
 void setup()
 {
@@ -82,16 +81,7 @@ void setup()
 
   Serial.setTimeout(0);
   delay(SECOND_MS/10);
-/*
-    nerdnos_adc_init();
-  SERIAL_init();
-  BM1397_init(200, 1);
-  int baud = BM1397_set_max_baud();
-  vTaskDelay(100 / portTICK_PERIOD_MS);
-  SERIAL_set_baud(baud);
-  vTaskDelay(100 / portTICK_PERIOD_MS);
-  BM1397_test();
-*/
+
   esp_task_wdt_init(WDT_MINER_TIMEOUT, true);
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
