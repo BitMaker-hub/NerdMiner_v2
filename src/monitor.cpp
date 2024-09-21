@@ -46,7 +46,7 @@ void setup_monitor(void){
     timeClient.setTimeOffset(3600 * Settings.Timezone);
 
     Serial.println("TimeClient setup done");
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_WORKERS_ENABLE
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
 #endif
@@ -98,7 +98,7 @@ void updateGlobalData(void){
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_FEES_ENABLE
             if (doc.containsKey("fastestFee"))  gData.fastestFee = doc["fastestFee"].as<int>();
             if (doc.containsKey("hourFee"))     gData.hourFee = doc["hourFee"].as<int>();
             if (doc.containsKey("economyFee"))  gData.economyFee = doc["economyFee"].as<int>();
@@ -305,7 +305,7 @@ coin_data getCoinData(unsigned long mElapsed)
   data.currentHashRate = getCurrentHashRate(mElapsed);
   data.btcPrice = getBTCprice();
   data.currentTime = getTime();
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_FEES_ENABLE
   data.hourFee = String(gData.hourFee);
   data.fastestFee = String(gData.fastestFee);
   data.economyFee = String(gData.economyFee);
