@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
+#include "drivers/devices/device.h"
 
 extern uint32_t templates;
 extern uint32_t hashes;
