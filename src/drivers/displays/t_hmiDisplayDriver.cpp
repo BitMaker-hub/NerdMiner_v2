@@ -15,8 +15,9 @@
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
 #endif
-#include <Arduino.h>
-#include <esp_adc_cal.h>
+#ifdef BATTERY_MONITOR_ENABLE
+#include "BatteryMonitor.h"
+#endif
 
 #define WIDTH 320
 #define HEIGHT 240
@@ -29,6 +30,10 @@ TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 TouchHandler touchHandler = TouchHandler(tft, ETOUCH_CS, TOUCH_IRQ, SPI);
 #endif
 
+#ifdef BATTERY_MONITOR_ENABLE
+BatteryMonitor batteryMonitor = BatteryMonitor();
+#endif
+
 bool showbtcprice = false;
 
 unsigned int lowerScreen = 1;
@@ -39,21 +44,6 @@ extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
 
 void toggleBottomScreen() { lowerScreen = 3 - lowerScreen; }
-
-
-uint32_t readAdcVoltage(int pin) {
-    esp_adc_cal_characteristics_t adc_chars;
-
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
-    return esp_adc_cal_raw_to_voltage(analogRead(pin), &adc_chars);
-}
-
-void printBatteryVoltage() {
-    uint32_t voltage = readAdcVoltage(BAT_ADC_PIN) * 2;
-    Serial.print("Battery voltage: ");
-    Serial.println((float)voltage/1000);
-    delay(500);
-}
 
 void t_hmiDisplay_Init(void)
 {
@@ -125,7 +115,10 @@ void printPoolData()
   render.setFontSize(18);
   render.drawString(pData.workersHash.c_str(), 216, 170+34, TFT_BLACK);
   render.drawString(pData.bestDifficulty.c_str(), 5, 170+34, TFT_BLACK);
-  // printBatteryVoltage();
+#ifdef BATTERY_MONITOR_ENABLE
+  // batteryMonitor.printBatteryVoltage();
+#endif
+
 }
 
 
@@ -154,7 +147,10 @@ void printMemPoolFees(unsigned long mElapsed)
   // render.drawChar('<', 245, 170+32, TFT_RED);
   render.drawString(data.minimumFee.c_str(), 250, 170+32, TFT_RED);
   render.drawString(data.fastestFee.c_str(), 30, 170+32, TFT_BLACK);
-  // printBatteryVoltage();
+#ifdef BATTERY_MONITOR_ENABLE
+  // batteryMonitor.printBatteryVoltage();
+#endif
+
 }
 
 void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
@@ -187,6 +183,18 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   // Valid Blocks
   render.setFontSize(24);
   render.drawString(data.valids.c_str(), 285, 56, 0xDEDB);
+
+#ifdef BATTERY_MONITOR_ENABLE
+  // Print Battery Level
+  float batteryLevel = batteryMonitor.calculateBatteryLevel();
+
+  // Convert float to string for rendering
+  char batteryLevelStr[10];  // Adjust the size based on how many decimal places you need
+  sprintf(batteryLevelStr, "%.0f", batteryLevel);  // Format float to string with 2 decimal places
+
+  render.setFontSize(10);
+  render.rdrawString(batteryLevelStr, 210, 1,  0xDEDB);  // Use formatted string
+#endif
 
   // Print Temp
   render.setFontSize(10);
