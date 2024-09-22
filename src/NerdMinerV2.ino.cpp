@@ -15,9 +15,11 @@
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
 
-#ifdef TOUCH_ENABLE
+//  #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
-#endif
+// #endif
+
+#include "BatteryMonitor.h"
 
 //3 seconds WDT
 #define WDT_TIMEOUT 3
@@ -34,6 +36,10 @@
 
 #ifdef TOUCH_ENABLE
 extern TouchHandler touchHandler;
+#endif
+
+#ifdef BATTERY_MONITOR_ENABLE
+extern BatteryMonitor batteryMonitor;
 #endif
 
 extern monitor_data mMonitor;
@@ -175,6 +181,9 @@ void loop() {
 
 #ifdef TOUCH_ENABLE
   touchHandler.isTouched();
+#endif
+#ifdef BATTERY_MONITOR_ENABLE
+  batteryMonitor.monitorBattery();
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 

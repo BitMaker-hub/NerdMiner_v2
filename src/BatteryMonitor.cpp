@@ -12,7 +12,7 @@
 const float BATTERY_MAX = 4.2;
 const float BATTERY_MIN = 3.3;
 const int VOLTAGE_MIN = 3300;
-const int VOLTAGE_MAX = 4350;
+const int VOLTAGE_MAX = 4200;
 
 BatteryMonitor::BatteryMonitor() {}
 
