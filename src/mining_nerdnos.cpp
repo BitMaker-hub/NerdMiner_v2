@@ -29,6 +29,8 @@ extern pthread_mutex_t job_mutex;
 extern double best_diff;
 extern unsigned long mLastTXtoPool;
 
+#define REQUEST_ASIC_HASHRATE
+
 // Global share counter
 extern uint32_t shares;
 extern uint32_t valids;
@@ -50,7 +52,7 @@ static pthread_mutex_t asic_job_mutexes[ASIC_JOB_COUNT];
 
 typedef struct {
   uint32_t diffs[ASIC_HISTORY_SIZE];
-  uint64_t timestamps[ASIC_HISTORY_SIZE];
+  uint32_t timestamps[ASIC_HISTORY_SIZE];
   uint32_t newest;
   uint32_t oldest;
   uint64_t sum;
@@ -65,6 +67,8 @@ static pthread_cond_t job_interval_cond = PTHREAD_COND_INITIALIZER;
 static volatile uint32_t version = 0x20000000;
 
 history_t history = {0};
+
+static uint32_t last_request_hashrate_ts = 0;
 
 double nerdnos_get_avg_hashrate() {
   return history.avg_gh;
@@ -89,13 +93,12 @@ static void calculate_hashrate(history_t *history, uint32_t diff) {
   history->sum += diff;
   history->diffs[history->newest % ASIC_HISTORY_SIZE] = diff;
 
-  // micros() wraps around after about 71.58min because it's 32bit casted from 64bit timer :facepalm:
-  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = (uint64_t) esp_timer_get_time();
+  history->timestamps[history->newest % ASIC_HISTORY_SIZE] = millis();
 
-  uint64_t oldest_timestamp = history->timestamps[history->oldest % ASIC_HISTORY_SIZE];
-  uint64_t newest_timestamp = history->timestamps[history->newest % ASIC_HISTORY_SIZE];
+  uint32_t oldest_timestamp = history->timestamps[history->oldest % ASIC_HISTORY_SIZE];
+  uint32_t newest_timestamp = history->timestamps[history->newest % ASIC_HISTORY_SIZE];
 
-  history->duration = (double) (newest_timestamp - oldest_timestamp) / 1.0e6;
+  history->duration = (double) (newest_timestamp - oldest_timestamp) / 1.0e3;
   history->shares = (int) history->newest - (int) history->oldest + 1;
 
   if (history->duration) {
@@ -117,10 +120,38 @@ static void create_job_timer(TimerHandle_t xTimer)
     pthread_mutex_unlock(&job_interval_mutex);
 }
 
+static void process_hashrate_response(task_result *result) {
+  static float hashrate_long = 0.0;
+  static float hashrate_short = 0.0;
+
+  // hashrate reported by chip
+  float hr_gh = (float) ((uint64_t) (result->data & 0x7fffffff) << 20llu) / 1.0e9;
+
+  if (result->data & 0x80000000) {
+    hashrate_long = hr_gh;
+  } else {
+    hashrate_short = hr_gh;
+  }
+
+  Serial.printf("hashrate reported by asic: %.3fGH (short), %.3fGH (long)\n", hashrate_short, hashrate_long);
+}
+
 void runASIC_RX(void * task_id) {
   while (1) {
     task_result result = {0};
-    nerdnos_proccess_work(version, 10000, &result);
+    if (!nerdnos_proccess_work(version, 10000, &result)) {
+      continue;
+    }
+
+    if (result.is_reg_resp) {
+      switch (result.reg) {
+        case 0x04: {
+          process_hashrate_response(&result);
+          break;
+        }
+      }
+      continue;
+    }
     // check if the ID is in the valid range and the slot is not empty
     if (result.job_id >= ASIC_JOB_COUNT) {
       Serial.printf("Invalid job ID %02x\n", result.job_id);
@@ -260,6 +291,14 @@ void runASIC(void * task_id) {
 
       // use extranonce2 as job id
       uint8_t asic_job_id = (uint8_t) (extranonce_2 % ASIC_JOB_COUNT);
+
+#ifdef REQUEST_ASIC_HASHRATE
+      if (millis() - last_request_hashrate_ts > 2500) {
+        BM1397_read_hashrate();
+        last_request_hashrate_ts = millis();
+      }
+#endif
+
 
       pthread_mutex_lock(&asic_job_mutexes[asic_job_id]);
       // free memory if this slot was used before

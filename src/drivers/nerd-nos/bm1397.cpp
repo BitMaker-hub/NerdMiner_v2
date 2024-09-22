@@ -101,6 +101,12 @@ static void _send_read_address(void)
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
 
+void BM1397_read_hashrate(void) {
+    unsigned char read_address[2] = {0x00, 0x04};//0x50};
+    // send serial data
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1397_SERIALTX_DEBUG);
+}
+
 static void _send_chain_inactive(void)
 {
 
@@ -496,6 +502,14 @@ bool BM1397_proccess_work(uint32_t version, uint16_t timeout, task_result *resul
     {
         ESP_LOGI(TAG, "return null");
         return false;
+    }
+
+    // if this matches we can assume it's not a nonce
+    if ((asic_result.midstate_num == 0) && !(asic_result.nonce & 0x7f)) {
+        result->data = __bswap32(asic_result.nonce);
+        result->reg = asic_result.job_id;
+        result->is_reg_resp = 1;
+        return true;
     }
 
     uint8_t rx_job_id = (asic_result.job_id & 0xfc) >> 2;

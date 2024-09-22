@@ -4,11 +4,14 @@
 
 #define BM1397_INITIAL_DIFFICULTY 128
 
-typedef struct __attribute__((__packed__))
+typedef struct
 {
     uint8_t job_id;
     uint32_t nonce;
     uint32_t rolled_version;
+    uint32_t data;
+    uint8_t reg;
+    uint8_t is_reg_resp;
 } task_result;
 
 typedef struct
