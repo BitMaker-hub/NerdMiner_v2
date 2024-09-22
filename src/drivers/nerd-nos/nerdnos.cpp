@@ -7,7 +7,9 @@
 #include <stdio.h>
 
 #include "bm1397.h"
-#include "mining.h"
+#include "nerdnos.h"
+#include "adc.h"
+#include "serial.h"
 #include "utils.h"
 #include "stratum.h"
 #include "mbedtls/sha256.h"
@@ -154,4 +156,15 @@ void nerdnos_free_bm_job(bm_job_t *job) {
 
 void nerdnos_set_asic_difficulty(uint32_t difficulty) {
     BM1397_set_job_difficulty_mask(difficulty);
+}
+
+void nerdnos_init() {
+  nerdnos_adc_init();
+  SERIAL_init();
+  int chips = BM1397_init(200, 1);
+  Serial.printf("found bm1397: %d\n", chips);
+  int baud = BM1397_set_max_baud();
+  vTaskDelay(100 / portTICK_PERIOD_MS);
+  SERIAL_set_baud(baud);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
 }
