@@ -99,6 +99,20 @@ void t_hmiDisplay_AlternateRotation(void)
    tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
 }
 
+#ifdef BATTERY_MONITOR_ENABLE
+void printBatteryLevel()
+{
+  // Print Battery Level
+  float batteryLevel = batteryMonitor.calculateBatteryLevel();
+
+  // Convert float to string for rendering
+  char batteryLevelStr[10];  // Adjust the size based on how many decimal places you need
+  sprintf(batteryLevelStr, "%.0f", batteryLevel);  // Format float to string with 2 decimal places
+
+  render.setFontSize(12);
+  render.drawString(batteryLevelStr, 10/*210*/, 1,  TFT_WHITE/*0xDEDB*/);  // Use formatted string
+}
+#endif
 
 void printPoolData()
 {
@@ -185,15 +199,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.drawString(data.valids.c_str(), 285, 56, 0xDEDB);
 
 #ifdef BATTERY_MONITOR_ENABLE
-  // Print Battery Level
-  float batteryLevel = batteryMonitor.calculateBatteryLevel();
-
-  // Convert float to string for rendering
-  char batteryLevelStr[10];  // Adjust the size based on how many decimal places you need
-  sprintf(batteryLevelStr, "%.0f", batteryLevel);  // Format float to string with 2 decimal places
-
-  render.setFontSize(10);
-  render.rdrawString(batteryLevelStr, 210, 1,  0xDEDB);  // Use formatted string
+  printBatteryLevel();
 #endif
 
   // Print Temp
@@ -249,6 +255,9 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(0xDEDB, TFT_BLACK);
 
   background.drawString(data.currentTime.c_str(), 130, 50, GFXFF);
+#ifdef BATTERY_MONITOR_ENABLE
+  printBatteryLevel();
+#endif
   if (lowerScreen == 1)
     printMemPoolFees(mElapsed);
   else
@@ -311,7 +320,9 @@ void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.setTextDatum(MC_DATUM);
   background.setTextColor(TFT_BLACK);
   background.drawString(data.remainingBlocks.c_str(), 72, 159, FONT2);
-
+#ifdef BATTERY_MONITOR_ENABLE
+  printBatteryLevel();
+#endif
   if (lowerScreen == 1)
     printMemPoolFees(mElapsed);
   else
@@ -356,6 +367,9 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
   background.setTextSize(1);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 300, 58, GFXFF);
+#ifdef BATTERY_MONITOR_ENABLE
+  printBatteryLevel();
+#endif
   if (lowerScreen == 1)
     printPoolData();
   else
