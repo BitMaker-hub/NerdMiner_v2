@@ -12,8 +12,8 @@
 //Time update period
 #define UPDATE_PERIOD_h   5
 
-//API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
-#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT"
+//API BTC price (BTC/USDT hanged on the same amount for days, reverting to BTC-USD)   
+#define getBTCAPI "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
 #define UPDATE_BTC_min   1
 
 //API Block height
