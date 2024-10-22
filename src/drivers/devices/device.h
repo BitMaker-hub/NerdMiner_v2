@@ -9,9 +9,9 @@
 #include "esp32DevKit.h"
 #elif defined(TDISPLAY)
 #include "lilygoS3TDisplay.h"
-#elif defined(NERMINER_S3_AMOLED)
+#elif defined(NERDMINER_S3_AMOLED)
 #include "lilygoS3Amoled.h"
-#elif defined(NERMINER_S3_DONGLE)
+#elif defined(NERDMINER_S3_DONGLE)
 #include "lilygoS3Dongle.h"
 #elif defined(LILYGO_S3_T_EMBED)
 #include "lilygoS3TEmbed.h"
@@ -19,7 +19,7 @@
 #include "esp322432s028r.h"
 #elif defined(ESP32_2432S028_2USB) // For another type of ESP32_2432S028 version with 2 USB connectors
 #include "esp322432s028r.h"
-#elif defined(NERMINER_T_QT)
+#elif defined(NERDMINER_T_QT)
 #include "lilygoT_QT.h"
 #elif defined(NERDMINER_T_DISPLAY_V1)
 #include "lilygoV1TDisplay.h"
@@ -39,7 +39,7 @@
 #include "m5stack.h"
 #elif defined(WT32_BOARD)
 #include "wt32.h"
-#elif defined(NERMINER_S3_GEEK)
+#elif defined(NERDMINER_S3_GEEK)
 #include "waveshareS3Geek.h"
 #elif defined(NERDMINER_T_HMI)
 #include "lilygoT_HMI.h"
