@@ -1,4 +1,4 @@
-// This setup is for the RP2040 processor only when used with 8 bit parallel displays
+// This setup is for the RP2040 processor only when used with 8-bit parallel displays
 // See SetupX_Template.h for all options available
 #define USER_SETUP_ID 103
 
@@ -25,8 +25,6 @@
 //#define TFT_RD   -1  // Do not define, read pin permanently connected to 3V3
 
 // Note: All the following pins are PIO hardware configured and driven
-// The pins are hard-coded at the moment and must not be changed here
-// Connections MUST use the pins below
   #define TFT_WR   22
 
   // PIO requires these to be sequentially increasing - do not change
