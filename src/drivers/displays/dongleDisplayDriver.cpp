@@ -116,6 +116,10 @@ void dongleDisplay_AlternateRotation(void)
 
 void dongleDisplay_MinerScreen(unsigned long mElapsed)
 {
+  if (digitalRead(TFT_BL))
+  {    
+    return;
+  }
   max_y = BUFFER_HEIGHT;
   mining_data data = getMiningData(mElapsed);
 
@@ -144,6 +148,10 @@ void dongleDisplay_MinerScreen(unsigned long mElapsed)
 
 void dongleDisplay_LoadingScreen(void)
 {
+  if (digitalRead(TFT_BL))
+  {    
+    return;
+  }
   CLEAR_SCREEN();
   PRINT_STR("Initializing...");
   PUSH_SCREEN();
@@ -151,6 +159,10 @@ void dongleDisplay_LoadingScreen(void)
 
 void dongleDisplay_SetupScreen(void)
 {
+  if (digitalRead(TFT_BL))
+  {    
+    return;
+  }
   CLEAR_SCREEN();
   PRINT_STR("Use WiFi for setup...");
   PUSH_SCREEN();
@@ -158,6 +170,10 @@ void dongleDisplay_SetupScreen(void)
 
 void dongleDisplay_AnimateCurrentScreen(unsigned long frame)
 {
+  if (digitalRead(TFT_BL))
+  {    
+    return;
+  }
   if (pos_y > max_y)
   {
     pos_y = 0;
