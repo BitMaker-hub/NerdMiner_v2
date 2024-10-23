@@ -323,10 +323,12 @@ void wt32Display_NoScreen(unsigned long mElapsed)
 void wt32Display_LoadingScreen(void)
 {
   Serial.println("Initializing...");
+  Serial.print("Firmware Version: ");
+  Serial.println(AUTO_VERSION);
   lv_label_set_text(ui_lblssid, "SSID HanSoloAP");
   lv_label_set_text(ui_lblpassword, "Password MineYourCoins");
-  lv_label_set_text(ui_lblversion, "Version 1.6.4 (RC1)");
-  _ui_screen_change(&ui_HomeScreen, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_HomeScreen_screen_init);
+  lv_label_set_text(ui_lblversion, AUTO_VERSION);
+  _ui_screen_change(&ui_HomeScreen, LV_SCR_LOAD_ANIM_FADE_ON, 2000, 0, &ui_HomeScreen_screen_init);
 }
 
 void wt32Display_SetupScreen(void)
