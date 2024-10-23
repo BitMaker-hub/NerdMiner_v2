@@ -164,7 +164,12 @@ String getBTCprice(void){
 
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-            if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
+            
+            if (doc.containsKey("price")) {
+                String priceStr = doc["price"];
+                float priceFloat = priceStr.toFloat();
+                bitcoin_price = (int)priceFloat; // Truncate the decimal part by casting to int
+            }
 
             doc.clear();
 
