@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
+#include "BatteryMonitor.h"
 
 extern uint32_t templates;
 extern uint32_t hashes;
@@ -35,6 +36,9 @@ global_data gData;
 pool_data pData;
 String poolAPIUrl;
 
+#ifdef BATTERY_MONITOR_ENABLE
+extern BatteryMonitor batteryMonitor;
+#endif
 
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
@@ -49,6 +53,9 @@ void setup_monitor(void){
 #ifdef NERDMINER_T_HMI
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
+#endif
+#ifdef BATTERY_MONITOR_ENABLE
+    batteryMonitor.setup();
 #endif
 }
 
