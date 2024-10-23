@@ -152,7 +152,7 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) return (String(bitcoin_price) + "$");
+        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
         
         HTTPClient http;
         try {
@@ -164,7 +164,7 @@ String getBTCprice(void){
 
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-            if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
+            if (doc.containsKey("data") && doc["data"].containsKey("amount")) bitcoin_price = doc["data"]["amount"];
 
             doc.clear();
 
@@ -177,7 +177,7 @@ String getBTCprice(void){
         }
     }
   
-  return (String(bitcoin_price) + "$");
+  return "$" + String(bitcoin_price);
 }
 
 unsigned long mTriggerUpdate = 0;
