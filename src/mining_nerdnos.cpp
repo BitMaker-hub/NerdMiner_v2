@@ -166,13 +166,13 @@ void runASIC(void * task_id) {
           Serial.println("ASIC temperature too high. Disabling power.");
 
           // Wait for temperature to drop
-          while (nerdnos_get_temperature() > (MAX_SAFE_TEMP - 15)) {  // 15 degree hysteresis
+          while (nerdnos_get_temperature() > (MAX_SAFE_TEMP - 10)) {  // 10 degree hysteresis
             vTaskDelay(2000 / portTICK_PERIOD_MS);  // Check every 2 second
           }
 
           gpio_set_level(NERD_NOS_GPIO_PEN, 1);  // Enable Buck again
           Serial.println("Temperature safe. Re-enabling ASIC.");
-          BM1397_init(200, 1); // Re-Init ASIC
+          BM1397_init(210, 1); // Re-Init ASIC
         }
 
         lastTempCheck = currentTime;
