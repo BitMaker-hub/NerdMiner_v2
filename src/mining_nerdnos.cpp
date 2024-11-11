@@ -29,6 +29,9 @@ extern pthread_mutex_t job_mutex;
 extern double best_diff;
 extern unsigned long mLastTXtoPool;
 
+// Global share counter
+extern uint32_t shares;
+extern uint32_t valids;
 
 // we can have 32 different job ids
 #define ASIC_JOB_COUNT 32
@@ -98,6 +101,9 @@ static void calculate_hashrate(history_t *history, uint32_t diff) {
   }
 
   history->newest++;
+
+  // Increment the global share counter
+  shares++;
 }
 
 // triggers the job creation
