@@ -292,7 +292,11 @@ mining_data getMiningData(unsigned long mElapsed)
   data.bestDiff = best_diff_string;
   data.timeMining = timeMining;
   data.valids = valids;
+#ifdef NERD_NOS
+  data.temp = data.currentTemperature;
+#else
   data.temp = String(temperatureRead(), 0);
+#endif
   data.currentTime = getTime();
 
   return data;

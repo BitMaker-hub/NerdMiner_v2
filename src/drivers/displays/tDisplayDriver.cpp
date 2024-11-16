@@ -104,9 +104,11 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(24);
   render.drawString(data.valids.c_str(), 285, 56, 0xDEDB);
 
+#ifndef NERD_NOS
   // Print Temp
   render.setFontSize(10);
   render.rdrawString(data.temp.c_str(), 239, 1, TFT_BLACK);
+#endif
 
   render.setFontSize(4);
   render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);
