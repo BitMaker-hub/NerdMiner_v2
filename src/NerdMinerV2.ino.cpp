@@ -127,7 +127,7 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
- #ifdef ESP32_2432S028R
+ #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
  // Free a little bit of the heap to the screen
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 3, NULL,1);
  #else
