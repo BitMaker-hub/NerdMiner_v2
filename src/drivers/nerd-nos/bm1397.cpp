@@ -101,6 +101,12 @@ static void _send_read_address(void)
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
 
+void BM1397_read_hashrate(void) {
+    unsigned char read_address[2] = {0x00, 0x04};//0x50};
+    // send serial data
+    _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_READ), read_address, 2, BM1397_SERIALTX_DEBUG);
+}
+
 static void _send_chain_inactive(void)
 {
 
@@ -116,7 +122,7 @@ static void _set_chip_address(uint8_t chipAddr)
     // send serial data
     _send_BM1397((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2, BM1397_SERIALTX_DEBUG);
 }
-
+#if 0
 void BM1397_send_hash_frequency(float frequency)
 {
 	unsigned char prefreqall[] = {0x00, 0x70, 0x0F, 0x0F, 0x0F, 0x00};
@@ -196,7 +202,98 @@ void BM1397_send_hash_frequency(float frequency)
 
     Serial.printf("Setting Frequency to %.2fMHz (%.2f)\n", frequency, newf);
 }
+#endif
 
+
+// borrowed from cgminer driver-gekko.c calc_gsf_freq()
+void BM1397_send_hash_frequency(float frequency)
+{
+
+    unsigned char prefreq1[9] = {0x00, 0x70, 0x0F, 0x0F, 0x0F, 0x00}; // prefreq - pll0_divider
+
+    // default 200Mhz if it fails
+    unsigned char freqbuf[9] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x25}; // freqbuf - pll0_parameter
+
+    float deffreq = 200.0;
+
+    float fa, fb, fc1, fc2, newf;
+    float f1, basef, famax = 0x104, famin = 0x10;
+    int i;
+
+    // bound the frequency setting
+    //  You can go as low as 13 but it doesn't really scale or
+    //  produce any nonces
+    if (frequency < 50)
+    {
+        f1 = 50;
+    }
+    else if (frequency > 650)
+    {
+        f1 = 650;
+    }
+    else
+    {
+        f1 = frequency;
+    }
+
+    fb = 2;
+    fc1 = 1;
+    fc2 = 5; // initial multiplier of 10
+    if (f1 >= 500)
+    {
+        // halve down to '250-400'
+        fb = 1;
+    }
+    else if (f1 <= 150)
+    {
+        // triple up to '300-450'
+        fc1 = 3;
+    }
+    else if (f1 <= 250)
+    {
+        // double up to '300-500'
+        fc1 = 2;
+    }
+    // else f1 is 250-500
+
+    // f1 * fb * fc1 * fc2 is between 2500 and 6500
+    // - so round up to the next 25 (freq_mult)
+    basef = FREQ_MULT * ceil(f1 * fb * fc1 * fc2 / FREQ_MULT);
+
+    // fa should be between 100 (0x64) and 200 (0xC8)
+    fa = basef / FREQ_MULT;
+
+    // code failure ... basef isn't 400 to 6000
+    if (fa < famin || fa > famax)
+    {
+        newf = deffreq;
+    }
+    else
+    {
+        freqbuf[2] = 0x40 + (unsigned char)((int)fa >> 8);
+        freqbuf[3] = (unsigned char)((int)fa & 0xff);
+        freqbuf[4] = (unsigned char)fb;
+        // fc1, fc2 'should' already be 1..15
+        freqbuf[5] = (((unsigned char)fc1 & 0x7) << 4) + ((unsigned char)fc2 & 0x7);
+
+        newf = basef / ((float)fb * (float)fc1 * (float)fc2);
+    }
+
+    for (i = 0; i < 2; i++)
+    {
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), prefreq1, 6, BM1397_SERIALTX_DEBUG);
+    }
+    for (i = 0; i < 2; i++)
+    {
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbuf, 6, BM1397_SERIALTX_DEBUG);
+    }
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    ESP_LOGI(TAG, "Setting Frequency to %.2fMHz (%.2f)", frequency, newf);
+}
 
 static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 {
@@ -240,13 +337,14 @@ static uint8_t _send_init(uint64_t frequency, uint16_t asic_count)
 
     unsigned char init5[9] = {0x00, PLL3_PARAMETER, 0xC0, 0x70, 0x01, 0x11}; // init5 - pll3_parameter
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6, BM1397_SERIALTX_DEBUG);
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     unsigned char init6[9] = {0x00, FAST_UART_CONFIGURATION, 0x06, 0x00, 0x00, 0x0F}; // init6 - fast_uart_configuration
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), init6, 6, BM1397_SERIALTX_DEBUG);
-
-    BM1397_set_default_baud();
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     BM1397_send_hash_frequency(frequency);
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
 
     return chip_counter;
 }
@@ -288,19 +386,24 @@ uint8_t BM1397_init(uint64_t frequency, uint16_t asic_count)
 int BM1397_set_default_baud(void)
 {
     // default divider of 26 (11010) for 115,749
-    unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01111010, 0b00110001}; // baudrate - misc_control
+    unsigned char baudrate[6] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01111010, 0b00110001}; // baudrate - misc_control
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
     return 115749;
 }
 
 int BM1397_set_max_baud(void)
 {
-    // divider of 0 for 3,125,000
-    Serial.println("Setting max baud of 3125000");
-    unsigned char baudrate[9] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01100000, 0b00110001};
-    ; // baudrate - misc_control
+    uint8_t divider = 1;
+    int baud = 25e6 / ((divider + 1) * 8);
+
+    Serial.printf("Setting max baud of %d\n", baud);
+    unsigned char baudrate[6] = {0x00, MISC_CONTROL, 0x00, 0x00, 0b01100000, 0b00110001}; // baudrate - misc_control
+
+    baudrate[4] |=  divider & 0x1f;
+
     _send_BM1397((TYPE_CMD | GROUP_ALL | CMD_WRITE), baudrate, 6, BM1397_SERIALTX_DEBUG);
-    return 3125000;
+
+    return baud;
 }
 
 void BM1397_set_job_difficulty_mask(int difficulty)
@@ -362,8 +465,13 @@ bool BM1397_receive_work(uint16_t timeout, asic_result *result)
 {
     uint8_t *rcv_buf = (uint8_t*) result;
 
+    int received;
+    if (!timeout) {
     // non blocking read
-    int received = SERIAL_rx_non_blocking(rcv_buf, 9);
+        received = SERIAL_rx_non_blocking(rcv_buf, 9);
+    } else {
+        received = SERIAL_rx(rcv_buf, 9, timeout);
+    }
 
     if (received < 0)
     {
@@ -394,6 +502,14 @@ bool BM1397_proccess_work(uint32_t version, uint16_t timeout, task_result *resul
     {
         ESP_LOGI(TAG, "return null");
         return false;
+    }
+
+    // if this matches we can assume it's not a nonce
+    if ((asic_result.midstate_num == 0) && !(asic_result.nonce & 0x7f)) {
+        result->data = __bswap32(asic_result.nonce);
+        result->reg = asic_result.job_id;
+        result->is_reg_resp = 1;
+        return true;
     }
 
     uint8_t rx_job_id = (asic_result.job_id & 0xfc) >> 2;

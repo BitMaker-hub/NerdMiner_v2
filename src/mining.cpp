@@ -33,7 +33,7 @@ double best_diff = 0.0;
 //Track mining stats in non volatile memory
 extern TSettings Settings;
 
-IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
+IPAddress serverIP(0, 0, 0, 0);
 
 //Global work data
 WiFiClient client;
@@ -48,27 +48,24 @@ int saveIntervals[7] = {5 * 60, 15 * 60, 30 * 60, 1 * 3600, 3 * 3600, 6 * 3600, 
 int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
 int currentIntervalIndex = 0;
 
-bool checkPoolConnection(void) {
-
-  if (client.connected()) {
-    return true;
-  }
-
-  isMinerSuscribed = false;
-
+bool connect(void) {
   Serial.println("Client not connected, trying to connect...");
 
-  //Resolve first time pool DNS and save IP
-  if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
+  IPAddress ip;
+  WiFi.hostByName(Settings.PoolAddress.c_str(), ip);
+  if(serverIP != ip) {
+    serverIP = ip;
+    Serial.printf("Resolved DNS and got IP address: %s\n", serverIP.toString());
   }
 
-  //Try connecting pool IP
+  if(serverIP == IPAddress(0,0,0,0)) {
+    Serial.println("Unable to resolve a valid DNS address for: " + Settings.PoolAddress);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    return false;
+  }
+
   if (!client.connect(serverIP, Settings.PoolPort)) {
-    Serial.println("Imposible to connect to : " + Settings.PoolAddress);
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+    Serial.println("Unable to connect to : " + Settings.PoolAddress);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     return false;
   }
@@ -127,8 +124,12 @@ void runStratumWorker(void *name) {
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
 
   while(true) {
+    if(!WiFi.isConnected()){
+      if (client.connected()){
+        client.stop();
+      }
+      isMinerSuscribed = false;
 
-    if(WiFi.status() != WL_CONNECTED){
       // WiFi is disconnected, so reconnect now
       mMonitor.NerdStatus = NM_Connecting;
       WiFi.reconnect();
@@ -136,15 +137,19 @@ void runStratumWorker(void *name) {
       continue;
     }
 
-    if(!checkPoolConnection()){
-      //If server is not reachable add random delay for connection retries
-      srand(millis());
-      //Generate value between 1 and 120 secs
-      vTaskDelay(((1 + rand() % 120) * 1000) / portTICK_PERIOD_MS);
+    if(!client.connected()){
+      isMinerSuscribed = false;
+
+      if (!connect()){
+        //If server is not reachable add random delay for connection retries
+        srand(millis());
+        //Generate value between 1 and 30 secs
+        vTaskDelay(((1 + rand() % 30) * 1000) / portTICK_PERIOD_MS);
+        continue;
+      }
     }
 
     if(!isMinerSuscribed){
-
       //Stop miner current jobs
       mMiner.inRun = false;
       mWorker = init_mining_subscribe();
@@ -164,7 +169,7 @@ void runStratumWorker(void *name) {
       // STEP 3: Suggest pool difficulty
       tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
 
-      isMinerSuscribed=true;
+      isMinerSuscribed = true;
       mLastTXtoPool = millis();
     }
 
@@ -179,7 +184,6 @@ void runStratumWorker(void *name) {
 
     //Read pending messages from pool
     while(client.connected() && client.available()){
-
       Serial.println("  Received message from pool");
       String line = client.readStringUntil('\n');
       stratum_method result = parse_mining_method(line);
@@ -209,10 +213,8 @@ void runStratumWorker(void *name) {
       }
     }
 
-    vTaskDelay(500 / portTICK_PERIOD_MS); //Small delay
-
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
-
 }
 
 
