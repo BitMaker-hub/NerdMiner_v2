@@ -88,9 +88,9 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   // Total hashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268, 138, TFT_BLACK);
-  // ASIC temp
+  // Block templates
   render.setFontSize(18);
-  render.drawString(data.currentTemperature.c_str(), 186, 20, 0xDEDB);
+  render.drawString(data.templates.c_str(), 186, 20, 0xDEDB);
   // Best diff
   render.drawString(data.bestDiff.c_str(), 186, 48, 0xDEDB);
   // 32Bit shares
@@ -104,11 +104,9 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(24);
   render.drawString(data.valids.c_str(), 285, 56, 0xDEDB);
 
-#ifndef NERD_NOS
   // Print Temp
   render.setFontSize(10);
   render.rdrawString(data.temp.c_str(), 239, 1, TFT_BLACK);
-#endif
 
   render.setFontSize(4);
   render.rdrawString(String(0).c_str(), 244, 3, TFT_BLACK);

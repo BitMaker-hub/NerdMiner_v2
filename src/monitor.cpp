@@ -272,7 +272,7 @@ mining_data getMiningData(unsigned long mElapsed)
   mining_data data;
 
   char best_diff_string[16] = {0};
-  suffix_string(best_diff, best_diff_string, 16, 4);
+  suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
   uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
@@ -292,11 +292,7 @@ mining_data getMiningData(unsigned long mElapsed)
   data.bestDiff = best_diff_string;
   data.timeMining = timeMining;
   data.valids = valids;
-#ifdef NERD_NOS
-  data.temp = data.currentTemperature;
-#else
   data.temp = String(temperatureRead(), 0);
-#endif
   data.currentTime = getTime();
 
   return data;

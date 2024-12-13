@@ -148,12 +148,14 @@ void setup()
  #endif
 
  #ifdef NERD_NOS
-  nerdnos_init();
+  nerdnos_adc_init();
+  SERIAL_init();
+  int chips = BM1397_init(200, 1);
+  Serial.printf("found bm1397: %d\n", chips);
+  //SERIAL_set_baud(BM1397_set_max_baud());
 
   TaskHandle_t ASICTask = NULL;
-  TaskHandle_t ASICTask_RX = NULL;
-  xTaskCreatePinnedToCore(runASIC, "Asic0-TX", 6000, (void*)0, 1, &ASICTask, 0);
-  xTaskCreatePinnedToCore(runASIC_RX, "Asic0-RX", 6000, (void*)0, 1, &ASICTask_RX, 1);
+  xTaskCreate(runASIC, "Asic0", 6000, (void*)0, 1, &ASICTask);
 
   //esp_task_wdt_add(ASICTask);
 

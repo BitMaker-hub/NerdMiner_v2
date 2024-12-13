@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-#include "drivers/nerd-nos/nerdnos.h"
+#include "drivers/nerd-nos/mining.h"
 
 #define MAX_MERKLE_BRANCHES 32
 #define HASH_SIZE 32

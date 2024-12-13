@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 
-struct nerdSHA256_context {
+struct __attribute__((__packed__)) nerdSHA256_context {
     uint8_t buffer[64];
     uint32_t digest[8];
 };
