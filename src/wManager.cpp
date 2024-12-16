@@ -188,6 +188,13 @@ void init_WifiManager()
   WiFiManagerParameter invertColors("inverColors", "Invert Display Colors (if the colors looks weird)", "T", 2, checkboxParams2, WFM_LABEL_AFTER);
   wm.addParameter(&invertColors);
   #endif
+  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+    char brightnessConvValue[2];
+    sprintf(brightnessConvValue, "%d", Settings.Brightness);
+    // Text box (Number) - 3 characters maximum
+    WiFiManagerParameter brightness_text_box_num("Brightness", "Screen backlight Duty Cycle (0-255)", brightnessConvValue, 3);
+    wm.addParameter(&brightness_text_box_num);
+  #endif
 
     Serial.println("AllDone: ");
     if (forceConfig)    
@@ -210,6 +217,9 @@ void init_WifiManager()
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
             #ifdef ESP32_2432S028R
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+            #endif
+            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                Settings.Brightness = atoi(brightness_text_box_num.getValue());
             #endif
             nvMem.saveConfig(&Settings);
             delay(3*SECOND_MS);
@@ -240,6 +250,9 @@ void init_WifiManager()
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
                 #ifdef ESP32_2432S028R
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
+                #endif
+                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                Settings.Brightness = atoi(brightness_text_box_num.getValue());
                 #endif
                 nvMem.saveConfig(&Settings);
                 vTaskDelay(2000 / portTICK_PERIOD_MS);      
@@ -290,6 +303,12 @@ void init_WifiManager()
         Serial.println(Settings.invertColors);        
         #endif
 
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        Settings.Brightness = atoi(brightness_text_box_num.getValue());
+        Serial.print("Brightness: ");
+        Serial.println(Settings.Brightness);
+        #endif
+
     }
 
     // Save the custom parameters to FS
@@ -298,6 +317,9 @@ void init_WifiManager()
         nvMem.saveConfig(&Settings);
         #ifdef ESP32_2432S028R
          if (Settings.invertColors) ESP.restart();                
+        #endif
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        if (Settings.Brightness != 250) ESP.restart();
         #endif
     }
 }

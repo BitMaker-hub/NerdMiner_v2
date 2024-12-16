@@ -128,6 +128,11 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     } else {
                         Settings->invertColors = false;
                     }
+                    if (json.containsKey(JSON_KEY_BRIGHTNESS)) {
+                        Settings->Brightness = json[JSON_KEY_BRIGHTNESS].as<int>();
+                    } else {
+                        Settings->Brightness = 250;
+                    }
                     // Serial.printf("Carteira Lida SD:%s\n", Settings.BtcWallet);       
                     Serial.printf("Carteira Lida SDs:%s\n", Settings->BtcWallet);                       
                     return true;
