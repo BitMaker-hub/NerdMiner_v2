@@ -462,7 +462,7 @@ void esp32_2432S028R_BTCprice(unsigned long mElapsed)
   // Delete sprite to free the memory heap
   background.deleteSprite(); 
 
-  createBackgroundSprite(169,105);
+  createBackgroundSprite(180,105);
   // Print background screen
   background.pushImage(-130, -3, priceScreenWidth, priceScreenHeight, priceScreen);
   
