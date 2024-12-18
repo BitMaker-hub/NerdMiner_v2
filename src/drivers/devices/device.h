@@ -7,6 +7,10 @@
 #include "M5Stick-C.h"
 #elif defined(DEVKITV1)
 #include "esp32DevKit.h"
+#elif defined(ESP32_C3_042_OLED)
+#include "esp32C3042OLED.h"
+#elif defined(ESP32_S3_042_OLED)
+#include "esp32S3042OLED.h"
 #elif defined(TDISPLAY)
 #include "lilygoS3TDisplay.h"
 #elif defined(NERDMINER_S3_AMOLED)
