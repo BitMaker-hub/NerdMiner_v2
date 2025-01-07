@@ -26,13 +26,6 @@
 #define getFees "https://mempool.space/api/v1/fees/recommended"
 #define UPDATE_Global_min 2
 
-//API public-pool.io
-// https://public-pool.io:40557/api/client/btcString
-#define getPublicPool "https://public-pool.io:40557/api/client/" // +btcString
-#define UPDATE_POOL_min   1
-
-#define NEXT_HALVING_EVENT 1050000 //840000
-#define HALVING_BLOCKS 210000
 
 enum NMState {
   NM_waitingConfig,
