@@ -179,7 +179,7 @@ void init_WifiManager()
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
-  #ifdef ESP32_2432S028R
+  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
   char checkboxParams2[24] = "type=\"checkbox\"";
   if (Settings.invertColors)
   {
@@ -215,7 +215,7 @@ void init_WifiManager()
             Settings.Timezone = atoi(time_text_box_num.getValue());
             //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-            #ifdef ESP32_2432S028R
+            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
             #endif
             #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -248,7 +248,7 @@ void init_WifiManager()
                 Settings.Timezone = atoi(time_text_box_num.getValue());
                 // Serial.println(save_stats_to_nvs.getValue());
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-                #ifdef ESP32_2432S028R
+                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
                 #endif
                 #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -297,7 +297,7 @@ void init_WifiManager()
         Serial.print("TimeZone fromUTC: ");
         Serial.println(Settings.Timezone);
 
-        #ifdef ESP32_2432S028R
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
         Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
         Serial.print("Invert Colors: ");
         Serial.println(Settings.invertColors);        
@@ -315,7 +315,7 @@ void init_WifiManager()
     if (shouldSaveConfig)
     {
         nvMem.saveConfig(&Settings);
-        #ifdef ESP32_2432S028R
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
          if (Settings.invertColors) ESP.restart();                
         #endif
         #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
