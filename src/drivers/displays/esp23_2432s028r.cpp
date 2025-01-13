@@ -75,6 +75,12 @@ void esp32_2432S028R_Init(void)
 
   TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
   touch.setCalibration(calibation);
+
+  // Configuring screen backlight brightness using ledcontrol channel 0.
+  // Using 5000Hz in 8bit resolution, which gives 0-255 possible duty cycle setting.
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(TFT_BL, 0);
+  ledcWrite(0, Settings.Brightness);
  
   //background.createSprite(WIDTH, HEIGHT); // Background Sprite
   //background.setSwapBytes(true);
@@ -103,9 +109,14 @@ void esp32_2432S028R_Init(void)
 
 void esp32_2432S028R_AlternateScreenState(void)
 {
-  int screen_state = digitalRead(TFT_BL);
   Serial.println("Switching display state");
-  digitalWrite(TFT_BL, !screen_state);
+  int screen_state_duty = ledcRead(0);
+  // Switching the duty cycle for the ledc channel, where the TFT_BL pin is attached.
+  if (screen_state_duty > 0) {
+    ledcWrite(0, 0);
+  } else {
+    ledcWrite(0, Settings.Brightness);
+  }
 }
 
 void esp32_2432S028R_AlternateRotation(void)
@@ -533,6 +544,10 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
           if (((t_x > 109)&&(t_x < 211)) && ((t_y > 185)&&(t_y < 241))) {
             bottomScreenBlue ^= true;
             hasChangedScreen = true;
+          } else if((t_x > 235) && ((t_y > 0)&&(t_y < 16))) {
+            // Touching the top right corner of the screen, roughly in the gray status label.
+            // Disabling the screen backlight. 
+            esp32_2432S028R_AlternateScreenState();
           }
           else
             if (t_x > 160) {

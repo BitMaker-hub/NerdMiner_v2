@@ -134,7 +134,7 @@
 #ifdef NERDMINERV2
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h>
 #endif
-#ifdef NERMINER_S3_AMOLED
+#ifdef NERDMINER_S3_AMOLED
 #include <User_Setups/Setup206_LilyGo_T_Display_S3.h> //Just a stub. No driver implementation for S3 AMOLED in TFT_eSPI
 #endif
 #ifdef NERDMINER_T_HMI
@@ -146,17 +146,20 @@
 #ifdef LILYGO_S3_T_EMBED
 #include <User_Setups/Setup210_LilyGo_T_Embed_S3.h>         // For the LilyGo T-Embed S3 based ESP32S3 with ST7789 170 x 320 TFT
 #endif
-#ifdef NERMINER_T_QT
+#ifdef NERDMINER_T_QT
 #include <User_Setups/Setup211_LilyGo_T_QT_Pro_S3.h>         // For the LilyGo T-QT Pro S3 based ESP32S3 with GC9A01 128 x 128 TFT
 #endif
-#ifdef NERMINER_S3_DONGLE
+#ifdef NERDMINER_S3_DONGLE
 #include <User_Setups/Setup209_LilyGo_T_Dongle_S3.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
 #endif
 #ifdef ESP32_CAM
 #include <User_Setups/Setup212_ESP32Cam_DongleDisplay.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
 #endif
-#ifdef NERMINER_S3_GEEK
+#ifdef NERDMINER_S3_GEEK
 #include <User_Setups/Setup303_WaveShare ESP32S3_GEEK.h>            // Setup file for Waveshare Setup303_WaveShare ESP32S3_GEEK with ST7789 135*240 TFT
+#endif
+#ifdef M5STICK_C_PLUS2
+#include <User_Setups/Setup304_M5StickCPlus2.h>            // Setup file for ESP32 configured for ST7735 128 x 128 animated eyes
 #endif
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 

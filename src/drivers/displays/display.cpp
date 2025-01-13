@@ -16,6 +16,10 @@ DisplayDriver *currentDisplayDriver = &wt32DisplayDriver;
 DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 #endif
 
+#ifdef OLED_042_DISPLAY
+DisplayDriver *currentDisplayDriver = &oled042DisplayDriver;
+#endif
+
 #ifdef T_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif

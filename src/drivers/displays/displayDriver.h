@@ -32,6 +32,7 @@ extern DisplayDriver m5stackDisplayDriver;
 extern DisplayDriver wt32DisplayDriver;
 extern DisplayDriver noDisplayDriver;
 extern DisplayDriver ledDisplayDriver;
+extern DisplayDriver oled042DisplayDriver;
 extern DisplayDriver tDisplayDriver;
 extern DisplayDriver amoledDisplayDriver;
 extern DisplayDriver dongleDisplayDriver;
