@@ -224,8 +224,12 @@ void runStratumWorker(void *name) {
                                           //Stop miner current jobs
                                           //mMiner.inRun = false;
                                           s_thread_task_aborted_id = s_thread_task_id;
-                                          while (s_thread_busy[0] || s_thread_busy[1])
-                                          {}
+
+                                          #if (SOC_CPU_CORES_NUM >= 2)
+                                            while (s_thread_busy[0] || s_thread_busy[1]) { vTaskDelay(1 / portTICK_PERIOD_MS); }
+                                          #else
+                                            while (s_thread_busy[0]) { vTaskDelay(1 / portTICK_PERIOD_MS); }
+                                          #endif
 
                                           //Prepare data for new jobs
                                           mMiner=calculateMiningData(mWorker,mJob);

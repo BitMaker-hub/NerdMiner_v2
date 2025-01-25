@@ -202,10 +202,20 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
     // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
     //To review
-    char extranonce2_char[2 * mWorker.extranonce2_size+1];	
-	  mWorker.extranonce2.toCharArray(extranonce2_char, 2 * mWorker.extranonce2_size + 1);
-    getNextExtranonce2(mWorker.extranonce2_size, extranonce2_char);
-    mWorker.extranonce2 = String(extranonce2_char);
+    //char extranonce2_char[2 * mWorker.extranonce2_size+1];	
+	//mWorker.extranonce2.toCharArray(extranonce2_char, 2 * mWorker.extranonce2_size + 1);
+    //getNextExtranonce2(mWorker.extranonce2_size, extranonce2_char);
+    if (mWorker.extranonce2_size == 2)
+        mWorker.extranonce2 = "0001";
+    else if (mWorker.extranonce2_size == 4)
+        mWorker.extranonce2 = "00000001";
+    else if (mWorker.extranonce2_size == 8)
+        mWorker.extranonce2 = "0000000000000001";
+    else
+    {
+        Serial.println("Unknown extranonce2");
+        mWorker.extranonce2 = "00000001";
+    }
     //mWorker.extranonce2 = "00000002";
     
     //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
