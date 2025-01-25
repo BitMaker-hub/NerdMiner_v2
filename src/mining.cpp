@@ -495,7 +495,7 @@ void runMiner(void * task_id) {
       
       if(task_current_id <= s_thread_task_aborted_id)
       {
-        Serial.printf("MINER %d WORK ABORTED Task=%d\n", miner_id);
+        Serial.printf("MINER %d WORK ABORTED Task=%d Abort=%d\n", miner_id, task_current_id, s_thread_task_aborted_id);
         break;
       }
 
