@@ -56,6 +56,7 @@ const char* ntpServer = "pool.ntp.org";
 
 #ifdef HW_SHA256_TEST
 
+#include "ShaTests/nerdSHA256plus.h"
 #include "mbedtls/sha256.h"
 #include <sha/sha_dma.h>
 #include <hal/sha_hal.h>
@@ -112,6 +113,8 @@ IRAM_ATTR void HwShaTest()
   interResult_aligned[62] = 0x01;
   interResult_aligned[63] = 0x00;
   
+  uint32_t bake[16];
+
   uint32_t time_start = micros();
   const int test_count = 1000000;
 
@@ -130,6 +133,27 @@ IRAM_ATTR void HwShaTest()
     mbedtls_sha256_finish_ret(&ctx, hash);
   }
   mbedtls_sha256_free(&ctx);
+#endif
+
+#if 0
+  //nerdSha256 (ESP32 39KH/s)
+  nerdSHA256_context ctx;
+  nerd_mids(&ctx, s_test_buffer);
+  for (int i = 0; i < test_count; ++i)
+  {
+    nerd_sha256d(&ctx, s_test_buffer+64, hash);
+  }
+#endif
+
+#if 0
+  //nerdSha256 bake (ESP32 41KH/s)
+  nerdSHA256_context ctx;
+  nerd_mids(&ctx, s_test_buffer);
+  nerd_sha256_bake(ctx.digest, s_test_buffer+64, bake);  //15 words
+  for (int i = 0; i < test_count; ++i)
+  {
+    nerd_sha256d_baked(ctx.digest, s_test_buffer+64, bake, hash);
+  }
 #endif
 
 #if 0

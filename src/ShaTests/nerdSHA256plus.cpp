@@ -101,7 +101,7 @@ void ByteReverseWords(uint32_t* out, const uint32_t* in, uint32_t byteCount)
 }
 
 
-IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, uint8_t* dataIn)
+IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, const uint8_t* dataIn)
 {
     uint32_t A[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
 
@@ -201,7 +201,7 @@ IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, uint8_t* dataIn)
     
 }
 
-IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8_t* doubleHash)
+IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
     uint8_t temp3, temp4;
@@ -403,7 +403,7 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8
 }
 
 
-IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, uint8_t* dataIn, uint32_t* bake)  //15 words
+IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, const uint8_t* dataIn, uint32_t* bake)  //15 words
 {
     bake[0] = GET_UINT32_BE(dataIn, 0);
     bake[1] = GET_UINT32_BE(dataIn, 4);
@@ -435,7 +435,7 @@ IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, uint8_t* dataIn, uint32_
 }
 
 
-IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
     uint8_t temp3, temp4;
