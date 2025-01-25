@@ -208,7 +208,7 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8
     uint32_t* buffer32;
     //*********** Init 1rst SHA ***********
 
-    uint32_t W[16] = { GET_UINT32_BE(dataIn, 0), GET_UINT32_BE(dataIn, 4),
+    uint32_t W[64] = { GET_UINT32_BE(dataIn, 0), GET_UINT32_BE(dataIn, 4),
         GET_UINT32_BE(dataIn, 8), GET_UINT32_BE(dataIn, 12), 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 640}; 
 
@@ -380,12 +380,17 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8
     P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(58), K[58]);
     P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(59), K[59]);
     P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(60), K[60]);
+    if ((uint32_t)(A[7] & 0xFFFF) != 0x32E7)
+    {
+        doubleHash[30] = 0xFF;
+        return false;
+    }
     P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
     
     PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
-    if(doubleHash[31] !=0 || doubleHash[30] !=0) return false;
+    //if(doubleHash[31] !=0 || doubleHash[30] !=0) return false;
     PUT_UINT32_BE(0x6A09E667 + A[0], doubleHash, 0);
     PUT_UINT32_BE(0xBB67AE85 + A[1], doubleHash, 4);
     PUT_UINT32_BE(0x3C6EF372 + A[2], doubleHash, 8);

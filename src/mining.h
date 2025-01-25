@@ -6,7 +6,7 @@
 #define MAX_NONCE_STEP  5000000U
 #define MAX_NONCE       25000000U
 #define TARGET_NONCE    471136297U
-#define DEFAULT_DIFFICULTY  1e-4
+#define DEFAULT_DIFFICULTY  0.0002
 #define KEEPALIVE_TIME_ms       30000
 #define POOLINACTIVITY_TIME_ms  60000
 
@@ -23,13 +23,10 @@ typedef struct{
   uint8_t bytearray_target[32];
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];
-  uint8_t bytearray_blockheader[80];
+  uint8_t bytearray_blockheader[128];
   uint8_t bytearray_blockheader2[80];
   double poolDifficulty;
-  bool inRun;
-  bool newJob;
-  bool newJob2;
-}miner_data;
+} miner_data;
 
 
 #endif // UTILS_API_H
