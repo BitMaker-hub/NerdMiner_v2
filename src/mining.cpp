@@ -287,6 +287,7 @@ void runMiner(void * task_id) {
     uint8_t interResult[64];
     uint8_t hash_validate[32];
     uint8_t midstate[32];
+    uint32_t bake[16];
     
 
     unsigned char *header64;
@@ -318,6 +319,7 @@ void runMiner(void * task_id) {
       memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
       nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader2); //NerdShaplus
       header64 = mMiner.bytearray_blockheader2 + 64;
+      nerd_sha256_bake(nerdMidstate.digest, header64, bake);
     }
 
     uint32_t nonce = 0;
@@ -419,7 +421,8 @@ void runMiner(void * task_id) {
         while (nonce < nonce_end)
         {
           memcpy(header64+12, &nonce, 4);
-          nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
+          //nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
+          nerd_sha256d_baked(nerdMidstate.digest, header64, bake, hash);
 
           #ifdef SHA256_VALIDATE
           //Important - Remove Return optimization
@@ -503,6 +506,33 @@ void runMiner(void * task_id) {
       if(hash[31] !=0 || hash[30] !=0)
         continue;
 
+#if 0
+      if (miner_id == 1)
+      {
+        //validate
+        mbedtls_sha256_context ctx;
+        mbedtls_sha256_init(&ctx);
+        mbedtls_sha256_starts_ret(&ctx,0);
+        mbedtls_sha256_update_ret(&ctx, header64-64, 80);
+        mbedtls_sha256_finish_ret(&ctx, interResult);
+
+        mbedtls_sha256_starts_ret(&ctx,0);
+        mbedtls_sha256_update_ret(&ctx, interResult, 32);
+        mbedtls_sha256_finish_ret(&ctx, hash_validate);
+        mbedtls_sha256_free(&ctx);
+        
+        bool failed = false;
+        for (size_t i = 0; i < 32; i++)
+        {
+          if (hash[i] != hash_validate[i])
+            failed = true;
+        }
+        if (failed)
+          Serial.printf("MINER %d Sha256 Fail\n", miner_id);
+        else
+          Serial.printf("MINER %d Sha256 Good\n", miner_id);
+      }
+#endif
       //Check target to submit
       //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
       //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
