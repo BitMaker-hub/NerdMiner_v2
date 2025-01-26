@@ -24,6 +24,11 @@
 #include <math.h>
 #include <string.h>
 
+//#pragma GCC optimize ("O2")
+//#pragma GCC optimize ("jump-tables")
+//#pragma GCC optimize ("tree-switch-conversion")
+//#pragma GCC optimize ("no-stack-check")
+
 #define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
 
 #ifndef PUT_UINT32_BE
@@ -438,8 +443,6 @@ IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, const uint8_t* dataIn, u
 IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
-    uint8_t temp3, temp4;
-    uint32_t* buffer32;
     //*********** Init 1rst SHA ***********
 
     //W0 W1 W2 is same !!
@@ -452,14 +455,6 @@ IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     const uint32_t* a = bake + 5;
     uint32_t A[8] = { a[0], a[1], a[2], a[3],
                       a[4], a[5], a[6], a[7] };
-
-    union {
-        uint32_t num;
-        uint8_t b[4];
-    } u;
-    uint8_t* p = NULL;
-
-    uint8_t i;
 
     //P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
     //P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
@@ -620,15 +615,25 @@ IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(53), K[53]);
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(54), K[54]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(55), K[55]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(56), K[56]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(57), K[57]);    
     
+    //Unroll 56 - worse performace
+    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(56), K[56]);
+
+    //Unroll 57
+    //P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(57), K[57]);
+    //P(a,    b,    c,    d,    e,    f,    g,    h,    x,     K)
+    uint32_t m1 = A[6] + S3(A[3]) + F1(A[3], A[4], A[5]) + K[57] + R(57);
+    //uint32_t m2 = S2(A[7]) + F0(A[7], A[0], A[1]);
+    A[2] += m1;
+    //A[6] = m1 + m2;
+    uint32_t d57_a1 = A[1];
+
     //Unroll 58
     //P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(58), K[58]);
     //P(a,    b,    c,    d,    e,    f,    g,    h,    x,     K)
     uint32_t z1 = A[5] + S3(A[2]) + F1(A[2], A[3], A[4]) + K[58] + R(58);
     //uint32_t z2 = S2(A[6]) + F0(A[6], A[7], A[0]);
-    uint32_t z0 = A[0];
+    uint32_t d58_a0 = A[0];
     A[1] += z1;
     //A[5] = z1 + z2;
 
@@ -651,8 +656,12 @@ IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
         return;
     }
 
+    //Post 57
+    uint32_t m2 = S2(A[7]) + F0(A[7], d58_a0, d57_a1);
+    A[6] = m1 + m2;
+
     //Post 58
-    uint32_t z2 = S2(A[6]) + F0(A[6], A[7], z0);
+    uint32_t z2 = S2(A[6]) + F0(A[6], A[7], d58_a0);
     A[5] = z1 + z2;
 
     //Post 59

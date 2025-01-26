@@ -259,7 +259,37 @@ void runStratumWorker(void *name) {
   
 }
 
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
+    REG_WRITE(&reg_addr_buf[0], data_words[0]);
+    REG_WRITE(&reg_addr_buf[1], data_words[1]);
+    REG_WRITE(&reg_addr_buf[2], data_words[2]);
+    REG_WRITE(&reg_addr_buf[3], data_words[3]);
+    REG_WRITE(&reg_addr_buf[4], data_words[4]);
+    REG_WRITE(&reg_addr_buf[5], data_words[5]);
+    REG_WRITE(&reg_addr_buf[6], data_words[6]);
+    REG_WRITE(&reg_addr_buf[7], data_words[7]);
+    REG_WRITE(&reg_addr_buf[8], data_words[8]);
+    REG_WRITE(&reg_addr_buf[9], data_words[9]);
+    REG_WRITE(&reg_addr_buf[10], data_words[10]);
+    REG_WRITE(&reg_addr_buf[11], data_words[11]);
+    REG_WRITE(&reg_addr_buf[12], data_words[12]);
+    REG_WRITE(&reg_addr_buf[13], data_words[13]);
+    REG_WRITE(&reg_addr_buf[14], data_words[14]);
+    REG_WRITE(&reg_addr_buf[15], data_words[15]);
+}
+
+static inline void nerd_sha_hal_wait_idle()
+{
+    while (sha_ll_busy())
+    {}
+}
+
+#endif
 //////////////////THREAD CALLS///////////////////
 
 //This works only with one thread, TODO -> Class or miner_data for each thread
@@ -358,26 +388,34 @@ void runMiner(void * task_id) {
       if (miner_id == 0)
       {
         //Hardware
+        uint32_t nonce_start = nonce;
         esp_sha_acquire_hardware();
         while (nonce < nonce_end)
         {
-          memcpy(header64+12, &nonce, 4);
+          //memcpy(header64+12, &nonce, 4);
+          ((uint32_t*)(header64+12))[0] = nonce;
           
           sha_ll_write_digest(SHA2_256, midstate, 256 / 32);
-          sha_hal_wait_idle();
-          sha_ll_fill_text_block(header64, 64/4);
+          //sha_hal_wait_idle();
+          nerd_sha_hal_wait_idle();
+          //sha_ll_fill_text_block(header64, 64/4);
+          nerd_sha_ll_fill_text_block_sha256(header64);
           sha_ll_continue_block(SHA2_256);
       
           sha_ll_load(SHA2_256);
-          sha_hal_wait_idle();
+          //sha_hal_wait_idle();
+          nerd_sha_hal_wait_idle();
           sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
       
-          sha_hal_wait_idle();
-          sha_ll_fill_text_block(interResult, 64/4);
+          //sha_hal_wait_idle();
+          nerd_sha_hal_wait_idle();
+          //sha_ll_fill_text_block(interResult, 64/4);
+          nerd_sha_ll_fill_text_block_sha256(interResult);
           sha_ll_start_block(SHA2_256);
 
           sha_ll_load(SHA2_256);
-          sha_hal_wait_idle();
+          //sha_hal_wait_idle();
+          nerd_sha_hal_wait_idle();
           sha_ll_read_digest(SHA2_256, hash, 256 / 32);
           #ifdef SHA256_VALIDATE
           mbedtls_sha256_context ctx;
@@ -413,14 +451,12 @@ void runMiner(void * task_id) {
             return; //Crash Here
           }
           #endif
-
-          hashes++;
           nonce++;
-
           if(hash[31] == 0 && hash[30] == 0)
             break;
         }
         esp_sha_release_hardware();
+        hashes += nonce - nonce_start;
       } else
 #endif
       {

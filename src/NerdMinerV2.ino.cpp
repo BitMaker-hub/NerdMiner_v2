@@ -92,10 +92,49 @@ static uint8_t interResult_aligned[64] __attribute__((aligned(256)));
 static uint8_t midstate_aligned[32] __attribute__((aligned(256)));
 static uint8_t hash_aligned[64] __attribute__((aligned(256)));
 
-IRAM_ATTR void nerd_sha_hal_wait_idle()
+static inline void nerd_sha_hal_wait_idle()
 {
     while (sha_ll_busy())
     {}
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    REG_WRITE(&reg_addr_buf[0], data_words[0]);
+    REG_WRITE(&reg_addr_buf[1], data_words[1]);
+    REG_WRITE(&reg_addr_buf[2], data_words[2]);
+    REG_WRITE(&reg_addr_buf[3], data_words[3]);
+    REG_WRITE(&reg_addr_buf[4], data_words[4]);
+    REG_WRITE(&reg_addr_buf[5], data_words[5]);
+    REG_WRITE(&reg_addr_buf[6], data_words[6]);
+    REG_WRITE(&reg_addr_buf[7], data_words[7]);
+    REG_WRITE(&reg_addr_buf[8], data_words[8]);
+    REG_WRITE(&reg_addr_buf[9], data_words[9]);
+    REG_WRITE(&reg_addr_buf[10], data_words[10]);
+    REG_WRITE(&reg_addr_buf[11], data_words[11]);
+    REG_WRITE(&reg_addr_buf[12], data_words[12]);
+    REG_WRITE(&reg_addr_buf[13], data_words[13]);
+    REG_WRITE(&reg_addr_buf[14], data_words[14]);
+    REG_WRITE(&reg_addr_buf[15], data_words[15]);
+}
+
+static inline void nerd_sha_ll_write_digest_sha256(void *digest_state)
+{
+    uint32_t *digest_state_words = (uint32_t *)digest_state;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_H_BASE);
+
+    REG_WRITE(&reg_addr_buf[0], digest_state_words[0]);
+    REG_WRITE(&reg_addr_buf[1], digest_state_words[1]);
+    REG_WRITE(&reg_addr_buf[2], digest_state_words[2]);
+    REG_WRITE(&reg_addr_buf[3], digest_state_words[3]);
+    REG_WRITE(&reg_addr_buf[4], digest_state_words[4]);
+    REG_WRITE(&reg_addr_buf[5], digest_state_words[5]);
+    REG_WRITE(&reg_addr_buf[6], digest_state_words[6]);
+    REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
+    REG_WRITE(&reg_addr_buf[8], digest_state_words[8]);
 }
 
 IRAM_ATTR void HwShaTest()
@@ -116,7 +155,7 @@ IRAM_ATTR void HwShaTest()
   uint32_t bake[16];
 
   uint32_t time_start = micros();
-  const int test_count = 1000000;
+  int test_count = 1000000;
 
 #if 0
   //Generic software  16KH/s
@@ -146,7 +185,10 @@ IRAM_ATTR void HwShaTest()
 #endif
 
 #if 0
-  //nerdSha256 bake (ESP32 41KH/s)
+  //nerdSha256 bake
+  //ESP32   : 41KH/s
+  //ESP32S3 : 42.32KH/s
+  test_count = 100000;
   nerdSHA256_context ctx;
   nerd_mids(&ctx, s_test_buffer);
   nerd_sha256_bake(ctx.digest, s_test_buffer+64, bake);  //15 words
@@ -232,7 +274,7 @@ IRAM_ATTR void HwShaTest()
 #endif
 
 #if 1
-  //Hardware LL 161KH/s
+  //Hardware LL 162.43KH/s
   esp_sha_acquire_hardware();
   //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
   sha_hal_wait_idle();
@@ -248,25 +290,32 @@ IRAM_ATTR void HwShaTest()
   {
       //sha_hal_write_digest(SHA2_256, midstate);
       sha_ll_write_digest(SHA2_256, midstate, 256 / 32);
+      //nerd_sha_ll_write_digest_sha256(midstate);
       
       //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
-      sha_hal_wait_idle();
-      sha_ll_fill_text_block(s_test_buffer+64, 64/4);
+      //sha_hal_wait_idle();
+      nerd_sha_hal_wait_idle();
+      //sha_ll_fill_text_block(s_test_buffer+64, 64/4);
+      nerd_sha_ll_fill_text_block_sha256(s_test_buffer+64);
       sha_ll_continue_block(SHA2_256);
       
       //sha_hal_read_digest(SHA2_256, interResult);
       sha_ll_load(SHA2_256);
-      sha_hal_wait_idle();
+      //sha_hal_wait_idle();
+      nerd_sha_hal_wait_idle();
       sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
       
       //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
-      sha_hal_wait_idle();
-      sha_ll_fill_text_block(interResult, 64/4);
+      //sha_hal_wait_idle();
+      nerd_sha_hal_wait_idle();
+      //sha_ll_fill_text_block(interResult, 64/4);
+      nerd_sha_ll_fill_text_block_sha256(interResult);
       sha_ll_start_block(SHA2_256);
 
       //sha_hal_read_digest(SHA2_256, hash);
       sha_ll_load(SHA2_256);
-      sha_hal_wait_idle();
+      //sha_hal_wait_idle();
+      nerd_sha_hal_wait_idle();
       sha_ll_read_digest(SHA2_256, hash, 256 / 32);
   }
   esp_sha_release_hardware();
@@ -275,7 +324,7 @@ IRAM_ATTR void HwShaTest()
   uint32_t time_end = micros();
   double hash_rate = ((double)test_count * 1000000) / (double)(time_end - time_start);
   Serial.print("DmaHashrate=");
-  Serial.print((int)hash_rate/1000);
+  Serial.print(hash_rate/1000);
   Serial.println("KH/s");
 
   Serial.print("interResult: ");
