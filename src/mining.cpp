@@ -395,7 +395,7 @@ void runMiner(void * task_id) {
           //memcpy(header64+12, &nonce, 4);
           ((uint32_t*)(header64+12))[0] = nonce;
           
-          sha_ll_write_digest(SHA2_256, midstate, 256 / 32);
+          sha_ll_write_digest(SHA2_256, midstate, 256 / 32);  //no need to unroll
           //sha_hal_wait_idle();
           nerd_sha_hal_wait_idle();
           //sha_ll_fill_text_block(header64, 64/4);
@@ -460,9 +460,11 @@ void runMiner(void * task_id) {
       } else
 #endif
       {
+        uint32_t nonce_start = nonce;
         while (nonce < nonce_end)
         {
-          memcpy(header64+12, &nonce, 4);
+          //memcpy(header64+12, &nonce, 4);
+          ((uint32_t*)(header64+12))[0] = nonce;
           //nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
           nerd_sha256d_baked(nerdMidstate.digest, header64, bake, hash);
 
@@ -517,12 +519,11 @@ void runMiner(void * task_id) {
             return; //Crash Here
           }
           #endif
-          hashes++;
           nonce++;
-
           if(hash[31] == 0 && hash[30] == 0)
             break;
         }
+        hashes += nonce - nonce_start;
       }
 
       /*Serial.print("hash1: ");
