@@ -10,6 +10,10 @@
 #define KEEPALIVE_TIME_ms       30000
 #define POOLINACTIVITY_TIME_ms  60000
 
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#define HARDWARE_SHA265
+#endif
+
 #define TARGET_BUFFER_SIZE 64
 
 void runMonitor(void *name);

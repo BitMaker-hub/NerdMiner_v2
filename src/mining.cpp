@@ -23,9 +23,6 @@
 
 
 //#define SHA256_VALIDATE
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
-#define HARDWARE_SHA265
-#endif
 
 #ifdef HARDWARE_SHA265
 #include <sha/sha_dma.h>
@@ -407,7 +404,6 @@ void minerWorkerSw(void * task_id)
           }
         }
       }
-      memcpy(result->hash, hash, sizeof(hash));
     } else
       vTaskDelay(2 / portTICK_PERIOD_MS);
   }
