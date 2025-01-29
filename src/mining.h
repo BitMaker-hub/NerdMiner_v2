@@ -13,8 +13,13 @@
 #define TARGET_BUFFER_SIZE 64
 
 void runMonitor(void *name);
+
 void runStratumWorker(void *name);
 void runMiner(void *name);
+
+void minerWorkerSw(void * task_id);
+void minerWorkerHw(void * task_id);
+
 String printLocalTime(void);
 
 void resetStat();
@@ -24,8 +29,6 @@ typedef struct{
   uint8_t bytearray_pooltarget[32];
   uint8_t merkle_result[32];
   uint8_t bytearray_blockheader[128];
-  uint8_t bytearray_blockheader2[80];
-  double poolDifficulty;
 } miner_data;
 
 

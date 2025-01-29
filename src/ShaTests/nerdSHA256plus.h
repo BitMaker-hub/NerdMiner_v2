@@ -25,7 +25,7 @@ struct nerdSHA256_context {
 };
 
 /* Calculate midstate */
-IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, const uint8_t* dataIn);
+IRAM_ATTR void nerd_mids(uint32_t* digest, const uint8_t* dataIn);
 
 IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn, uint8_t* doubleHash);
 

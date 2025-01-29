@@ -171,10 +171,7 @@ void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
 
 miner_data init_miner_data(void){
   
-  miner_data newMinerData;
-
-  newMinerData.poolDifficulty = DEFAULT_DIFFICULTY;
-  
+  miner_data newMinerData; 
   return newMinerData;
 }
 

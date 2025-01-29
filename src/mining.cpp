@@ -14,7 +14,13 @@
 #include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
 #include <mutex>
+#include <list>
 #include "mbedtls/sha256.h"
+
+//10 Jobs per second
+#define NONCE_PER_JOB_SW 4096
+#define NONCE_PER_JOB_HW 16*1024
+
 
 //#define SHA256_VALIDATE
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -39,13 +45,6 @@ uint64_t upTime = 0;
 volatile uint32_t shares; // increase if blockhash has 32 bits of zeroes
 volatile uint32_t valids; // increased if blockhash <= target
 
-static std::mutex s_nonce_batch_mutex;
-static volatile uint32_t s_nonce_batch = 0;
-
-static volatile uint8_t s_thread_busy[2] = {0, 0};
-static volatile uint32_t s_thread_task_id = 0;
-static volatile uint32_t s_thread_task_aborted_id = 0;
-
 // Track best diff
 double best_diff = 0.0;
 
@@ -57,7 +56,6 @@ IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 
 //Global work data 
 static WiFiClient client;
-static std::mutex s_client_mutex;
 static miner_data mMiner; //Global miner data (Create a miner class TODO)
 mining_subscribe mWorker;
 mining_job mJob;
@@ -112,10 +110,7 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
       mLastTXtoPool = millis();
       Serial.println("  Sending  : KeepAlive suggest_difficulty");
       //if (client.print("{}\n") == 0) {
-      {
-        std::lock_guard<std::mutex> lock(s_client_mutex);
-        tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
-      }
+      tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
       /*if(tx_suggest_difficulty(client, DEFAULT_DIFFICULTY)){
         Serial.println("  Sending keepAlive to pool -> Detected client disconnected");
         return true;
@@ -133,6 +128,47 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
   return false;
 }
 
+struct JobRequest
+{
+  uint32_t id;
+  uint32_t nonce_start;
+  uint32_t nonce_count;
+  double difficulty;
+  uint8_t buffer_upper[64];
+  uint32_t midstate[8];
+  uint32_t bake[16];
+};
+
+struct JobResult
+{
+  uint32_t id;
+  uint32_t nonce;
+  uint32_t nonce_count;
+  double difficulty;
+  uint8_t hash[32];
+};
+
+static std::mutex s_job_mutex;
+std::list<std::shared_ptr<JobRequest>> s_job_request_list_sw;
+#ifdef HARDWARE_SHA265
+std::list<std::shared_ptr<JobRequest>> s_job_request_list_hw;
+#endif
+std::list<std::shared_ptr<JobResult>> s_job_result_list;
+
+static void JobPush(std::list<std::shared_ptr<JobRequest>> &job_list,  uint32_t id, uint32_t nonce_start, uint32_t nonce_count, double difficulty,
+                    const uint8_t* buffer_upper, const uint32_t* midstate, const uint32_t* bake)
+{
+  std::shared_ptr<JobRequest> job = std::make_shared<JobRequest>();
+  job->id = id;
+  job->nonce_start = nonce_start;
+  job->nonce_count = nonce_count;
+  job->difficulty = difficulty;
+  memcpy(job->buffer_upper, buffer_upper, sizeof(job->buffer_upper));
+  memcpy(job->midstate, midstate, sizeof(job->midstate));
+  memcpy(job->bake, bake, sizeof(job->bake));
+  job_list.push_back(job);
+}
+
 void runStratumWorker(void *name) {
 
 // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
@@ -147,6 +183,8 @@ void runStratumWorker(void *name) {
   // connect to pool
   
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
+  uint32_t nonce_pool = 0;
+  uint32_t job_pool = 0;
 
   while(true) {
       
@@ -165,10 +203,9 @@ void runStratumWorker(void *name) {
       vTaskDelay(((1 + rand() % 120) * 1000) / portTICK_PERIOD_MS);
     }
 
-    if(!isMinerSuscribed){
-
+    if(!isMinerSuscribed)
+    {
       //Stop miner current jobs
-      s_thread_task_aborted_id = s_thread_task_id;
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
@@ -184,7 +221,7 @@ void runStratumWorker(void *name) {
       //tx_mining_auth2(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
 
       // STEP 3: Suggest pool difficulty
-      tx_suggest_difficulty(client, DEFAULT_DIFFICULTY);
+      tx_suggest_difficulty(client, currentPoolDifficulty);
 
       isMinerSuscribed=true;
       mLastTXtoPool = millis();
@@ -194,72 +231,190 @@ void runStratumWorker(void *name) {
     if(checkPoolInactivity(KEEPALIVE_TIME_ms, POOLINACTIVITY_TIME_ms)){
       //Restart connection
       Serial.println("  Detected more than 2 min without data form stratum server. Closing socket and reopening...");
-      {
-        std::lock_guard<std::mutex> lock(s_client_mutex);
-        client.stop();
-      }
-      s_thread_task_aborted_id = s_thread_task_id;
+      client.stop();
       isMinerSuscribed=false;
       continue; 
     }
 
-    //Read pending messages from pool
-    while(true)
-    {
-      String line;
-      {
-        std::lock_guard<std::mutex> lock(s_client_mutex);
-        if (!client.connected() || !client.available())
-          break;
-        line = client.readStringUntil('\n');
-      }
+    uint32_t hw_midstate[8];
+    uint32_t diget_mid[8];
+    uint32_t bake[16];
 
-      Serial.println("  Received message from pool");      
+    //Read pending messages from pool
+    while(client.connected() && client.available())
+    {
+      String line = client.readStringUntil('\n');
+      //Serial.println("  Received message from pool");      
       stratum_method result = parse_mining_method(line);
       switch (result)
       {
           case STRATUM_PARSE_ERROR:   Serial.println("  Parsed JSON: error on JSON"); break;
           case MINING_NOTIFY:         if(parse_mining_notify(line, mJob))
                                       {
+                                          {
+                                            std::lock_guard<std::mutex> lock(s_job_mutex);
+                                            s_job_request_list_sw.clear();
+                                            #ifdef HARDWARE_SHA265
+                                            s_job_request_list_hw.clear();
+                                            #endif
+                                          }
                                           //Increse templates readed
                                           templates++;
-                                          //Stop miner current jobs
-                                          //mMiner.inRun = false;
-                                          s_thread_task_aborted_id = s_thread_task_id;
-
-                                          #if (SOC_CPU_CORES_NUM >= 2)
-                                            while (s_thread_busy[0] || s_thread_busy[1]) { vTaskDelay(1 / portTICK_PERIOD_MS); }
-                                          #else
-                                            while (s_thread_busy[0]) { vTaskDelay(1 / portTICK_PERIOD_MS); }
-                                          #endif
+                                          job_pool++;
 
                                           //Prepare data for new jobs
-                                          mMiner=calculateMiningData(mWorker,mJob);
-                                          mMiner.poolDifficulty = currentPoolDifficulty;
+                                          mMiner=calculateMiningData(mWorker, mJob);
+
+                                          memset(mMiner.bytearray_blockheader+80, 0, 128-80);
+                                          mMiner.bytearray_blockheader[80] = 0x80;
+                                          mMiner.bytearray_blockheader[126] = 0x02;
+                                          mMiner.bytearray_blockheader[127] = 0x80;
+
+                                          nerd_mids(diget_mid, mMiner.bytearray_blockheader);
+                                          nerd_sha256_bake(diget_mid, mMiner.bytearray_blockheader+64, bake);
+
+                                          #ifdef HARDWARE_SHA265
+                                          esp_sha_acquire_hardware();
+                                          sha_hal_hash_block(SHA2_256,  mMiner.bytearray_blockheader, 64/4, true);
+                                          sha_hal_read_digest(SHA2_256, hw_midstate);
+                                          esp_sha_release_hardware();
+                                          #endif
+
                                           {
-                                            std::lock_guard<std::mutex> lock(s_nonce_batch_mutex);
-                                            s_nonce_batch = TARGET_NONCE - MAX_NONCE;
+                                            std::lock_guard<std::mutex> lock(s_job_mutex);
+                                            for (int i = 0; i < 4; ++ i)
+                                            {
+                                              JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, diget_mid, bake);
+                                              nonce_pool += NONCE_PER_JOB_SW;
+                                              #ifdef HARDWARE_SHA265
+                                              JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, hw_midstate, bake);
+                                              nonce_pool += NONCE_PER_JOB_HW;
+                                              #endif
+                                            }
                                           }
-                                          s_thread_task_id++;
-                                          //Give new job to miner
                                       }
                                       break;
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
-                                      mMiner.poolDifficulty = currentPoolDifficulty;
                                       break;
           case STRATUM_SUCCESS:       Serial.println("  Parsed JSON: Success"); break;
           default:                    Serial.println("  Parsed JSON: unknown"); break;
 
       }
     }
+    vTaskDelay(50 / portTICK_PERIOD_MS); //Small delay
 
-    vTaskDelay(500 / portTICK_PERIOD_MS); //Small delay
-    
+    std::list<std::shared_ptr<JobResult>> job_result_list;
+    {
+      std::lock_guard<std::mutex> lock(s_job_mutex);
+      job_result_list = s_job_result_list;
+      s_job_result_list.clear();
+     
+      while (s_job_request_list_sw.size() < 4)
+      {
+        JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, diget_mid, bake);
+        nonce_pool += NONCE_PER_JOB_SW;
+      }
+      
+      #ifdef HARDWARE_SHA265
+      while (s_job_request_list_hw.size() < 4)
+      {
+        JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, hw_midstate, bake);
+        nonce_pool += NONCE_PER_JOB_HW;
+      }
+      #endif
+    }
+
+    while (!job_result_list.empty())
+    {
+      std::shared_ptr<JobResult> res = job_result_list.front();
+      job_result_list.pop_front();
+
+      hashes += res->nonce_count;
+      if (res->difficulty > currentPoolDifficulty && job_pool == res->id)
+      {
+        tx_mining_submit(client, mWorker, mJob, res->nonce);
+        Serial.print("   - Current diff share: "); Serial.println(res->difficulty,12);
+        Serial.print("   - Current pool diff : "); Serial.println(currentPoolDifficulty,12);
+        Serial.print("   - TX SHARE: ");
+        for (size_t i = 0; i < 32; i++)
+            Serial.printf("%02x", res->hash[i]);
+        Serial.println("");
+        mLastTXtoPool = millis();  
+
+        if (res->difficulty > best_diff)
+          best_diff = res->difficulty;
+      
+        // check if 32bit share
+        if(res->hash[29] !=0 || res->hash[28] !=0)
+          shares++;
+
+        // check if valid header
+        if(checkValid(res->hash, mMiner.bytearray_target))
+        {
+          Serial.printf("CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", res->nonce);
+          valids++;
+        }
+      }
+    }
   }
-  
 }
 
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+//////////////////THREAD CALLS///////////////////
+
+void minerWorkerSw(void * task_id)
+{
+  unsigned int miner_id = (uint32_t)task_id;
+  Serial.printf("[MINER] %d Started minerWorkerSw Task!\n", miner_id);
+
+  std::shared_ptr<JobRequest> job;
+  std::shared_ptr<JobResult> result;
+  uint8_t hash[32];
+  while (1)
+  {
+    {
+      std::lock_guard<std::mutex> lock(s_job_mutex);
+      if (result)
+      {
+        s_job_result_list.push_back(result);
+        result.reset();
+      }
+      if (!s_job_request_list_sw.empty())
+      {
+        job = s_job_request_list_sw.front();
+        s_job_request_list_sw.pop_front();
+      } else
+        job.reset();
+    }
+    if (job)
+    {
+      result = std::make_shared<JobResult>();
+      result->difficulty = 0.0;
+      result->nonce = 0xFFFFFFFF;
+      result->id = job->id;
+      result->nonce_count = job->nonce_count;
+      for (uint32_t n = 0; n < job->nonce_count; ++n)
+      {
+        ((uint32_t*)(job->buffer_upper+12))[0] = job->nonce_start+n;
+        nerd_sha256d_baked(job->midstate, job->buffer_upper, job->bake, hash);
+        if(hash[31] == 0 && hash[30] == 0)
+        {
+          double diff_hash = diff_from_target(hash);
+          if (diff_hash > best_diff)
+          {
+            result->difficulty = diff_hash;
+            result->nonce = job->nonce_start+n;
+            memcpy(result->hash, hash, 32);
+          }
+        }
+      }
+      memcpy(result->hash, hash, sizeof(hash));
+    } else
+      vTaskDelay(2 / portTICK_PERIOD_MS);
+  }
+}
+
+#ifdef HARDWARE_SHA265
+
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 {
     uint32_t *data_words = (uint32_t *)input_text;
@@ -289,12 +444,92 @@ static inline void nerd_sha_hal_wait_idle()
     {}
 }
 
+void minerWorkerHw(void * task_id)
+{
+  unsigned int miner_id = (uint32_t)task_id;
+  Serial.printf("[MINER] %d Started minerWorkerHw Task!\n", miner_id);
+
+  std::shared_ptr<JobRequest> job;
+  std::shared_ptr<JobResult> result;
+  uint8_t interResult[64];
+  uint8_t hash[32];
+
+  memset(interResult, 0, sizeof(interResult));
+  interResult[32] = 0x80;
+  interResult[62] = 0x01;
+  interResult[63] = 0x00;
+  while (1)
+  {
+    {
+      std::lock_guard<std::mutex> lock(s_job_mutex);
+      if (result)
+      {
+        s_job_result_list.push_back(result);
+        result.reset();
+      }
+      if (!s_job_request_list_hw.empty())
+      {
+        job = s_job_request_list_hw.front();
+        s_job_request_list_hw.pop_front();
+      } else
+        job.reset();
+    }
+    if (job)
+    {
+      result = std::make_shared<JobResult>();
+      result->id = job->id;
+      result->nonce = 0xFFFFFF;
+      result->nonce_count = job->nonce_count;
+      result->difficulty = 0.0;
+
+      uint8_t* sha_buffer = job->buffer_upper;
+      esp_sha_acquire_hardware();
+      for (uint32_t n = 0; n < job->nonce_count; ++n)
+      {
+        ((uint32_t*)(sha_buffer+12))[0] = job->nonce_start+n;
+          
+        sha_ll_write_digest(SHA2_256, job->midstate, 256 / 32);  //no need to unroll
+        //sha_hal_wait_idle();
+        nerd_sha_hal_wait_idle();
+        //sha_ll_fill_text_block(header64, 64/4);
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer);
+        sha_ll_continue_block(SHA2_256);
+    
+        sha_ll_load(SHA2_256);
+        //sha_hal_wait_idle();
+        nerd_sha_hal_wait_idle();
+        sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
+    
+        //sha_hal_wait_idle();
+        nerd_sha_hal_wait_idle();
+        //sha_ll_fill_text_block(interResult, 64/4);
+        nerd_sha_ll_fill_text_block_sha256(interResult);
+        sha_ll_start_block(SHA2_256);
+
+        sha_ll_load(SHA2_256);
+        //sha_hal_wait_idle();
+        nerd_sha_hal_wait_idle();
+        sha_ll_read_digest(SHA2_256, hash, 256 / 32);
+
+        if(hash[31] == 0 && hash[30] == 0)
+        {
+          double diff_hash = diff_from_target(hash);
+          if (diff_hash > result->difficulty)
+          {
+            result->difficulty = diff_hash;
+            result->nonce = job->nonce_start+n;
+            memcpy(result->hash, hash, sizeof(hash));
+          }
+        }
+      }
+      esp_sha_release_hardware();
+    } else
+      vTaskDelay(2 / portTICK_PERIOD_MS);
+  }
+}
 #endif
-//////////////////THREAD CALLS///////////////////
 
-//This works only with one thread, TODO -> Class or miner_data for each thread
-
-  
+#if 0
 void runMiner(void * task_id) {
 
   unsigned int miner_id = (uint32_t)task_id;
@@ -641,6 +876,8 @@ void runMiner(void * task_id) {
   } //while (1)
 }
 
+#endif
+
 #define DELAY 100
 #define REDRAW_EVERY 10
 
@@ -716,7 +953,8 @@ void runMonitor(void *name)
       if (elapsedKHs == 0)
       {
         Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-            (s_thread_task_id != s_thread_task_aborted_id) ? "true" : "false", s_thread_busy[0] ? "true" : "false",
+            //(1) ? "true" : "false", 1 ? "true" : "false",
+            "true", "true",
             client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
       }
 

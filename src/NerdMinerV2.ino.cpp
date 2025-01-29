@@ -441,11 +441,15 @@ void setup()
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
-  xTaskCreate(runMiner, "Miner0", 6000, (void*)0, 1, &minerTask1);
+  xTaskCreate(minerWorkerSw, "Miner0", 6000, (void*)0, 1, &minerTask1);
   esp_task_wdt_add(minerTask1);
 
 #if (SOC_CPU_CORES_NUM >= 2)
-  xTaskCreate(runMiner, "Miner1", 6000, (void*)1, 1, &minerTask2);
+  #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+    xTaskCreate(minerWorkerHw, "Miner1", 6000, (void*)1, 1, &minerTask2);
+  #else
+    xTaskCreate(minerWorkerSw, "Miner1", 6000, (void*)0, 1, &minerTask2);
+  #endif
   esp_task_wdt_add(minerTask2);
 #endif
 

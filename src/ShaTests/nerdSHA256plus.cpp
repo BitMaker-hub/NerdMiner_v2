@@ -106,7 +106,7 @@ void ByteReverseWords(uint32_t* out, const uint32_t* in, uint32_t byteCount)
 }
 
 
-IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, const uint8_t* dataIn)
+IRAM_ATTR void nerd_mids(uint32_t* digest, const uint8_t* dataIn)
 {
     uint32_t A[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
 
@@ -195,15 +195,14 @@ IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, const uint8_t* dataIn)
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
 
-    midstate->digest[0] = 0x6A09E667 + A[0];
-    midstate->digest[1] = 0xBB67AE85 + A[1];
-    midstate->digest[2] = 0x3C6EF372 + A[2];
-    midstate->digest[3] = 0xA54FF53A + A[3];
-    midstate->digest[4] = 0x510E527F + A[4];
-    midstate->digest[5] = 0x9B05688C + A[5];
-    midstate->digest[6] = 0x1F83D9AB + A[6];
-    midstate->digest[7] = 0x5BE0CD19 + A[7];
-    
+    digest[0] = 0x6A09E667 + A[0];
+    digest[1] = 0xBB67AE85 + A[1];
+    digest[2] = 0x3C6EF372 + A[2];
+    digest[3] = 0xA54FF53A + A[3];
+    digest[4] = 0x510E527F + A[4];
+    digest[5] = 0x9B05688C + A[5];
+    digest[6] = 0x1F83D9AB + A[6];
+    digest[7] = 0x5BE0CD19 + A[7];
 }
 
 IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn, uint8_t* doubleHash)
