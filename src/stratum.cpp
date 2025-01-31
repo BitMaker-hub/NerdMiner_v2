@@ -205,12 +205,13 @@ bool parse_mining_notify(String line, mining_job& mJob)
 }
 
 
-bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce)
+bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce, unsigned long &submit_id)
 {
     char payload[BUFFER] = {0};
 
     // Submit
     id = getNextId(id);
+    submit_id = id;
     sprintf(payload, "{\"id\": %u, \"method\": \"mining.submit\", \"params\": [\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
         id,
         mWorker.wName,//"bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
@@ -252,4 +253,19 @@ bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
     Serial.print("  Sending  : "); Serial.print(payload);
     return client.print(payload);
 
+}
+
+
+unsigned long parse_extract_id(const String &line)
+{
+    DeserializationError error = deserializeJson(doc, line);
+    if (error)
+        return 0;
+    
+    if (!doc.containsKey("id"))
+        return 0;
+
+    unsigned long id = doc["id"];
+
+    return id;
 }

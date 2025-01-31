@@ -61,6 +61,10 @@ const char* ntpServer = "pool.ntp.org";
 #include <sha/sha_dma.h>
 #include <hal/sha_hal.h>
 #include <hal/sha_ll.h>
+#include <esp_heap_caps.h>
+#include <hal/gdma_types.h>
+#include <esp_crypto_shared_gdma.h>
+#include <driver/periph_ctrl.h>
 
 static const uint8_t s_test_buffer[128] = 
 {
@@ -94,7 +98,7 @@ static uint8_t hash_aligned[64] __attribute__((aligned(256)));
 
 static inline void nerd_sha_hal_wait_idle()
 {
-    while (sha_ll_busy())
+    while (REG_READ(SHA_BUSY_REG))
     {}
 }
 
@@ -134,8 +138,36 @@ static inline void nerd_sha_ll_write_digest_sha256(void *digest_state)
     REG_WRITE(&reg_addr_buf[5], digest_state_words[5]);
     REG_WRITE(&reg_addr_buf[6], digest_state_words[6]);
     REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
-    REG_WRITE(&reg_addr_buf[8], digest_state_words[8]);
 }
+
+//void IRAM_ATTR esp_dport_access_read_buffer(uint32_t *buff_out, uint32_t address, uint32_t num_words)
+static inline void nerd_sha_ll_read_digest(void* ptr)
+{
+    DPORT_INTERRUPT_DISABLE();
+#if 0
+    for (uint32_t i = 0;  i < 256 / 32; ++i)
+    {
+        ((uint32_t*)ptr)[i] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + i * 4);
+    }
+#else
+  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
+  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
+  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
+  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4);
+  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4);
+  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
+  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);
+  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
+#endif
+    DPORT_INTERRUPT_RESTORE();
+}
+
+static IRAM_ATTR uint8_t dma_buffer[128] __attribute__((aligned(32)));
+static IRAM_ATTR uint8_t dma_inter[64] __attribute__((aligned(32)));
+static IRAM_ATTR uint8_t dma_hash[32] __attribute__((aligned(32)));
+static DRAM_ATTR lldesc_t s_dma_descr_input;
+static DRAM_ATTR lldesc_t s_dma_descr_buf;
+static DRAM_ATTR lldesc_t s_dma_descr_inter;
 
 IRAM_ATTR void HwShaTest()
 {
@@ -303,7 +335,8 @@ IRAM_ATTR void HwShaTest()
       sha_ll_load(SHA2_256);
       //sha_hal_wait_idle();
       nerd_sha_hal_wait_idle();
-      sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
+      //sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
+      nerd_sha_ll_read_digest(interResult);
       
       //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
       //sha_hal_wait_idle();
@@ -316,7 +349,59 @@ IRAM_ATTR void HwShaTest()
       sha_ll_load(SHA2_256);
       //sha_hal_wait_idle();
       nerd_sha_hal_wait_idle();
-      sha_ll_read_digest(SHA2_256, hash, 256 / 32);
+      //sha_ll_read_digest(SHA2_256, hash, 256 / 32);
+      nerd_sha_ll_read_digest(hash);
+  }
+  esp_sha_release_hardware();
+#endif
+
+#if 0
+  //DMA hash
+  uint8_t* dma_cap_buf = (uint8_t*)heap_caps_malloc(128, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+  memcpy(dma_cap_buf, s_test_buffer, 128);
+
+  uint8_t* dma_cap_inter = (uint8_t*)heap_caps_malloc(64, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+  memcpy(dma_cap_inter, interResult, 64);
+
+  uint8_t* dma_cap_hash = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_8BIT|MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+
+  memset(&s_dma_descr_input, 0, sizeof(lldesc_t));
+  memset(&s_dma_descr_buf, 0, sizeof(lldesc_t));
+  memset(&s_dma_descr_inter, 0, sizeof(lldesc_t));
+  
+
+  s_dma_descr_input.length = 64;
+  s_dma_descr_input.size = 64;
+  s_dma_descr_input.owner = 1;
+  s_dma_descr_input.eof = 1;
+  s_dma_descr_input.buf = dma_cap_buf+64;
+
+  s_dma_descr_buf.length = 64;
+  s_dma_descr_buf.size = 64;
+  s_dma_descr_buf.owner = 1;
+  s_dma_descr_buf.buf = dma_cap_buf;
+  s_dma_descr_buf.eof = 0;
+  s_dma_descr_buf.empty = (uint32_t)(&s_dma_descr_input);
+
+  s_dma_descr_inter.length = 64;
+  s_dma_descr_inter.size = 64;
+  s_dma_descr_inter.owner = 1;
+  s_dma_descr_inter.buf = dma_cap_inter;
+  s_dma_descr_inter.eof = 1;
+
+  //49.83KH/s
+  esp_sha_acquire_hardware();
+  for (int i = 0; i < test_count; ++i)
+  {
+    esp_crypto_shared_gdma_start(&s_dma_descr_buf, NULL, GDMA_TRIG_PERIPH_SHA);
+    sha_hal_hash_dma(SHA2_256, 2, true);
+    sha_hal_wait_idle();
+    esp_sha_read_digest_state(SHA2_256, dma_cap_inter);
+  
+    esp_crypto_shared_gdma_start(&s_dma_descr_inter, NULL, GDMA_TRIG_PERIPH_SHA);
+    sha_hal_hash_dma(SHA2_256, 1, true);
+    sha_hal_wait_idle();
+    esp_sha_read_digest_state(SHA2_256, hash);
   }
   esp_sha_release_hardware();
 #endif
@@ -442,7 +527,7 @@ void setup()
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
   #ifdef HARDWARE_SHA265
-    xTaskCreate(minerWorkerHw, "MinerHw-0", 6000, (void*)0, 1, &minerTask1);
+    xTaskCreate(minerWorkerHw, "MinerHw-0", 2048, (void*)0, 2, &minerTask1);
   #else
     xTaskCreate(minerWorkerSw, "MinerSw-0", 6000, (void*)0, 1, &minerTask1);
   #endif
