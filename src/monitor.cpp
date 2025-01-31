@@ -20,7 +20,7 @@ extern uint64_t upTime;
 extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
 extern uint32_t valids; // increased if blockhash <= targethalfshares
 
-extern double s_best_diff; // track best diff
+extern double best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
@@ -280,7 +280,7 @@ mining_data getMiningData(unsigned long mElapsed)
   mining_data data;
 
   char best_diff_string[16] = {0};
-  suffix_string(s_best_diff, best_diff_string, 16, 0);
+  suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
   uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);

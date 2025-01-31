@@ -44,7 +44,7 @@ volatile uint32_t shares; // increase if blockhash has 32 bits of zeroes
 volatile uint32_t valids; // increased if blockhash <= target
 
 // Track best diff
-double s_best_diff = 0.0;
+double best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
 //Track mining stats in non volatile memory
@@ -394,8 +394,8 @@ void runStratumWorker(void *name) {
         Serial.println("");
         mLastTXtoPool = millis();  
 
-        if (res->difficulty > s_best_diff)
-          s_best_diff = res->difficulty;
+        if (res->difficulty > best_diff)
+          best_diff = res->difficulty;
       
         // check if 32bit share
         if(res->hash[29] !=0 || res->hash[28] !=0)
@@ -613,7 +613,7 @@ void restoreStat() {
   ret = nvs_open("state", NVS_READWRITE, &stat_handle);
 
   size_t required_size = sizeof(double);
-  nvs_get_blob(stat_handle, "best_diff", &s_best_diff, &required_size);
+  nvs_get_blob(stat_handle, "best_diff", &best_diff, &required_size);
   nvs_get_u32(stat_handle, "Mhashes", &Mhashes);
   uint32_t nv_shares, nv_valids;
   nvs_get_u32(stat_handle, "shares", &nv_shares);
@@ -627,7 +627,7 @@ void restoreStat() {
 void saveStat() {
   if(!Settings.saveStats) return;
   Serial.printf("[MONITOR] Saving stats\n");
-  nvs_set_blob(stat_handle, "best_diff", &s_best_diff, sizeof(double));
+  nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(double));
   nvs_set_u32(stat_handle, "Mhashes", Mhashes);
   nvs_set_u32(stat_handle, "shares", shares);
   nvs_set_u32(stat_handle, "valids", valids);
@@ -638,7 +638,7 @@ void saveStat() {
 void resetStat() {
     Serial.printf("[MONITOR] Resetting NVS stats\n");
     templates = hashes = Mhashes = totalKHashes = elapsedKHs = upTime = shares = valids = 0;
-    s_best_diff = 0.0;
+    best_diff = 0.0;
     saveStat();
 }
 
