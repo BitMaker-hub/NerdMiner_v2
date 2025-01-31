@@ -20,7 +20,7 @@ extern uint64_t upTime;
 extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
 extern uint32_t valids; // increased if blockhash <= targethalfshares
 
-extern double best_diff; // track best diff
+extern double s_best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
@@ -235,9 +235,44 @@ String getTime(void){
   return LocalHour;
 }
 
+enum EHashRateScale
+{
+  HashRateScale_99KH,
+  HashRateScale_999KH,
+  HashRateScale_9MH
+};
+
+static EHashRateScale s_hashrate_scale = HashRateScale_99KH;
+static uint32_t s_skip_first = 3;
+static double s_top_hashrate = 0.0;
+
 String getCurrentHashRate(unsigned long mElapsed)
 {
-  return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
+  double hashrate = (double)elapsedKHs * 1000.0 / (double)mElapsed;
+  if (s_skip_first > 0)
+  {
+    s_skip_first--;
+  } else
+  {
+    if (hashrate > s_top_hashrate)
+    {
+      s_top_hashrate = hashrate;
+      if (hashrate > 999.9)
+        s_hashrate_scale = HashRateScale_9MH;
+      else if (hashrate > 99.9)
+        s_hashrate_scale = HashRateScale_999KH;
+    }
+  }
+
+  switch (s_hashrate_scale)
+  {
+    case HashRateScale_99KH:
+      return String(hashrate, 2);
+    case HashRateScale_999KH:
+      return String(hashrate, 1);
+    default:
+      return String((int)hashrate );
+  }
 }
 
 mining_data getMiningData(unsigned long mElapsed)
@@ -245,7 +280,7 @@ mining_data getMiningData(unsigned long mElapsed)
   mining_data data;
 
   char best_diff_string[16] = {0};
-  suffix_string(best_diff, best_diff_string, 16, 0);
+  suffix_string(s_best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
   uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);

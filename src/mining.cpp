@@ -16,6 +16,7 @@
 #include <mutex>
 #include <list>
 #include "mbedtls/sha256.h"
+#include "i2c_master.h"
 
 //10 Jobs per second
 #define NONCE_PER_JOB_SW 4096
@@ -43,7 +44,7 @@ volatile uint32_t shares; // increase if blockhash has 32 bits of zeroes
 volatile uint32_t valids; // increased if blockhash <= target
 
 // Track best diff
-double best_diff = 0.0;
+double s_best_diff = 0.0;
 
 // Variables to hold data from custom textboxes
 //Track mining stats in non volatile memory
@@ -177,11 +178,22 @@ void runStratumWorker(void *name) {
   Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
   #endif
 
-  // connect to pool
-  
+  std::vector<uint8_t> i2c_slave_vector;
+
+  //scan for i2c slaves
+  if (i2c_master_start() == 0)
+    i2c_slave_vector = i2c_master_scan(0x0, 0x80);
+
+  Serial.printf("Found %d slave workers\n", i2c_slave_vector.size());
+  Serial.print("  Workers: ");
+  for (size_t n = 0; n < i2c_slave_vector.size(); ++n)
+    Serial.printf("0x%02X,", (uint32_t)i2c_slave_vector[n]);
+  Serial.println("");
+
+  // connect to pool  
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
   uint32_t nonce_pool = 0;
-  uint32_t job_pool = 0;
+  uint32_t job_pool = 0xFFFFFFFF;
 
   while(true) {
       
@@ -259,6 +271,10 @@ void runStratumWorker(void *name) {
                                           templates++;
                                           job_pool++;
 
+                                          uint32_t mh = hashes/1000000;
+                                          Mhashes += mh;
+                                          hashes -= mh*1000000;
+
                                           //Prepare data for new jobs
                                           mMiner=calculateMiningData(mWorker, mJob);
 
@@ -277,6 +293,8 @@ void runStratumWorker(void *name) {
                                           esp_sha_release_hardware();
                                           #endif
 
+                                          nonce_pool = 0x10000000;
+
                                           {
                                             std::lock_guard<std::mutex> lock(s_job_mutex);
                                             for (int i = 0; i < 4; ++ i)
@@ -289,6 +307,9 @@ void runStratumWorker(void *name) {
                                               #endif
                                             }
                                           }
+                                          //Nonce for nonce_pool starts from 0x10000000
+                                          //For i2c slave we give nonces from 0x20000000, that is 0x10000000 nonces per slave
+                                          i2c_feed_slaves(i2c_slave_vector, job_pool & 0xFF, 0x20, currentPoolDifficulty, mMiner.bytearray_blockheader);
                                       }
                                       break;
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
@@ -298,12 +319,47 @@ void runStratumWorker(void *name) {
 
       }
     }
-    vTaskDelay(50 / portTICK_PERIOD_MS); //Small delay
 
     std::list<std::shared_ptr<JobResult>> job_result_list;
+    if (i2c_slave_vector.empty() || job_pool == 0xFFFFFFFF)
+    {
+      vTaskDelay(50 / portTICK_PERIOD_MS); //Small delay
+    } else
+    {
+      uint32_t time_start = millis();
+      i2c_hit_slaves(i2c_slave_vector);
+      vTaskDelay(5 / portTICK_PERIOD_MS);
+      uint32_t nonces_done = 0;
+      std::vector<uint32_t> nonce_vector = i2c_harvest_slaves(i2c_slave_vector, job_pool & 0xFF, nonces_done);
+      hashes += nonces_done;
+      for (size_t n = 0; n < nonce_vector.size(); ++n)
+      {
+        std::shared_ptr<JobResult> result = std::make_shared<JobResult>();
+        ((uint32_t*)(mMiner.bytearray_blockheader+64+12))[0] = nonce_vector[n];
+        nerd_sha256d_baked(diget_mid, mMiner.bytearray_blockheader+64, bake, result->hash);
+        result->id = job_pool;
+        result->nonce = nonce_vector[n];
+        result->nonce_count = 0;
+        result->difficulty = diff_from_target(result->hash);
+        job_result_list.push_back(result);
+      }
+      uint32_t time_end = millis();
+      //if (nonces_done > 16384)
+        //Serial.printf("Harvest slaves in %dms hashes=%d\n", time_end - time_start, nonces_done);
+      if (time_end > time_start)
+      {
+        uint32_t elapsed = time_end - time_start;
+        if (elapsed < 50)
+          vTaskDelay((50 - elapsed) / portTICK_PERIOD_MS);
+      } else
+        vTaskDelay(40 / portTICK_PERIOD_MS);
+    }
+
+    
+    if (job_pool != 0xFFFFFFFF)
     {
       std::lock_guard<std::mutex> lock(s_job_mutex);
-      job_result_list = s_job_result_list;
+      job_result_list.insert(job_result_list.end(), s_job_result_list.begin(), s_job_result_list.end());
       s_job_result_list.clear();
      
       while (s_job_request_list_sw.size() < 4)
@@ -327,7 +383,7 @@ void runStratumWorker(void *name) {
       job_result_list.pop_front();
 
       hashes += res->nonce_count;
-      if (res->difficulty > currentPoolDifficulty && job_pool == res->id)
+      if (res->difficulty > currentPoolDifficulty && job_pool == res->id && res->nonce != 0xFFFFFFFF)
       {
         tx_mining_submit(client, mWorker, mJob, res->nonce);
         Serial.print("   - Current diff share: "); Serial.println(res->difficulty,12);
@@ -338,8 +394,8 @@ void runStratumWorker(void *name) {
         Serial.println("");
         mLastTXtoPool = millis();  
 
-        if (res->difficulty > best_diff)
-          best_diff = res->difficulty;
+        if (res->difficulty > s_best_diff)
+          s_best_diff = res->difficulty;
       
         // check if 32bit share
         if(res->hash[29] !=0 || res->hash[28] !=0)
@@ -366,6 +422,7 @@ void minerWorkerSw(void * task_id)
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
   uint8_t hash[32];
+  uint32_t wdt_counter = 0;
   while (1)
   {
     {
@@ -385,7 +442,7 @@ void minerWorkerSw(void * task_id)
     if (job)
     {
       result = std::make_shared<JobResult>();
-      result->difficulty = 0.0;
+      result->difficulty = job->difficulty;
       result->nonce = 0xFFFFFFFF;
       result->id = job->id;
       result->nonce_count = job->nonce_count;
@@ -396,7 +453,7 @@ void minerWorkerSw(void * task_id)
         if(hash[31] == 0 && hash[30] == 0)
         {
           double diff_hash = diff_from_target(hash);
-          if (diff_hash > best_diff)
+          if (diff_hash > result->difficulty)
           {
             result->difficulty = diff_hash;
             result->nonce = job->nonce_start+n;
@@ -406,6 +463,13 @@ void minerWorkerSw(void * task_id)
       }
     } else
       vTaskDelay(2 / portTICK_PERIOD_MS);
+
+    wdt_counter++;
+    if (wdt_counter >= 8)
+    {
+      wdt_counter = 0;
+      esp_task_wdt_reset();
+    }
   }
 }
 
@@ -450,6 +514,8 @@ void minerWorkerHw(void * task_id)
   uint8_t interResult[64];
   uint8_t hash[32];
 
+  uint32_t wdt_counter = 0;
+
   memset(interResult, 0, sizeof(interResult));
   interResult[32] = 0x80;
   interResult[62] = 0x01;
@@ -474,9 +540,9 @@ void minerWorkerHw(void * task_id)
     {
       result = std::make_shared<JobResult>();
       result->id = job->id;
-      result->nonce = 0xFFFFFF;
+      result->nonce = 0xFFFFFFFF;
       result->nonce_count = job->nonce_count;
-      result->difficulty = 0.0;
+      result->difficulty = job->difficulty;
 
       uint8_t* sha_buffer = job->buffer_upper;
       esp_sha_acquire_hardware();
@@ -521,358 +587,17 @@ void minerWorkerHw(void * task_id)
       esp_sha_release_hardware();
     } else
       vTaskDelay(2 / portTICK_PERIOD_MS);
+
+    wdt_counter++;
+    if (wdt_counter >= 8)
+    {
+      wdt_counter = 0;
+      esp_task_wdt_reset();
+    }
   }
 }
 #endif
 
-#if 0
-void runMiner(void * task_id) {
-
-  unsigned int miner_id = (uint32_t)task_id;
-
-  Serial.printf("[MINER]  %d  Started runMiner Task!\n", miner_id);
-
-  uint32_t task_current_id = 0;
-
-  while(1)
-  {
-    //Wait new job
-    s_thread_busy[miner_id] = 0;
-    while (task_current_id == s_thread_task_id)
-      vTaskDelay(1 / portTICK_PERIOD_MS); //Small delay to join both mining threads
-
-    task_current_id = s_thread_task_id;
-    s_thread_busy[miner_id] = 1;
-
-    Serial.printf("[MINER]  %d  Task=%d\n", miner_id, task_current_id);
-    
-    mMonitor.NerdStatus = NM_hashing;
-
-    //Prepare Premining data
-    nerdSHA256_context nerdMidstate; //NerdShaplus
-    uint8_t hash[32];
-    uint8_t interResult[64];
-    uint8_t hash_validate[32];
-    uint8_t midstate[32];
-    uint32_t bake[16];
-    
-
-    unsigned char *header64;
-    //Calcular midstate
-    if (miner_id == 0)
-    {
-      #ifdef HARDWARE_SHA265
-      esp_sha_acquire_hardware();
-      sha_hal_hash_block(SHA2_256,  mMiner.bytearray_blockheader, 64/4, true);
-      sha_hal_read_digest(SHA2_256, midstate);
-      esp_sha_release_hardware();
-
-      memset(mMiner.bytearray_blockheader+80, 0, 128-80);
-      mMiner.bytearray_blockheader[80] = 0x80;
-      mMiner.bytearray_blockheader[126] = 0x02;
-      mMiner.bytearray_blockheader[127] = 0x80;
-
-      memset(interResult, 0, sizeof(interResult));
-      interResult[32] = 0x80;
-      interResult[62] = 0x01;
-      interResult[63] = 0x00;
-
-      #else
-      nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader); //NerdShaplus
-      #endif
-      header64 = mMiner.bytearray_blockheader + 64;
-    } else
-    {
-      memcpy(mMiner.bytearray_blockheader2, &mMiner.bytearray_blockheader, 80);
-      nerd_mids(&nerdMidstate, mMiner.bytearray_blockheader2); //NerdShaplus
-      header64 = mMiner.bytearray_blockheader2 + 64;
-      nerd_sha256_bake(nerdMidstate.digest, header64, bake);
-    }
-
-    uint32_t nonce = 0;
-    uint32_t nonce_end = 0;
-    uint32_t startT = micros();
-    
-    // each miner thread needs to track its own blockheader template
-    uint8_t temp;   
-    
-    bool is16BitShare=true;  
-    Serial.println(">>> STARTING TO HASH NONCES");
-    while(true)
-    {
-      if (nonce >= nonce_end)
-      {
-        std::lock_guard<std::mutex> lock(s_nonce_batch_mutex);
-        nonce = s_nonce_batch;
-#ifdef HARDWARE_SHA265        
-        if (miner_id == 0)
-          nonce_end = nonce + 512;
-        else
-#endif
-        nonce_end = nonce + 128;
-        if (nonce_end > TARGET_NONCE)
-          nonce_end = TARGET_NONCE;
-        s_nonce_batch = nonce_end;
-      }
-
-#ifdef HARDWARE_SHA265
-      if (miner_id == 0)
-      {
-        //Hardware
-        uint32_t nonce_start = nonce;
-        esp_sha_acquire_hardware();
-        while (nonce < nonce_end)
-        {
-          //memcpy(header64+12, &nonce, 4);
-          ((uint32_t*)(header64+12))[0] = nonce;
-          
-          sha_ll_write_digest(SHA2_256, midstate, 256 / 32);  //no need to unroll
-          //sha_hal_wait_idle();
-          nerd_sha_hal_wait_idle();
-          //sha_ll_fill_text_block(header64, 64/4);
-          nerd_sha_ll_fill_text_block_sha256(header64);
-          sha_ll_continue_block(SHA2_256);
-      
-          sha_ll_load(SHA2_256);
-          //sha_hal_wait_idle();
-          nerd_sha_hal_wait_idle();
-          sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
-      
-          //sha_hal_wait_idle();
-          nerd_sha_hal_wait_idle();
-          //sha_ll_fill_text_block(interResult, 64/4);
-          nerd_sha_ll_fill_text_block_sha256(interResult);
-          sha_ll_start_block(SHA2_256);
-
-          sha_ll_load(SHA2_256);
-          //sha_hal_wait_idle();
-          nerd_sha_hal_wait_idle();
-          sha_ll_read_digest(SHA2_256, hash, 256 / 32);
-          #ifdef SHA256_VALIDATE
-          mbedtls_sha256_context ctx;
-          mbedtls_sha256_init(&ctx);
-          mbedtls_sha256_starts_ret(&ctx,0);
-          mbedtls_sha256_update_ret(&ctx, header64-64, 80);
-          mbedtls_sha256_finish_ret(&ctx, interResult);
-
-          mbedtls_sha256_starts_ret(&ctx,0);
-          mbedtls_sha256_update_ret(&ctx, interResult, 32);
-          mbedtls_sha256_finish_ret(&ctx, hash_validate);
-          mbedtls_sha256_free(&ctx);
-
-          bool failed = false;
-          for (size_t i = 0; i < 32; i++)
-          {
-            if (hash[i] != hash_validate[i])
-              failed = true;
-          }
-          if (failed)
-          {
-            Serial.println("Hardware SHA256 Failed");
-            Serial.println("HwSha256:");
-            for (size_t i = 0; i < 32; i++)
-              Serial.printf("%02x,",  hash[i]);
-            Serial.println("");
-
-            Serial.println("mbedtls Sha256:");
-            for (size_t i = 0; i < 32; i++)
-              Serial.printf("%02x,",  hash_validate[i]);              
-            Serial.println("");
-            vTaskDelay(500 / portTICK_PERIOD_MS);
-            return; //Crash Here
-          }
-          #endif
-          nonce++;
-          if(hash[31] == 0 && hash[30] == 0)
-            break;
-        }
-        esp_sha_release_hardware();
-        hashes += nonce - nonce_start;
-      } else
-#endif
-      {
-        uint32_t nonce_start = nonce;
-        while (nonce < nonce_end)
-        {
-          //memcpy(header64+12, &nonce, 4);
-          ((uint32_t*)(header64+12))[0] = nonce;
-          //nerd_sha256d(&nerdMidstate, header64, hash); //Boosted 80Khs sha
-          nerd_sha256d_baked(nerdMidstate.digest, header64, bake, hash);
-
-          #ifdef SHA256_VALIDATE
-          //Important - Remove Return optimization
-          mbedtls_sha256_context ctx;
-          mbedtls_sha256_init(&ctx);
-          mbedtls_sha256_starts_ret(&ctx,0);
-          mbedtls_sha256_update_ret(&ctx, header64-64, 80);
-          mbedtls_sha256_finish_ret(&ctx, interResult);
-
-          mbedtls_sha256_starts_ret(&ctx,0);
-          mbedtls_sha256_update_ret(&ctx, interResult, 32);
-          mbedtls_sha256_finish_ret(&ctx, hash_validate);
-          mbedtls_sha256_free(&ctx);
-
-          bool failed = false;
-          for (size_t i = 0; i < 32; i++)
-          {
-            if (hash[i] != hash_validate[i])
-              failed = true;
-          }
-          if (failed)
-          {
-            Serial.println("SHA256 Failed");
-            Serial.println("Input:");
-            for (size_t i = 0; i < 80; i++)
-            {
-              Serial.printf("0x%02x,", (header64-64)[i]);
-              if (i % 16 == 15)
-                Serial.println("");
-            }
-            Serial.println("");
-
-            Serial.println("Midstate:");
-            for (size_t i = 0; i < 8; i++)
-            {
-              Serial.printf("0x%08x,",  nerdMidstate.digest[i]);
-              Serial.println("");
-            }
-
-            Serial.println("NerdSha256:");
-            for (size_t i = 0; i < 32; i++)
-              Serial.printf("%02x,",  hash[i]);
-            Serial.println("");
-
-            Serial.println("mbedtls Sha256:");
-            for (size_t i = 0; i < 32; i++)
-              Serial.printf("%02x,",  hash_validate[i]);              
-            Serial.println("");
-            vTaskDelay(500 / portTICK_PERIOD_MS);
-            return; //Crash Here
-          }
-          #endif
-          nonce++;
-          if(hash[31] == 0 && hash[30] == 0)
-            break;
-        }
-        hashes += nonce - nonce_start;
-      }
-
-      /*Serial.print("hash1: ");
-      for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", hash[i]);
-        Serial.println("");  
-      Serial.print("hash2: ");
-      for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", hash2[i]);
-        Serial.println("");  */
-
-      if (nonce >= TARGET_NONCE)
-        break; //exit
-
-      
-      if(task_current_id <= s_thread_task_aborted_id)
-      {
-        Serial.printf("MINER %d WORK ABORTED Task=%d Abort=%d\n", miner_id, task_current_id, s_thread_task_aborted_id);
-        break;
-      }
-
-      // check if 16bit share
-      if(hash[31] !=0 || hash[30] !=0)
-        continue;
-
-#if 0
-      if (miner_id == 1)
-      {
-        //validate
-        mbedtls_sha256_context ctx;
-        mbedtls_sha256_init(&ctx);
-        mbedtls_sha256_starts_ret(&ctx,0);
-        mbedtls_sha256_update_ret(&ctx, header64-64, 80);
-        mbedtls_sha256_finish_ret(&ctx, interResult);
-
-        mbedtls_sha256_starts_ret(&ctx,0);
-        mbedtls_sha256_update_ret(&ctx, interResult, 32);
-        mbedtls_sha256_finish_ret(&ctx, hash_validate);
-        mbedtls_sha256_free(&ctx);
-        
-        bool failed = false;
-        for (size_t i = 0; i < 32; i++)
-        {
-          if (hash[i] != hash_validate[i])
-            failed = true;
-        }
-        if (failed)
-          Serial.printf("MINER %d Sha256 Fail\n", miner_id);
-        else
-          Serial.printf("MINER %d Sha256 Good\n", miner_id);
-      }
-#endif
-      //Check target to submit
-      //Difficulty of 1 > 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-      //NM2 pool diff 1e-9 > Target = diff_1 / diff_pool > 0x00003B9ACA00....00
-      //Swapping diff bytes little endian >>>>>>>>>>>>>>>> 0x0000DC59D300....00  
-      //if((hash[29] <= 0xDC) && (hash[28] <= 0x59))     //0x00003B9ACA00  > diff value for 1e-9
-      double diff_hash = diff_from_target(hash);
-
-      // update best diff
-      if (diff_hash > best_diff)
-        best_diff = diff_hash;
-
-      if(diff_hash > mMiner.poolDifficulty)//(hash[29] <= 0x3B)//(diff_hash > 1e-9)
-      {
-        {
-          std::lock_guard<std::mutex> lock(s_client_mutex);
-          tx_mining_submit(client, mWorker, mJob, nonce-1);
-        }
-        Serial.print("   - Current diff share: "); Serial.println(diff_hash,12);
-        Serial.print("   - Current pool diff : "); Serial.println(mMiner.poolDifficulty,12);
-        Serial.print("   - TX SHARE: ");
-        for (size_t i = 0; i < 32; i++)
-            Serial.printf("%02x", hash[i]);
-        #ifdef DEBUG_MINING
-        Serial.println("");
-        Serial.print("   - Current nonce: "); Serial.println(nonce);
-        Serial.print("   - Current block header: ");
-        for (size_t i = 0; i < 80; i++) {
-            Serial.printf("%02x", mMiner.bytearray_blockheader[i]);
-        }
-        #endif
-        Serial.println("");
-        mLastTXtoPool = millis();  
-      }
-      
-      // check if 32bit share
-      if(hash[29] !=0 || hash[28] !=0)
-        continue;
-      shares++;
-
-      // check if valid header
-      if(checkValid(hash, mMiner.bytearray_target)){
-        Serial.printf("[WORKER] %d CONGRATULATIONS! Valid block found with nonce: %d | 0x%x\n", miner_id, nonce, nonce);
-        valids++;
-        Serial.printf("[WORKER]  %d  Submitted work valid!\n", miner_id);
-        // wait for new job
-        break;
-      }
-    } // exit if found a valid result or nonce > MAX_NONCE
-
-    //wc_Sha256Free(&sha256);
-    //wc_Sha256Free(midstate);    
-    Serial.print(">>> Finished job waiting new data from pool");
-
-    if(hashes>=MAX_NONCE_STEP)
-    {
-      Mhashes=Mhashes+MAX_NONCE_STEP/1000000;
-      hashes=hashes-MAX_NONCE_STEP;
-    }
-
-    uint32_t duration = micros() - startT;
-    if (esp_task_wdt_reset() == ESP_OK)
-      Serial.print(">>> Resetting watchdog timer");
-  } //while (1)
-}
-
-#endif
 
 #define DELAY 100
 #define REDRAW_EVERY 10
@@ -888,7 +613,7 @@ void restoreStat() {
   ret = nvs_open("state", NVS_READWRITE, &stat_handle);
 
   size_t required_size = sizeof(double);
-  nvs_get_blob(stat_handle, "best_diff", &best_diff, &required_size);
+  nvs_get_blob(stat_handle, "best_diff", &s_best_diff, &required_size);
   nvs_get_u32(stat_handle, "Mhashes", &Mhashes);
   uint32_t nv_shares, nv_valids;
   nvs_get_u32(stat_handle, "shares", &nv_shares);
@@ -902,7 +627,7 @@ void restoreStat() {
 void saveStat() {
   if(!Settings.saveStats) return;
   Serial.printf("[MONITOR] Saving stats\n");
-  nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(double));
+  nvs_set_blob(stat_handle, "best_diff", &s_best_diff, sizeof(double));
   nvs_set_u32(stat_handle, "Mhashes", Mhashes);
   nvs_set_u32(stat_handle, "shares", shares);
   nvs_set_u32(stat_handle, "valids", valids);
@@ -913,7 +638,7 @@ void saveStat() {
 void resetStat() {
     Serial.printf("[MONITOR] Resetting NVS stats\n");
     templates = hashes = Mhashes = totalKHashes = elapsedKHs = upTime = shares = valids = 0;
-    best_diff = 0.0;
+    s_best_diff = 0.0;
     saveStat();
 }
 
@@ -931,14 +656,17 @@ void runMonitor(void *name)
 
   uint32_t seconds_elapsed = 0;
 
-  totalKHashes = (Mhashes * 1000) + hashes / 1000;;
+  totalKHashes = (Mhashes * 1000) + hashes / 1000;
+  uint32_t last_update_millis = millis();
 
   while (1)
   {
-    if ((frame % REDRAW_EVERY) == 0)
+    uint32_t now_millis = millis();
+    if (now_millis < last_update_millis || now_millis >= last_update_millis + 990)
     {
-      unsigned long mElapsed = millis() - mLastCheck;
-      mLastCheck = millis();
+      unsigned long mElapsed = now_millis - mLastCheck;
+      mLastCheck = now_millis;
+      last_update_millis = now_millis;
       unsigned long currentKHashes = (Mhashes * 1000) + hashes / 1000;
       elapsedKHs = currentKHashes - totalKHashes;
       totalKHashes = currentKHashes;

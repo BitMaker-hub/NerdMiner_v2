@@ -24,7 +24,7 @@
 #include <math.h>
 #include <string.h>
 
-//#pragma GCC optimize ("O2")
+//#pragma GCC optimize ("Ofast")
 //#pragma GCC optimize ("jump-tables")
 //#pragma GCC optimize ("tree-switch-conversion")
 //#pragma GCC optimize ("no-stack-check")
