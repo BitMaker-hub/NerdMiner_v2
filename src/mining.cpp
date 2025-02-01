@@ -158,6 +158,7 @@ std::list<std::shared_ptr<JobRequest>> s_job_request_list_sw;
 std::list<std::shared_ptr<JobRequest>> s_job_request_list_hw;
 #endif
 std::list<std::shared_ptr<JobResult>> s_job_result_list;
+static volatile uint8_t s_working_current_job_id = 0xFF;
 
 static void JobPush(std::list<std::shared_ptr<JobRequest>> &job_list,  uint32_t id, uint32_t nonce_start, uint32_t nonce_count, double difficulty,
                     const uint8_t* buffer_upper, const uint32_t* midstate, const uint32_t* bake)
@@ -189,6 +190,7 @@ static void MiningJobStop(uint32_t &job_pool, std::map<uint32_t, std::shared_ptr
     s_job_request_list_hw.clear();
     #endif
   }
+  s_working_current_job_id = 0xFF;
   job_pool = 0xFFFFFFFF;
   submition_map.clear();
 }
@@ -212,10 +214,13 @@ void runStratumWorker(void *name) {
     i2c_slave_vector = i2c_master_scan(0x0, 0x80);
 
   Serial.printf("Found %d slave workers\n", i2c_slave_vector.size());
-  Serial.print("  Workers: ");
-  for (size_t n = 0; n < i2c_slave_vector.size(); ++n)
-    Serial.printf("0x%02X,", (uint32_t)i2c_slave_vector[n]);
-  Serial.println("");
+  if (!i2c_slave_vector.empty())
+  {
+    Serial.print("  Workers: ");
+    for (size_t n = 0; n < i2c_slave_vector.size(); ++n)
+      Serial.printf("0x%02X,", (uint32_t)i2c_slave_vector[n]);
+    Serial.println("");
+  }
 
   // connect to pool  
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
@@ -316,6 +321,7 @@ void runStratumWorker(void *name) {
                                           //Increse templates readed
                                           templates++;
                                           job_pool++;
+                                          s_working_current_job_id = job_pool & 0xFF; //Terminate current job in thread
 
                                           last_job_time = millis();
 
@@ -527,10 +533,18 @@ void minerWorkerSw(void * task_id)
       result->nonce = 0xFFFFFFFF;
       result->id = job->id;
       result->nonce_count = job->nonce_count;
+      uint8_t job_in_work = job->id & 0xFF;
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
         ((uint32_t*)(job->buffer_upper+12))[0] = job->nonce_start+n;
         nerd_sha256d_baked(job->midstate, job->buffer_upper, job->bake, hash);
+
+        if (s_working_current_job_id != job_in_work)
+        {
+          result->nonce_count = n+1;
+          break;
+        }
+
         if(hash[31] == 0 && hash[30] == 0)
         {
           double diff_hash = diff_from_target(hash);
@@ -645,6 +659,7 @@ void minerWorkerHw(void * task_id)
       result->nonce = 0xFFFFFFFF;
       result->nonce_count = job->nonce_count;
       result->difficulty = job->difficulty;
+      uint8_t job_in_work = job->id & 0xFF;
 
       uint8_t* sha_buffer = job->buffer_upper;
       esp_sha_acquire_hardware();
@@ -684,6 +699,11 @@ void minerWorkerHw(void * task_id)
         //sha_ll_read_digest(SHA2_256, hash, 256 / 32);
         nerd_sha_ll_read_digest(hash);
 
+        if (s_working_current_job_id != job_in_work)
+        {
+          result->nonce_count = n+1;
+          break;
+        }
         if(hash[31] == 0 && hash[30] == 0)
         {
           double diff_hash = diff_from_target(hash);
@@ -733,17 +753,51 @@ void restoreStat() {
   valids = nv_valids;
   nvs_get_u32(stat_handle, "templates", &templates);
   nvs_get_u64(stat_handle, "upTime", &upTime);
+
+  uint32_t crc = crc32_reset();
+  crc = crc32_add(crc, &best_diff, sizeof(best_diff));
+  crc = crc32_add(crc, &Mhashes, sizeof(Mhashes));
+  crc = crc32_add(crc, &nv_shares, sizeof(nv_shares));
+  crc = crc32_add(crc, &nv_valids, sizeof(nv_valids));
+  crc = crc32_add(crc, &templates, sizeof(templates));
+  crc = crc32_add(crc, &upTime, sizeof(upTime));
+  crc = crc32_finish(crc);
+
+  uint32_t nv_crc;
+  nvs_get_u32(stat_handle, "crc32", &nv_crc);
+  if (nv_crc != crc)
+  {
+    best_diff = 0.0;
+    Mhashes = 0;
+    shares = 0;
+    valids = 0;
+    templates = 0;
+    upTime = 0;
+  }
 }
 
 void saveStat() {
   if(!Settings.saveStats) return;
   Serial.printf("[MONITOR] Saving stats\n");
-  nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(double));
+  nvs_set_blob(stat_handle, "best_diff", &best_diff, sizeof(best_diff));
   nvs_set_u32(stat_handle, "Mhashes", Mhashes);
   nvs_set_u32(stat_handle, "shares", shares);
   nvs_set_u32(stat_handle, "valids", valids);
   nvs_set_u32(stat_handle, "templates", templates);
-  nvs_set_u64(stat_handle, "upTime", upTime + (esp_timer_get_time()/1000000));
+  uint64_t upTime_now = upTime + (esp_timer_get_time()/1000000);
+  nvs_set_u64(stat_handle, "upTime", upTime_now);
+
+  uint32_t crc = crc32_reset();
+  crc = crc32_add(crc, &best_diff, sizeof(best_diff));
+  crc = crc32_add(crc, &Mhashes, sizeof(Mhashes));
+  uint32_t nv_shares = shares;
+  uint32_t nv_valids = valids;
+  crc = crc32_add(crc, &nv_shares, sizeof(nv_shares));
+  crc = crc32_add(crc, &nv_valids, sizeof(nv_valids));
+  crc = crc32_add(crc, &templates, sizeof(templates));
+  crc = crc32_add(crc, &upTime_now, sizeof(upTime_now));
+  crc = crc32_finish(crc);
+  nvs_set_u32(stat_handle, "crc32", crc);
 }
 
 void resetStat() {

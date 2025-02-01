@@ -507,15 +507,15 @@ void setup()
   Serial.println("Initiating tasks...");
   char *name = (char*) malloc(32);
   sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 4, NULL,1);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 5, NULL,1);
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
  // Free a little bit of the heap to the screen
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 3, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 4, NULL,1);
  #else
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 3, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 4, NULL,1);
  #endif
 
   /******** CREATE MINER TASKS *****/
@@ -527,7 +527,7 @@ void setup()
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
   #ifdef HARDWARE_SHA265
-    xTaskCreate(minerWorkerHw, "MinerHw-0", 2048, (void*)0, 2, &minerTask1);
+    xTaskCreate(minerWorkerHw, "MinerHw-0", 2048, (void*)0, 3, &minerTask1);
   #else
     xTaskCreate(minerWorkerSw, "MinerSw-0", 6000, (void*)0, 1, &minerTask1);
   #endif

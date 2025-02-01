@@ -4,6 +4,7 @@
 #include "HTTPClient.h"
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <list>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -246,20 +247,34 @@ static EHashRateScale s_hashrate_scale = HashRateScale_99KH;
 static uint32_t s_skip_first = 3;
 static double s_top_hashrate = 0.0;
 
+static std::list<double> s_hashrate_avg_list;
+static double s_hashrate_summ = 0.0;
+
 String getCurrentHashRate(unsigned long mElapsed)
 {
   double hashrate = (double)elapsedKHs * 1000.0 / (double)mElapsed;
+
+  s_hashrate_summ += hashrate;
+  s_hashrate_avg_list.push_back(hashrate);
+  if (s_hashrate_avg_list.size() > 10)
+  {
+    s_hashrate_summ -= s_hashrate_avg_list.front();
+    s_hashrate_avg_list.pop_front();
+  }
+
+  double avg_hashrate = s_hashrate_summ / (double)s_hashrate_avg_list.size();
+
   if (s_skip_first > 0)
   {
     s_skip_first--;
   } else
   {
-    if (hashrate > s_top_hashrate)
+    if (avg_hashrate > s_top_hashrate)
     {
-      s_top_hashrate = hashrate;
-      if (hashrate > 999.9)
+      s_top_hashrate = avg_hashrate;
+      if (avg_hashrate > 999.9)
         s_hashrate_scale = HashRateScale_9MH;
-      else if (hashrate > 99.9)
+      else if (avg_hashrate > 99.9)
         s_hashrate_scale = HashRateScale_999KH;
     }
   }
@@ -267,11 +282,11 @@ String getCurrentHashRate(unsigned long mElapsed)
   switch (s_hashrate_scale)
   {
     case HashRateScale_99KH:
-      return String(hashrate, 2);
+      return String(avg_hashrate, 2);
     case HashRateScale_999KH:
-      return String(hashrate, 1);
+      return String(avg_hashrate, 1);
     default:
-      return String((int)hashrate );
+      return String((int)avg_hashrate );
   }
 }
 
