@@ -324,6 +324,7 @@ void runStratumWorker(void *name) {
                                           s_working_current_job_id = job_pool & 0xFF; //Terminate current job in thread
 
                                           last_job_time = millis();
+                                          mLastTXtoPool = last_job_time;
 
                                           uint32_t mh = hashes/1000000;
                                           Mhashes += mh;
@@ -593,6 +594,31 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
     REG_WRITE(&reg_addr_buf[15], data_words[15]);
 }
 
+static inline void nerd_sha_ll_fill_text_block_sha256_inter()
+{
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+  DPORT_INTERRUPT_DISABLE();
+  REG_WRITE(&reg_addr_buf[0], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4));
+  REG_WRITE(&reg_addr_buf[1], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4));
+  REG_WRITE(&reg_addr_buf[2], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4));
+  REG_WRITE(&reg_addr_buf[3], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4));
+  REG_WRITE(&reg_addr_buf[4], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4));
+  REG_WRITE(&reg_addr_buf[5], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4));
+  REG_WRITE(&reg_addr_buf[6], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4));
+  REG_WRITE(&reg_addr_buf[7], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4));
+  DPORT_INTERRUPT_RESTORE();
+
+  REG_WRITE(&reg_addr_buf[8], 0x00000080);
+  REG_WRITE(&reg_addr_buf[9], 0x00000000);
+  REG_WRITE(&reg_addr_buf[10], 0x00000000);
+  REG_WRITE(&reg_addr_buf[11], 0x00000000);
+  REG_WRITE(&reg_addr_buf[12], 0x00000000);
+  REG_WRITE(&reg_addr_buf[13], 0x00000000);
+  REG_WRITE(&reg_addr_buf[14], 0x00000000);
+  REG_WRITE(&reg_addr_buf[15], 0x00010000);
+}
+
 static inline void nerd_sha_ll_read_digest(void* ptr)
 {
   DPORT_INTERRUPT_DISABLE();
@@ -607,7 +633,7 @@ static inline void nerd_sha_ll_read_digest(void* ptr)
   DPORT_INTERRUPT_RESTORE();
 }
 
-static inline void nerd_sha_ll_read_digest_if(void* ptr)
+static inline bool nerd_sha_ll_read_digest_if(void* ptr)
 {
   DPORT_INTERRUPT_DISABLE();
   ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
@@ -615,7 +641,7 @@ static inline void nerd_sha_ll_read_digest_if(void* ptr)
   //if ( (((uint32_t*)ptr)[7] >> 16) != 0)
   {
     DPORT_INTERRUPT_RESTORE();
-    return;
+    return false;
   }
 
   ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
@@ -626,6 +652,7 @@ static inline void nerd_sha_ll_read_digest_if(void* ptr)
   ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
   ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);  
   DPORT_INTERRUPT_RESTORE();
+  return true;
 }
 
 static inline void nerd_sha_ll_write_digest(void *digest_state)
@@ -659,13 +686,10 @@ void minerWorkerHw(void * task_id)
   uint8_t interResult[64];
   uint8_t hash[32];
   uint8_t digest_mid[32];
+  uint8_t sha_buffer[64];
 
   uint32_t wdt_counter = 0;
 
-  memset(interResult, 0, sizeof(interResult));
-  interResult[32] = 0x80;
-  interResult[62] = 0x01;
-  interResult[63] = 0x00;
   while (1)
   {
     {
@@ -691,8 +715,8 @@ void minerWorkerHw(void * task_id)
       result->difficulty = job->difficulty;
       uint8_t job_in_work = job->id & 0xFF;
       memcpy(digest_mid, job->midstate, sizeof(digest_mid));
+      memcpy(sha_buffer, job->buffer_upper, sizeof(sha_buffer));
 
-      uint8_t* sha_buffer = job->buffer_upper;
       esp_sha_acquire_hardware();
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
@@ -714,13 +738,14 @@ void minerWorkerHw(void * task_id)
         //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
         //sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
-        nerd_sha_ll_read_digest(interResult);
+        //nerd_sha_ll_read_digest(interResult);
         
         //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
         //sha_hal_wait_idle();
-        nerd_sha_hal_wait_idle();
+        //nerd_sha_hal_wait_idle();
         //sha_ll_fill_text_block(interResult, 64/4);
-        nerd_sha_ll_fill_text_block_sha256(interResult);
+        //nerd_sha_ll_fill_text_block_sha256(interResult);
+        nerd_sha_ll_fill_text_block_sha256_inter();
         sha_ll_start_block(SHA2_256);
 
         //sha_hal_read_digest(SHA2_256, hash);
@@ -728,15 +753,9 @@ void minerWorkerHw(void * task_id)
         //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
         //sha_ll_read_digest(SHA2_256, hash, 256 / 32);
-        nerd_sha_ll_read_digest_if(hash);
-
-        if (s_working_current_job_id != job_in_work)
+        if (nerd_sha_ll_read_digest_if(hash))
         {
-          result->nonce_count = n+1;
-          break;
-        }
-        if(hash[31] == 0 && hash[30] == 0)
-        {
+          //~5 per second
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
@@ -744,6 +763,13 @@ void minerWorkerHw(void * task_id)
             result->nonce = job->nonce_start+n;
             memcpy(result->hash, hash, sizeof(hash));
           }
+        }
+        if (
+             (uint8_t)(n & 0xFF) == 0 &&
+             s_working_current_job_id != job_in_work)
+        {
+          result->nonce_count = n+1;
+          break;
         }
       }
       esp_sha_release_hardware();
