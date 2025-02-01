@@ -595,23 +595,52 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 
 static inline void nerd_sha_ll_read_digest(void* ptr)
 {
-    DPORT_INTERRUPT_DISABLE();
-#if 0
-    for (uint32_t i = 0;  i < 256 / 32; ++i)
-    {
-        ((uint32_t*)ptr)[i] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + i * 4);
-    }
-#else
+  DPORT_INTERRUPT_DISABLE();
   ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
   ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
   ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
   ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4);
   ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4);
   ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
-  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);
+  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);  
   ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
-#endif
+  DPORT_INTERRUPT_RESTORE();
+}
+
+static inline void nerd_sha_ll_read_digest_if(void* ptr)
+{
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
+  if ( ((uint16_t*)ptr)[15] != 0)
+  //if ( (((uint32_t*)ptr)[7] >> 16) != 0)
+  {
     DPORT_INTERRUPT_RESTORE();
+    return;
+  }
+
+  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
+  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
+  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
+  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4);
+  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4);
+  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
+  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);  
+  DPORT_INTERRUPT_RESTORE();
+}
+
+static inline void nerd_sha_ll_write_digest(void *digest_state)
+{
+    uint32_t *digest_state_words = (uint32_t *)digest_state;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_H_BASE);
+
+    REG_WRITE(&reg_addr_buf[0], digest_state_words[0]);
+    REG_WRITE(&reg_addr_buf[1], digest_state_words[1]);
+    REG_WRITE(&reg_addr_buf[2], digest_state_words[2]);
+    REG_WRITE(&reg_addr_buf[3], digest_state_words[3]);
+    REG_WRITE(&reg_addr_buf[4], digest_state_words[4]);
+    REG_WRITE(&reg_addr_buf[5], digest_state_words[5]);
+    REG_WRITE(&reg_addr_buf[6], digest_state_words[6]);
+    REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
 }
 
 static inline void nerd_sha_hal_wait_idle()
@@ -629,6 +658,7 @@ void minerWorkerHw(void * task_id)
   std::shared_ptr<JobResult> result;
   uint8_t interResult[64];
   uint8_t hash[32];
+  uint8_t digest_mid[32];
 
   uint32_t wdt_counter = 0;
 
@@ -660,6 +690,7 @@ void minerWorkerHw(void * task_id)
       result->nonce_count = job->nonce_count;
       result->difficulty = job->difficulty;
       uint8_t job_in_work = job->id & 0xFF;
+      memcpy(digest_mid, job->midstate, sizeof(digest_mid));
 
       uint8_t* sha_buffer = job->buffer_upper;
       esp_sha_acquire_hardware();
@@ -668,7 +699,7 @@ void minerWorkerHw(void * task_id)
         ((uint32_t*)(sha_buffer+12))[0] = job->nonce_start+n;
           
         //sha_hal_write_digest(SHA2_256, midstate);
-        sha_ll_write_digest(SHA2_256, job->midstate, 256 / 32);
+        nerd_sha_ll_write_digest(digest_mid);
         //nerd_sha_ll_write_digest_sha256(midstate);
         
         //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
@@ -697,7 +728,7 @@ void minerWorkerHw(void * task_id)
         //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
         //sha_ll_read_digest(SHA2_256, hash, 256 / 32);
-        nerd_sha_ll_read_digest(hash);
+        nerd_sha_ll_read_digest_if(hash);
 
         if (s_working_current_job_id != job_in_work)
         {
