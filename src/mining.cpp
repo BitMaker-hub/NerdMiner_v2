@@ -675,7 +675,7 @@ void minerWorkerHw(void * task_id)
         //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
         //sha_ll_fill_text_block(s_test_buffer+64, 64/4);
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer+64);
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer);
         sha_ll_continue_block(SHA2_256);
         
         //sha_hal_read_digest(SHA2_256, interResult);
