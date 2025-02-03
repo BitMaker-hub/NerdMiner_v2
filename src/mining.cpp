@@ -30,6 +30,11 @@
 #include <sha/sha_dma.h>
 #include <hal/sha_hal.h>
 #include <hal/sha_ll.h>
+
+#if defined(CONFIG_IDF_TARGET_ESP32)
+#include <sha/sha_parallel_engine.h>
+#endif
+
 #endif
 
 nvs_handle_t stat_handle;
@@ -138,7 +143,7 @@ struct JobRequest
   uint32_t nonce_start;
   uint32_t nonce_count;
   double difficulty;
-  uint8_t buffer_upper[64];
+  uint8_t sha_buffer[128];
   uint32_t midstate[8];
   uint32_t bake[16];
 };
@@ -161,14 +166,14 @@ std::list<std::shared_ptr<JobResult>> s_job_result_list;
 static volatile uint8_t s_working_current_job_id = 0xFF;
 
 static void JobPush(std::list<std::shared_ptr<JobRequest>> &job_list,  uint32_t id, uint32_t nonce_start, uint32_t nonce_count, double difficulty,
-                    const uint8_t* buffer_upper, const uint32_t* midstate, const uint32_t* bake)
+                    const uint8_t* sha_buffer, const uint32_t* midstate, const uint32_t* bake)
 {
   std::shared_ptr<JobRequest> job = std::make_shared<JobRequest>();
   job->id = id;
   job->nonce_start = nonce_start;
   job->nonce_count = nonce_count;
   job->difficulty = difficulty;
-  memcpy(job->buffer_upper, buffer_upper, sizeof(job->buffer_upper));
+  memcpy(job->sha_buffer, sha_buffer, sizeof(job->sha_buffer));
   memcpy(job->midstate, midstate, sizeof(job->midstate));
   memcpy(job->bake, bake, sizeof(job->bake));
   job_list.push_back(job);
@@ -342,10 +347,12 @@ void runStratumWorker(void *name) {
                                           nerd_sha256_bake(diget_mid, mMiner.bytearray_blockheader+64, bake);
 
                                           #ifdef HARDWARE_SHA265
-                                          esp_sha_acquire_hardware();
-                                          sha_hal_hash_block(SHA2_256,  mMiner.bytearray_blockheader, 64/4, true);
-                                          sha_hal_read_digest(SHA2_256, hw_midstate);
-                                          esp_sha_release_hardware();
+                                          #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+                                            esp_sha_acquire_hardware();
+                                            sha_hal_hash_block(SHA2_256,  mMiner.bytearray_blockheader, 64/4, true);
+                                            sha_hal_read_digest(SHA2_256, hw_midstate);
+                                            esp_sha_release_hardware();
+                                          #endif
                                           #endif
 
                                           nonce_pool = 0x10000000;
@@ -354,10 +361,10 @@ void runStratumWorker(void *name) {
                                             std::lock_guard<std::mutex> lock(s_job_mutex);
                                             for (int i = 0; i < 4; ++ i)
                                             {
-                                              JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, diget_mid, bake);
+                                              JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader, diget_mid, bake);
                                               nonce_pool += NONCE_PER_JOB_SW;
                                               #ifdef HARDWARE_SHA265
-                                              JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, hw_midstate, bake);
+                                              JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
                                               nonce_pool += NONCE_PER_JOB_HW;
                                               #endif
                                             }
@@ -452,14 +459,14 @@ void runStratumWorker(void *name) {
      
       while (s_job_request_list_sw.size() < 4)
       {
-        JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, diget_mid, bake);
+        JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader, diget_mid, bake);
         nonce_pool += NONCE_PER_JOB_SW;
       }
       
       #ifdef HARDWARE_SHA265
       while (s_job_request_list_hw.size() < 4)
       {
-        JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader+64, hw_midstate, bake);
+        JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
         nonce_pool += NONCE_PER_JOB_HW;
       }
       #endif
@@ -537,8 +544,8 @@ void minerWorkerSw(void * task_id)
       uint8_t job_in_work = job->id & 0xFF;
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        ((uint32_t*)(job->buffer_upper+12))[0] = job->nonce_start+n;
-        nerd_sha256d_baked(job->midstate, job->buffer_upper, job->bake, hash);
+        ((uint32_t*)(job->sha_buffer+64+12))[0] = job->nonce_start+n;
+        nerd_sha256d_baked(job->midstate, job->sha_buffer+64, job->bake, hash);
 
         if (s_working_current_job_id != job_in_work)
         {
@@ -570,6 +577,8 @@ void minerWorkerSw(void * task_id)
 }
 
 #ifdef HARDWARE_SHA265
+
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 {
@@ -636,14 +645,14 @@ static inline void nerd_sha_ll_read_digest(void* ptr)
 static inline bool nerd_sha_ll_read_digest_if(void* ptr)
 {
   DPORT_INTERRUPT_DISABLE();
-  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
-  if ( ((uint16_t*)ptr)[15] != 0)
-  //if ( (((uint32_t*)ptr)[7] >> 16) != 0)
+  uint32_t last = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
+  if ( last >> 16 != 0)
   {
     DPORT_INTERRUPT_RESTORE();
     return false;
   }
 
+  ((uint32_t*)ptr)[7] = last;
   ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
   ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
   ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
@@ -715,7 +724,7 @@ void minerWorkerHw(void * task_id)
       result->difficulty = job->difficulty;
       uint8_t job_in_work = job->id & 0xFF;
       memcpy(digest_mid, job->midstate, sizeof(digest_mid));
-      memcpy(sha_buffer, job->buffer_upper, sizeof(sha_buffer));
+      memcpy(sha_buffer, job->sha_buffer+64, sizeof(sha_buffer));
 
       esp_sha_acquire_hardware();
       for (uint32_t n = 0; n < job->nonce_count; ++n)
@@ -784,7 +793,215 @@ void minerWorkerHw(void * task_id)
     }
   }
 }
+
+#endif  //#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+
+#if defined(CONFIG_IDF_TARGET_ESP32)
+
+static inline bool nerd_sha_ll_read_digest_swap_if(void* ptr)
+{
+  DPORT_INTERRUPT_DISABLE();
+  uint32_t fin = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
+  if ( (uint32_t)(fin & 0xFFFF) != 0)
+  {
+    DPORT_INTERRUPT_RESTORE();
+    return false;
+  }
+  ((uint32_t*)ptr)[7] = __builtin_bswap32(fin);
+  ((uint32_t*)ptr)[0] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4));
+  ((uint32_t*)ptr)[1] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4));
+  ((uint32_t*)ptr)[2] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4));
+  ((uint32_t*)ptr)[3] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4));
+  ((uint32_t*)ptr)[4] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4));
+  ((uint32_t*)ptr)[5] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4));
+  ((uint32_t*)ptr)[6] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4));
+  DPORT_INTERRUPT_RESTORE();
+  return true;
+}
+
+static inline void nerd_sha_ll_read_digest(void* ptr)
+{
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4);
+  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4);
+  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4);
+  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4);
+  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4);
+  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4);
+  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4);
+  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
+  DPORT_INTERRUPT_RESTORE();
+}
+
+static inline void nerd_sha_hal_wait_idle()
+{
+    while (DPORT_REG_READ(SHA_256_BUSY_REG))
+    {}
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    reg_addr_buf[0]  = data_words[0];
+    reg_addr_buf[1]  = data_words[1];
+    reg_addr_buf[2]  = data_words[2];
+    reg_addr_buf[3]  = data_words[3];
+    reg_addr_buf[4]  = data_words[4];
+    reg_addr_buf[5]  = data_words[5];
+    reg_addr_buf[6]  = data_words[6];
+    reg_addr_buf[7]  = data_words[7];
+    reg_addr_buf[8]  = data_words[8];
+    reg_addr_buf[9]  = data_words[9];
+    reg_addr_buf[10] = data_words[10];
+    reg_addr_buf[11] = data_words[11];
+    reg_addr_buf[12] = data_words[12];
+    reg_addr_buf[13] = data_words[13];
+    reg_addr_buf[14] = data_words[14];
+    reg_addr_buf[15] = data_words[15];
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256_swap(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    reg_addr_buf[0]  = __builtin_bswap32(data_words[0]);
+    reg_addr_buf[1]  = __builtin_bswap32(data_words[1]);
+    reg_addr_buf[2]  = __builtin_bswap32(data_words[2]);
+    reg_addr_buf[3]  = __builtin_bswap32(data_words[3]);
+    reg_addr_buf[4]  = __builtin_bswap32(data_words[4]);
+    reg_addr_buf[5]  = __builtin_bswap32(data_words[5]);
+    reg_addr_buf[6]  = __builtin_bswap32(data_words[6]);
+    reg_addr_buf[7]  = __builtin_bswap32(data_words[7]);
+    reg_addr_buf[8]  = __builtin_bswap32(data_words[8]);
+    reg_addr_buf[9]  = __builtin_bswap32(data_words[9]);
+    reg_addr_buf[10] = __builtin_bswap32(data_words[10]);
+    reg_addr_buf[11] = __builtin_bswap32(data_words[11]);
+    reg_addr_buf[12] = __builtin_bswap32(data_words[12]);
+    reg_addr_buf[13] = __builtin_bswap32(data_words[13]);
+    reg_addr_buf[14] = __builtin_bswap32(data_words[14]);
+    reg_addr_buf[15] = __builtin_bswap32(data_words[15]);
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256_double()
+{
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+#if 0
+    //No change
+    reg_addr_buf[0]  = data_words[0];
+    reg_addr_buf[1]  = data_words[1];
+    reg_addr_buf[2]  = data_words[2];
+    reg_addr_buf[3]  = data_words[3];
+    reg_addr_buf[4]  = data_words[4];
+    reg_addr_buf[5]  = data_words[5];
+    reg_addr_buf[6]  = data_words[6];
+    reg_addr_buf[7]  = data_words[7];
 #endif
+    reg_addr_buf[8]  = 0x80000000;
+    reg_addr_buf[9]  = 0x00000000;
+    reg_addr_buf[10] = 0x00000000;
+    reg_addr_buf[11] = 0x00000000;
+    reg_addr_buf[12] = 0x00000000;
+    reg_addr_buf[13] = 0x00000000;
+    reg_addr_buf[14] = 0x00000000;
+    reg_addr_buf[15] = 0x00000100;
+}
+
+void minerWorkerHw(void * task_id)
+{
+  unsigned int miner_id = (uint32_t)task_id;
+  Serial.printf("[MINER] %d Started minerWorkerHwEsp32D Task!\n", miner_id);
+
+  std::shared_ptr<JobRequest> job;
+  std::shared_ptr<JobResult> result;
+  uint8_t hash[32];
+  uint8_t sha_buffer[128];
+
+  while (1)
+  {
+    {
+      std::lock_guard<std::mutex> lock(s_job_mutex);
+      if (result)
+      {
+        s_job_result_list.push_back(result);
+        result.reset();
+      }
+      if (!s_job_request_list_hw.empty())
+      {
+        job = s_job_request_list_hw.front();
+        s_job_request_list_hw.pop_front();
+      } else
+        job.reset();
+    }
+    if (job)
+    {
+      result = std::make_shared<JobResult>();
+      result->id = job->id;
+      result->nonce = 0xFFFFFFFF;
+      result->nonce_count = job->nonce_count;
+      result->difficulty = job->difficulty;
+      uint8_t job_in_work = job->id & 0xFF;
+      for (int i = 0; i < 32; ++i)
+        ((uint32_t*)sha_buffer)[i] = __builtin_bswap32(((const uint32_t*)(job->sha_buffer))[i]);
+
+      esp_sha_lock_engine(SHA2_256);
+      for (uint32_t n = 0; n < job->nonce_count; ++n)
+      {
+        ((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(job->nonce_start+n);
+
+        //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
+        nerd_sha_hal_wait_idle();
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer);
+        sha_ll_start_block(SHA2_256);
+
+        //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
+        nerd_sha_hal_wait_idle();
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer+64);
+        sha_ll_continue_block(SHA2_256);
+
+        nerd_sha_hal_wait_idle();
+        sha_ll_load(SHA2_256);
+
+        //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
+        nerd_sha_hal_wait_idle();
+        nerd_sha_ll_fill_text_block_sha256_double();
+        sha_ll_start_block(SHA2_256);
+
+        nerd_sha_hal_wait_idle();
+        sha_ll_load(SHA2_256);
+        if (nerd_sha_ll_read_digest_swap_if(hash))
+        {
+          //~5 per second
+          double diff_hash = diff_from_target(hash);
+          if (diff_hash > result->difficulty)
+          {
+            result->difficulty = diff_hash;
+            result->nonce = job->nonce_start+n;
+            memcpy(result->hash, hash, sizeof(hash));
+          }
+        }
+        if (
+             (uint8_t)(n & 0xFF) == 0 &&
+             s_working_current_job_id != job_in_work)
+        {
+          result->nonce_count = n+1;
+          break;
+        }
+      }
+      esp_sha_unlock_engine(SHA2_256);
+    } else
+      vTaskDelay(2 / portTICK_PERIOD_MS);
+
+    esp_task_wdt_reset();
+  }
+}
+
+#endif  //CONFIG_IDF_TARGET_ESP32
+
+#endif  //HARDWARE_SHA265
 
 
 #define DELAY 100

@@ -212,8 +212,19 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn,
     uint32_t* buffer32;
     //*********** Init 1rst SHA ***********
 
-    uint32_t W[64] = { GET_UINT32_BE(dataIn, 0), GET_UINT32_BE(dataIn, 4),
-        GET_UINT32_BE(dataIn, 8), GET_UINT32_BE(dataIn, 12), 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    uint32_t W[64] = {
+#if 0
+        __builtin_bswap32(((const uint32_t*)dataIn)[0]),
+        __builtin_bswap32(((const uint32_t*)dataIn)[1]),
+        __builtin_bswap32(((const uint32_t*)dataIn)[2]),
+        __builtin_bswap32(((const uint32_t*)dataIn)[3]),
+#else
+        GET_UINT32_BE(dataIn, 0),
+        GET_UINT32_BE(dataIn, 4),
+        GET_UINT32_BE(dataIn, 8),
+        GET_UINT32_BE(dataIn, 12),
+#endif
+        0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 640}; 
 
     uint32_t A[8] = { midstate->digest[0], midstate->digest[1], midstate->digest[2], midstate->digest[3],
@@ -392,9 +403,9 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn,
     P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
-    
-    PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
-    //if(doubleHash[31] !=0 || doubleHash[30] !=0) return false;
+
+#if 1
+    //Best performance
     PUT_UINT32_BE(0x6A09E667 + A[0], doubleHash, 0);
     PUT_UINT32_BE(0xBB67AE85 + A[1], doubleHash, 4);
     PUT_UINT32_BE(0x3C6EF372 + A[2], doubleHash, 8);
@@ -402,6 +413,42 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, const uint8_t* dataIn,
     PUT_UINT32_BE(0x510E527F + A[4], doubleHash, 16);
     PUT_UINT32_BE(0x9B05688C + A[5], doubleHash, 20);
     PUT_UINT32_BE(0x1F83D9AB + A[6], doubleHash, 24);
+    PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
+#endif
+
+#if 0
+    temp1 = 0x6A09E667 + A[0]; ((uint32_t*)doubleHash)[0] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0xBB67AE85 + A[1]; ((uint32_t*)doubleHash)[1] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0x3C6EF372 + A[2]; ((uint32_t*)doubleHash)[2] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0xA54FF53A + A[3]; ((uint32_t*)doubleHash)[3] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0x510E527F + A[4]; ((uint32_t*)doubleHash)[4] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0x9B05688C + A[5]; ((uint32_t*)doubleHash)[5] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0x1F83D9AB + A[6]; ((uint32_t*)doubleHash)[6] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+    temp1 = 0x5BE0CD19 + A[7]; ((uint32_t*)doubleHash)[7] = (temp1 << 24) | ((temp1 << 8) & 0x00FF0000) | ((temp1 >> 8) & 0x0000FF00) | (temp1 >> 24);
+#endif
+
+#if 0
+    temp1 = 0x6A09E667 + A[0]; ((uint32_t*)doubleHash)[0] = __builtin_bswap32(temp1);
+    temp1 = 0xBB67AE85 + A[1]; ((uint32_t*)doubleHash)[1] = __builtin_bswap32(temp1);
+    temp1 = 0x3C6EF372 + A[2]; ((uint32_t*)doubleHash)[2] = __builtin_bswap32(temp1);
+    temp1 = 0xA54FF53A + A[3]; ((uint32_t*)doubleHash)[3] = __builtin_bswap32(temp1);
+    temp1 = 0x510E527F + A[4]; ((uint32_t*)doubleHash)[4] = __builtin_bswap32(temp1);
+    temp1 = 0x9B05688C + A[5]; ((uint32_t*)doubleHash)[5] = __builtin_bswap32(temp1);
+    temp1 = 0x1F83D9AB + A[6]; ((uint32_t*)doubleHash)[6] = __builtin_bswap32(temp1);
+    temp1 = 0x5BE0CD19 + A[7]; ((uint32_t*)doubleHash)[7] = __builtin_bswap32(temp1);
+#endif
+
+
+#if 0
+    ((uint32_t*)doubleHash)[0] = __builtin_bswap32( (0x6A09E667 + A[0]) );
+    ((uint32_t*)doubleHash)[1] = __builtin_bswap32( (0xBB67AE85 + A[1]) );
+    ((uint32_t*)doubleHash)[2] = __builtin_bswap32( (0x3C6EF372 + A[2]) );
+    ((uint32_t*)doubleHash)[3] = __builtin_bswap32( (0xA54FF53A + A[3]) );
+    ((uint32_t*)doubleHash)[4] = __builtin_bswap32( (0x510E527F + A[4]) );    
+    ((uint32_t*)doubleHash)[5] = __builtin_bswap32( (0x9B05688C + A[5]) );
+    ((uint32_t*)doubleHash)[6] = __builtin_bswap32( (0x1F83D9AB + A[6]) );
+    ((uint32_t*)doubleHash)[7] = __builtin_bswap32( (0x5BE0CD19 + A[7]) );
+#endif
 
     return true;
 }

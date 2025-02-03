@@ -56,9 +56,11 @@ const char* ntpServer = "pool.ntp.org";
 
 #ifdef HW_SHA256_TEST
 
+#include <soc/soc.h>
 #include "ShaTests/nerdSHA256plus.h"
 #include "mbedtls/sha256.h"
 #include <sha/sha_dma.h>
+#include <sha/sha_parallel_engine.h>
 #include <hal/sha_hal.h>
 #include <hal/sha_ll.h>
 #include <esp_heap_caps.h>
@@ -96,6 +98,7 @@ static uint8_t interResult_aligned[64] __attribute__((aligned(256)));
 static uint8_t midstate_aligned[32] __attribute__((aligned(256)));
 static uint8_t hash_aligned[64] __attribute__((aligned(256)));
 
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 static inline void nerd_sha_hal_wait_idle()
 {
     while (REG_READ(SHA_BUSY_REG))
@@ -169,6 +172,116 @@ static DRAM_ATTR lldesc_t s_dma_descr_input;
 static DRAM_ATTR lldesc_t s_dma_descr_buf;
 static DRAM_ATTR lldesc_t s_dma_descr_inter;
 
+#endif
+
+#if defined(CONFIG_IDF_TARGET_ESP32)
+static inline void nerd_sha_ll_read_digest_swap(void* ptr)
+{
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[0] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4));
+  ((uint32_t*)ptr)[1] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4));
+  ((uint32_t*)ptr)[2] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4));
+  ((uint32_t*)ptr)[3] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4));
+  ((uint32_t*)ptr)[4] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4));
+  ((uint32_t*)ptr)[5] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4));
+  ((uint32_t*)ptr)[6] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4));
+  ((uint32_t*)ptr)[7] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4));
+  DPORT_INTERRUPT_RESTORE();
+}
+
+static inline void nerd_sha_ll_read_digest(void* ptr)
+{
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4);
+  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4);
+  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4);
+  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4);
+  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4);
+  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4);
+  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4);
+  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
+  DPORT_INTERRUPT_RESTORE();
+}
+
+static inline void nerd_sha_hal_wait_idle()
+{
+    while (DPORT_REG_READ(SHA_256_BUSY_REG))
+    {}
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    reg_addr_buf[0]  = data_words[0];
+    reg_addr_buf[1]  = data_words[1];
+    reg_addr_buf[2]  = data_words[2];
+    reg_addr_buf[3]  = data_words[3];
+    reg_addr_buf[4]  = data_words[4];
+    reg_addr_buf[5]  = data_words[5];
+    reg_addr_buf[6]  = data_words[6];
+    reg_addr_buf[7]  = data_words[7];
+    reg_addr_buf[8]  = data_words[8];
+    reg_addr_buf[9]  = data_words[9];
+    reg_addr_buf[10] = data_words[10];
+    reg_addr_buf[11] = data_words[11];
+    reg_addr_buf[12] = data_words[12];
+    reg_addr_buf[13] = data_words[13];
+    reg_addr_buf[14] = data_words[14];
+    reg_addr_buf[15] = data_words[15];
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256_swap(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    reg_addr_buf[0]  = __builtin_bswap32(data_words[0]);
+    reg_addr_buf[1]  = __builtin_bswap32(data_words[1]);
+    reg_addr_buf[2]  = __builtin_bswap32(data_words[2]);
+    reg_addr_buf[3]  = __builtin_bswap32(data_words[3]);
+    reg_addr_buf[4]  = __builtin_bswap32(data_words[4]);
+    reg_addr_buf[5]  = __builtin_bswap32(data_words[5]);
+    reg_addr_buf[6]  = __builtin_bswap32(data_words[6]);
+    reg_addr_buf[7]  = __builtin_bswap32(data_words[7]);
+    reg_addr_buf[8]  = __builtin_bswap32(data_words[8]);
+    reg_addr_buf[9]  = __builtin_bswap32(data_words[9]);
+    reg_addr_buf[10] = __builtin_bswap32(data_words[10]);
+    reg_addr_buf[11] = __builtin_bswap32(data_words[11]);
+    reg_addr_buf[12] = __builtin_bswap32(data_words[12]);
+    reg_addr_buf[13] = __builtin_bswap32(data_words[13]);
+    reg_addr_buf[14] = __builtin_bswap32(data_words[14]);
+    reg_addr_buf[15] = __builtin_bswap32(data_words[15]);
+}
+
+static inline void nerd_sha_ll_fill_text_block_sha256_double(const void *input_text)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+#if 0
+    //No change
+    reg_addr_buf[0]  = data_words[0];
+    reg_addr_buf[1]  = data_words[1];
+    reg_addr_buf[2]  = data_words[2];
+    reg_addr_buf[3]  = data_words[3];
+    reg_addr_buf[4]  = data_words[4];
+    reg_addr_buf[5]  = data_words[5];
+    reg_addr_buf[6]  = data_words[6];
+    reg_addr_buf[7]  = data_words[7];
+#endif
+    reg_addr_buf[8]  = 0x80000000;
+    reg_addr_buf[9]  = 0x00000000;
+    reg_addr_buf[10] = 0x00000000;
+    reg_addr_buf[11] = 0x00000000;
+    reg_addr_buf[12] = 0x00000000;
+    reg_addr_buf[13] = 0x00000000;
+    reg_addr_buf[14] = 0x00000000;
+    reg_addr_buf[15] = 0x00000100;
+}
+#endif
+
 IRAM_ATTR void HwShaTest()
 {
   uint8_t interResult[64];
@@ -190,7 +303,10 @@ IRAM_ATTR void HwShaTest()
   int test_count = 1000000;
 
 #if 0
-  //Generic software  16KH/s
+  //Generic software
+  //esp32s3 16KH/s
+  //esp32D  9.5KH/s
+  test_count = 20000;
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
   for (int i = 0; i < test_count; ++i)
@@ -206,10 +322,13 @@ IRAM_ATTR void HwShaTest()
   mbedtls_sha256_free(&ctx);
 #endif
 
-#if 0
-  //nerdSha256 (ESP32 39KH/s)
+#if 1
+  //nerdSha256
+  //ESP32   39KH/s
+  //ESP32S3 39.01KH/s
+  test_count = 100000;
   nerdSHA256_context ctx;
-  nerd_mids(&ctx, s_test_buffer);
+  nerd_mids(ctx.digest, s_test_buffer);
   for (int i = 0; i < test_count; ++i)
   {
     nerd_sha256d(&ctx, s_test_buffer+64, hash);
@@ -244,8 +363,21 @@ IRAM_ATTR void HwShaTest()
 #endif
 
 #if 0
-  //Hardware block
-  //NOT avaliable
+  //ESP32D 5.50KH/s
+  test_count = 40000;
+  //esp_sha_lock_engine(SHA2_256);
+  for (int i = 0; i < test_count; ++i)
+  {
+      esp_sha(SHA2_256, s_test_buffer, 80, interResult);
+      esp_sha(SHA2_256, interResult, 32, hash);
+  }
+  //esp_sha_unlock_engine(SHA2_256);
+#endif
+
+#if 0
+  //ESP32D
+  //Invalid result!!
+  test_count = 100000;
   esp_sha_lock_engine(SHA2_256);
   for (int i = 0; i < test_count; ++i)
   {
@@ -259,17 +391,42 @@ IRAM_ATTR void HwShaTest()
 #endif
 
 #if 0
-  //Hardware low level 132KH/s
-  esp_sha_acquire_hardware();
+  //ESP32D Hardware SHA ~200KH/s  
+  test_count = 50000;
+  periph_module_enable(PERIPH_SHA_MODULE);
+  uint8_t buffer_swap[128];
+  for (int i = 0; i < 32; ++i)
+    ((uint32_t*)buffer_swap)[i] = __builtin_bswap32(((const uint32_t*)s_test_buffer)[i]);
+
+  uint8_t inter_swap[64];
+  for (int i = 0; i < 16; ++i)
+    ((uint32_t*)inter_swap)[i] = __builtin_bswap32(((const uint32_t*)interResult)[i]);
+
   for (int i = 0; i < test_count; ++i)
   {
-      sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
-      sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
-      sha_hal_read_digest(SHA2_256, interResult);
-      sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
-      sha_hal_read_digest(SHA2_256, hash);
+      //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
+      nerd_sha_hal_wait_idle();
+      nerd_sha_ll_fill_text_block_sha256(buffer_swap);
+      sha_ll_start_block(SHA2_256);
+
+      //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
+      nerd_sha_hal_wait_idle();
+      nerd_sha_ll_fill_text_block_sha256(buffer_swap+64);
+      sha_ll_continue_block(SHA2_256);
+
+      nerd_sha_hal_wait_idle();
+      sha_ll_load(SHA2_256);
+      //nerd_sha_ll_read_digest_swap(interResult);
+
+      //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
+      nerd_sha_hal_wait_idle();
+      nerd_sha_ll_fill_text_block_sha256_double(inter_swap);
+      sha_ll_start_block(SHA2_256);
+
+      nerd_sha_hal_wait_idle();
+      sha_ll_load(SHA2_256);
+      nerd_sha_ll_read_digest_swap(hash);
   }
-  esp_sha_release_hardware();
 #endif
 
 #if 0
@@ -305,7 +462,7 @@ IRAM_ATTR void HwShaTest()
   memcpy(hash, hash_aligned, sizeof(hash_aligned));
 #endif
 
-#if 1
+#if 0
   //Hardware LL 162.43KH/s
   esp_sha_acquire_hardware();
   //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
@@ -423,6 +580,7 @@ IRAM_ATTR void HwShaTest()
   Serial.println("");
   
   //should be
+  //54cd9f1ebc3db9a626688e5bb91d808abbd4079b2cba7f43fa08bfced300ef19
   //6fa464b007f2d577edfa5dfe9dfc3f9209f36d1a6711d314ea68ccdd03000000
 }
 
