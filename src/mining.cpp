@@ -862,27 +862,42 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
     reg_addr_buf[15] = data_words[15];
 }
 
-static inline void nerd_sha_ll_fill_text_block_sha256_swap(const void *input_text)
+static inline void nerd_sha_ll_fill_text_block_sha256_upper(const void *input_text, uint32_t nonce)
 {
     uint32_t *data_words = (uint32_t *)input_text;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
-    reg_addr_buf[0]  = __builtin_bswap32(data_words[0]);
-    reg_addr_buf[1]  = __builtin_bswap32(data_words[1]);
-    reg_addr_buf[2]  = __builtin_bswap32(data_words[2]);
-    reg_addr_buf[3]  = __builtin_bswap32(data_words[3]);
-    reg_addr_buf[4]  = __builtin_bswap32(data_words[4]);
-    reg_addr_buf[5]  = __builtin_bswap32(data_words[5]);
-    reg_addr_buf[6]  = __builtin_bswap32(data_words[6]);
-    reg_addr_buf[7]  = __builtin_bswap32(data_words[7]);
-    reg_addr_buf[8]  = __builtin_bswap32(data_words[8]);
-    reg_addr_buf[9]  = __builtin_bswap32(data_words[9]);
-    reg_addr_buf[10] = __builtin_bswap32(data_words[10]);
-    reg_addr_buf[11] = __builtin_bswap32(data_words[11]);
-    reg_addr_buf[12] = __builtin_bswap32(data_words[12]);
-    reg_addr_buf[13] = __builtin_bswap32(data_words[13]);
-    reg_addr_buf[14] = __builtin_bswap32(data_words[14]);
-    reg_addr_buf[15] = __builtin_bswap32(data_words[15]);
+    reg_addr_buf[0]  = data_words[0];
+    reg_addr_buf[1]  = data_words[1];
+    reg_addr_buf[2]  = data_words[2];
+    reg_addr_buf[3]  = __builtin_bswap32(nonce);
+#if 1
+    reg_addr_buf[4]  = 0x80000000;
+    reg_addr_buf[5]  = 0x00000000;
+    reg_addr_buf[6]  = 0x00000000;
+    reg_addr_buf[7]  = 0x00000000;
+    reg_addr_buf[8]  = 0x00000000;
+    reg_addr_buf[9]  = 0x00000000;
+    reg_addr_buf[10] = 0x00000000;
+    reg_addr_buf[11] = 0x00000000;
+    reg_addr_buf[12] = 0x00000000;
+    reg_addr_buf[13] = 0x00000000;
+    reg_addr_buf[14] = 0x00000000;
+    reg_addr_buf[15] = 0x00000280;
+#else
+    reg_addr_buf[4]  = data_words[4];
+    reg_addr_buf[5]  = data_words[5];
+    reg_addr_buf[6]  = data_words[6];
+    reg_addr_buf[7]  = data_words[7];
+    reg_addr_buf[8]  = data_words[8];
+    reg_addr_buf[9]  = data_words[9];
+    reg_addr_buf[10] = data_words[10];
+    reg_addr_buf[11] = data_words[11];
+    reg_addr_buf[12] = data_words[12];
+    reg_addr_buf[13] = data_words[13];
+    reg_addr_buf[14] = data_words[14];
+    reg_addr_buf[15] = data_words[15];
+#endif
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256_double()
@@ -950,7 +965,7 @@ void minerWorkerHw(void * task_id)
       esp_sha_lock_engine(SHA2_256);
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        ((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(job->nonce_start+n);
+        //((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(job->nonce_start+n);
 
         //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
         nerd_sha_hal_wait_idle();
@@ -959,7 +974,7 @@ void minerWorkerHw(void * task_id)
 
         //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
         nerd_sha_hal_wait_idle();
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer+64);
+        nerd_sha_ll_fill_text_block_sha256_upper(sha_buffer+64, job->nonce_start+n);
         sha_ll_continue_block(SHA2_256);
 
         nerd_sha_hal_wait_idle();
