@@ -580,7 +580,7 @@ void minerWorkerSw(void * task_id)
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 
-static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, uint32_t nonce)
 {
     uint32_t *data_words = (uint32_t *)input_text;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
@@ -588,7 +588,8 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
     REG_WRITE(&reg_addr_buf[0], data_words[0]);
     REG_WRITE(&reg_addr_buf[1], data_words[1]);
     REG_WRITE(&reg_addr_buf[2], data_words[2]);
-    REG_WRITE(&reg_addr_buf[3], data_words[3]);
+#if 0
+    REG_WRITE(&reg_addr_buf[3], data_words[3]);    
     REG_WRITE(&reg_addr_buf[4], data_words[4]);
     REG_WRITE(&reg_addr_buf[5], data_words[5]);
     REG_WRITE(&reg_addr_buf[6], data_words[6]);
@@ -601,6 +602,21 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
     REG_WRITE(&reg_addr_buf[13], data_words[13]);
     REG_WRITE(&reg_addr_buf[14], data_words[14]);
     REG_WRITE(&reg_addr_buf[15], data_words[15]);
+#else
+    REG_WRITE(&reg_addr_buf[3], nonce);
+    REG_WRITE(&reg_addr_buf[4], 0x00000080);
+    REG_WRITE(&reg_addr_buf[5], 0x00000000);
+    REG_WRITE(&reg_addr_buf[6], 0x00000000);
+    REG_WRITE(&reg_addr_buf[7], 0x00000000);
+    REG_WRITE(&reg_addr_buf[8], 0x00000000);
+    REG_WRITE(&reg_addr_buf[9], 0x00000000);
+    REG_WRITE(&reg_addr_buf[10], 0x00000000);
+    REG_WRITE(&reg_addr_buf[11], 0x00000000);
+    REG_WRITE(&reg_addr_buf[12], 0x00000000);
+    REG_WRITE(&reg_addr_buf[13], 0x00000000);
+    REG_WRITE(&reg_addr_buf[14], 0x00000000);
+    REG_WRITE(&reg_addr_buf[15], 0x80020000);
+#endif
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256_inter()
@@ -729,7 +745,7 @@ void minerWorkerHw(void * task_id)
       esp_sha_acquire_hardware();
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        ((uint32_t*)(sha_buffer+12))[0] = job->nonce_start+n;
+        //((uint32_t*)(sha_buffer+12))[0] = job->nonce_start+n;
           
         //sha_hal_write_digest(SHA2_256, midstate);
         nerd_sha_ll_write_digest(digest_mid);
@@ -739,7 +755,7 @@ void minerWorkerHw(void * task_id)
         //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
         //sha_ll_fill_text_block(s_test_buffer+64, 64/4);
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer);
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer, job->nonce_start+n);
         sha_ll_continue_block(SHA2_256);
         
         //sha_hal_read_digest(SHA2_256, interResult);
@@ -1073,8 +1089,7 @@ void saveStat() {
   nvs_set_u32(stat_handle, "shares", shares);
   nvs_set_u32(stat_handle, "valids", valids);
   nvs_set_u32(stat_handle, "templates", templates);
-  uint64_t upTime_now = upTime + (esp_timer_get_time()/1000000);
-  nvs_set_u64(stat_handle, "upTime", upTime_now);
+  nvs_set_u64(stat_handle, "upTime", upTime);
 
   uint32_t crc = crc32_reset();
   crc = crc32_add(crc, &best_diff, sizeof(best_diff));
@@ -1084,7 +1099,7 @@ void saveStat() {
   crc = crc32_add(crc, &nv_shares, sizeof(nv_shares));
   crc = crc32_add(crc, &nv_valids, sizeof(nv_valids));
   crc = crc32_add(crc, &templates, sizeof(templates));
-  crc = crc32_add(crc, &upTime_now, sizeof(upTime_now));
+  crc = crc32_add(crc, &upTime, sizeof(upTime));
   crc = crc32_finish(crc);
   nvs_set_u32(stat_handle, "crc32", crc);
 }
@@ -1112,18 +1127,29 @@ void runMonitor(void *name)
 
   totalKHashes = (Mhashes * 1000) + hashes / 1000;
   uint32_t last_update_millis = millis();
+  uint32_t uptime_frac = 0;
 
   while (1)
   {
     uint32_t now_millis = millis();
-    if (now_millis < last_update_millis || now_millis >= last_update_millis + 990)
-    {
-      unsigned long mElapsed = now_millis - mLastCheck;
+    if (now_millis < last_update_millis)
+      now_millis = last_update_millis;
+    
+    uint32_t mElapsed = now_millis - mLastCheck;
+    if (mElapsed >= 1000)
+    { 
       mLastCheck = now_millis;
       last_update_millis = now_millis;
       unsigned long currentKHashes = (Mhashes * 1000) + hashes / 1000;
       elapsedKHs = currentKHashes - totalKHashes;
       totalKHashes = currentKHashes;
+
+      uptime_frac += mElapsed;
+      while (uptime_frac >= 1000)
+      {
+        uptime_frac -= 1000;
+        upTime ++;
+      }
 
       drawCurrentScreen(mElapsed);
 
