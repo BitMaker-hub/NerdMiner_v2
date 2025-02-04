@@ -212,7 +212,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     // Submit
     id = getNextId(id);
     submit_id = id;
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.submit\", \"params\": [\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
+    sprintf(payload, "{\"id\":%u,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
         id,
         mWorker.wName,//"bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
         mJob.job_id.c_str(),
@@ -248,7 +248,7 @@ bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
     char payload[BUFFER] = {0};
 
     id = getNextId(id);
-    sprintf(payload, "{\"id\": %d, \"method\": \"mining.suggest_difficulty\", \"params\": [%.10g]}\n", id, difficulty);
+    sprintf(payload, "{\"id\":%d,\"method\":\"mining.suggest_difficulty\",\"params\":[%.10g]}\n", id, difficulty);
     
     Serial.print("  Sending  : "); Serial.print(payload);
     return client.print(payload);

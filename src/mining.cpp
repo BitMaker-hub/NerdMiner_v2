@@ -480,6 +480,8 @@ void runStratumWorker(void *name) {
       hashes += res->nonce_count;
       if (res->difficulty > currentPoolDifficulty && job_pool == res->id && res->nonce != 0xFFFFFFFF)
       {
+        if (!client.connected())
+          break;
         unsigned long sumbit_id = 0;
         tx_mining_submit(client, mWorker, mJob, res->nonce, sumbit_id);
         Serial.print("   - Current diff share: "); Serial.println(res->difficulty,12);
@@ -589,7 +591,8 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
     REG_WRITE(&reg_addr_buf[1], data_words[1]);
     REG_WRITE(&reg_addr_buf[2], data_words[2]);
 #if 0
-    REG_WRITE(&reg_addr_buf[3], data_words[3]);    
+    REG_WRITE(&reg_addr_buf[3], nonce);
+    //REG_WRITE(&reg_addr_buf[3], data_words[3]);    
     REG_WRITE(&reg_addr_buf[4], data_words[4]);
     REG_WRITE(&reg_addr_buf[5], data_words[5]);
     REG_WRITE(&reg_addr_buf[6], data_words[6]);
@@ -662,7 +665,7 @@ static inline bool nerd_sha_ll_read_digest_if(void* ptr)
 {
   DPORT_INTERRUPT_DISABLE();
   uint32_t last = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
-  if ( last >> 16 != 0)
+  if ( (uint16_t)(last >> 16) != 0)
   {
     DPORT_INTERRUPT_RESTORE();
     return false;
@@ -745,41 +748,39 @@ void minerWorkerHw(void * task_id)
       esp_sha_acquire_hardware();
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        //((uint32_t*)(sha_buffer+12))[0] = job->nonce_start+n;
-          
-        //sha_hal_write_digest(SHA2_256, midstate);
+        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_write_digest(digest_mid);
-        //nerd_sha_ll_write_digest_sha256(midstate);
-        
-        //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
-        //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
-        //sha_ll_fill_text_block(s_test_buffer+64, 64/4);
         nerd_sha_ll_fill_text_block_sha256(sha_buffer, job->nonce_start+n);
         sha_ll_continue_block(SHA2_256);
         
-        //sha_hal_read_digest(SHA2_256, interResult);
         sha_ll_load(SHA2_256);
-        //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
-        //sha_ll_read_digest(SHA2_256, interResult, 256 / 32);
-        //nerd_sha_ll_read_digest(interResult);
-        
-        //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
-        //sha_hal_wait_idle();
-        //nerd_sha_hal_wait_idle();
-        //sha_ll_fill_text_block(interResult, 64/4);
-        //nerd_sha_ll_fill_text_block_sha256(interResult);
         nerd_sha_ll_fill_text_block_sha256_inter();
         sha_ll_start_block(SHA2_256);
-
-        //sha_hal_read_digest(SHA2_256, hash);
         sha_ll_load(SHA2_256);
-        //sha_hal_wait_idle();
         nerd_sha_hal_wait_idle();
-        //sha_ll_read_digest(SHA2_256, hash, 256 / 32);
         if (nerd_sha_ll_read_digest_if(hash))
         {
+          //Serial.printf("Hw 16bit Share, nonce=0x%X\n", job->nonce_start+n);
+#if 0
+          //Validation
+          ((uint32_t*)(job->sha_buffer+64+12))[0] = job->nonce_start+n;
+          uint8_t doubleHash[32];
+          uint32_t diget_mid[8];
+          uint32_t bake[16];
+          nerd_mids(diget_mid, job->sha_buffer);
+          nerd_sha256_bake(diget_mid, job->sha_buffer+64, bake);
+          nerd_sha256d_baked(diget_mid, job->sha_buffer+64, bake, doubleHash);
+          for (int i = 0; i < 32; ++i)
+          {
+            if (hash[i] != doubleHash[i])
+            {
+              Serial.println("***HW sha256 esp32s3 bug detected***");
+              break;
+            }
+          }
+#endif
           //~5 per second
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
