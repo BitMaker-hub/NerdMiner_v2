@@ -4,6 +4,7 @@
 #include "HTTPClient.h"
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <list>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -35,7 +36,6 @@ String current_block = "793261";
 global_data gData;
 pool_data pData;
 String poolAPIUrl;
-
 
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
@@ -153,7 +153,7 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
+        if (WiFi.status() != WL_CONNECTED) return String(bitcoin_price)+"$";
         
         HTTPClient http;
         try {
@@ -178,7 +178,7 @@ String getBTCprice(void){
         }
     }
   
-  return "$" + String(bitcoin_price);
+  return String(bitcoin_price)+"$";
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -235,9 +235,58 @@ String getTime(void){
   return LocalHour;
 }
 
+enum EHashRateScale
+{
+  HashRateScale_99KH,
+  HashRateScale_999KH,
+  HashRateScale_9MH
+};
+
+static EHashRateScale s_hashrate_scale = HashRateScale_99KH;
+static uint32_t s_skip_first = 3;
+static double s_top_hashrate = 0.0;
+
+static std::list<double> s_hashrate_avg_list;
+static double s_hashrate_summ = 0.0;
+
 String getCurrentHashRate(unsigned long mElapsed)
 {
-  return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
+  double hashrate = (double)elapsedKHs * 1000.0 / (double)mElapsed;
+
+  s_hashrate_summ += hashrate;
+  s_hashrate_avg_list.push_back(hashrate);
+  if (s_hashrate_avg_list.size() > 10)
+  {
+    s_hashrate_summ -= s_hashrate_avg_list.front();
+    s_hashrate_avg_list.pop_front();
+  }
+
+  double avg_hashrate = s_hashrate_summ / (double)s_hashrate_avg_list.size();
+
+  if (s_skip_first > 0)
+  {
+    s_skip_first--;
+  } else
+  {
+    if (avg_hashrate > s_top_hashrate)
+    {
+      s_top_hashrate = avg_hashrate;
+      if (avg_hashrate > 999.9)
+        s_hashrate_scale = HashRateScale_9MH;
+      else if (avg_hashrate > 99.9)
+        s_hashrate_scale = HashRateScale_999KH;
+    }
+  }
+
+  switch (s_hashrate_scale)
+  {
+    case HashRateScale_99KH:
+      return String(avg_hashrate, 2);
+    case HashRateScale_999KH:
+      return String(avg_hashrate, 2);
+    default:
+      return String((int)avg_hashrate );
+  }
 }
 
 mining_data getMiningData(unsigned long mElapsed)

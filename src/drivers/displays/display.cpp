@@ -60,7 +60,6 @@ DisplayDriver *currentDisplayDriver = &m5stickCPlusDriver;
 DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
 
-
 // Initialize the display
 void initDisplay()
 {
@@ -95,6 +94,18 @@ void drawSetupScreen()
 void resetToFirstScreen()
 {
   currentDisplayDriver->current_cyclic_screen = 0;
+}
+
+// Lanza El Dado Y Una Moneda 
+void monedaydado()
+{
+  currentDisplayDriver->current_cyclic_screen = 21;
+}
+
+// Reloj Mesilla De Noche
+void relojnoche()
+{
+  currentDisplayDriver->current_cyclic_screen = 9;
 }
 
 // Switches to the next cyclic screen without drawing it
