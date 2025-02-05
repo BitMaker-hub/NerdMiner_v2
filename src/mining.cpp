@@ -320,6 +320,9 @@ void runStratumWorker(void *name) {
     uint32_t hw_midstate[8];
     uint32_t diget_mid[8];
     uint32_t bake[16];
+    #if defined(CONFIG_IDF_TARGET_ESP32)
+    uint8_t sha_buffer_swap[128];
+    #endif
 
     //Read pending messages from pool
     while(client.connected() && client.available())
@@ -370,6 +373,11 @@ void runStratumWorker(void *name) {
                                           #endif
                                           #endif
 
+                                          #if defined(CONFIG_IDF_TARGET_ESP32)
+                                          for (int i = 0; i < 32; ++i)
+                                            ((uint32_t*)sha_buffer_swap)[i] = __builtin_bswap32(((const uint32_t*)(mMiner.bytearray_blockheader))[i]);
+                                          #endif
+
                                           #ifdef RANDOM_NONCE
                                           nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
                                           #else
@@ -393,7 +401,11 @@ void runStratumWorker(void *name) {
                                               #endif
                                               #endif
                                               #ifdef HARDWARE_SHA265
-                                              JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
+                                                #if defined(CONFIG_IDF_TARGET_ESP32)
+                                                  JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, sha_buffer_swap, hw_midstate, bake);
+                                                #else
+                                                  JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
+                                                #endif
                                               #ifdef RANDOM_NONCE
                                               nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
                                               #else
@@ -464,12 +476,14 @@ void runStratumWorker(void *name) {
       {
         std::shared_ptr<JobResult> result = std::make_shared<JobResult>();
         ((uint32_t*)(mMiner.bytearray_blockheader+64+12))[0] = nonce_vector[n];
-        nerd_sha256d_baked(diget_mid, mMiner.bytearray_blockheader+64, bake, result->hash);
-        result->id = job_pool;
-        result->nonce = nonce_vector[n];
-        result->nonce_count = 0;
-        result->difficulty = diff_from_target(result->hash);
-        job_result_list.push_back(result);
+        if (nerd_sha256d_baked(diget_mid, mMiner.bytearray_blockheader+64, bake, result->hash))
+        {
+          result->id = job_pool;
+          result->nonce = nonce_vector[n];
+          result->nonce_count = 0;
+          result->difficulty = diff_from_target(result->hash);
+          job_result_list.push_back(result);
+        }
       }
       uint32_t time_end = millis();
       //if (nonces_done > 16384)
@@ -505,7 +519,11 @@ void runStratumWorker(void *name) {
       #ifdef HARDWARE_SHA265
       while (s_job_request_list_hw.size() < 4)
       {
-        JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
+        #if defined(CONFIG_IDF_TARGET_ESP32)
+          JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, sha_buffer_swap, hw_midstate, bake);
+        #else
+          JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, mMiner.bytearray_blockheader, hw_midstate, bake);
+        #endif
         #ifdef RANDOM_NONCE
         nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
         #else
@@ -590,15 +608,7 @@ void minerWorkerSw(void * task_id)
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
         ((uint32_t*)(job->sha_buffer+64+12))[0] = job->nonce_start+n;
-        nerd_sha256d_baked(job->midstate, job->sha_buffer+64, job->bake, hash);
-
-        if (s_working_current_job_id != job_in_work)
-        {
-          result->nonce_count = n+1;
-          break;
-        }
-
-        if(hash[31] == 0 && hash[30] == 0)
+        if (nerd_sha256d_baked(job->midstate, job->sha_buffer+64, job->bake, hash))
         {
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
@@ -607,6 +617,12 @@ void minerWorkerSw(void * task_id)
             result->nonce = job->nonce_start+n;
             memcpy(result->hash, hash, 32);
           }
+        }
+
+        if ( (uint16_t)(n & 0xFF) == 0 &&s_working_current_job_id != job_in_work)
+        {
+          result->nonce_count = n+1;
+          break;
         }
       }
     } else
@@ -1031,8 +1047,7 @@ void minerWorkerHw(void * task_id)
       result->nonce_count = job->nonce_count;
       result->difficulty = job->difficulty;
       uint8_t job_in_work = job->id & 0xFF;
-      for (int i = 0; i < 32; ++i)
-        ((uint32_t*)sha_buffer)[i] = __builtin_bswap32(((const uint32_t*)(job->sha_buffer))[i]);
+      memcpy(sha_buffer, job->sha_buffer, 80);
 
       esp_sha_lock_engine(SHA2_256);
       for (uint32_t n = 0; n < job->nonce_count; ++n)
@@ -1040,7 +1055,7 @@ void minerWorkerHw(void * task_id)
         //((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(job->nonce_start+n);
 
         //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
-        nerd_sha_hal_wait_idle();
+        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256(sha_buffer);
         sha_ll_start_block(SHA2_256);
 

@@ -486,7 +486,7 @@ IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, const uint8_t* dataIn, u
 }
 
 
-IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
     //*********** Init 1rst SHA ***********
@@ -697,10 +697,7 @@ IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     temp1 = A[3] + S3(A[0]) + F1(A[0], A[1], A[2]) + K[60] + R(60);
     uint32_t a7 = A[7] + temp1;
     if ((uint32_t)(a7 & 0xFFFF) != 0x32E7)
-    {
-        doubleHash[30] = 0xFF;
-        return;
-    }
+        return false;
 
     //Post 57
     uint32_t m2 = S2(A[7]) + F0(A[7], d58_a0, d57_a1);
@@ -743,4 +740,5 @@ IRAM_ATTR void nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     PUT_UINT32_BE(0x1F83D9AB + A[6], doubleHash, 24);
     PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
 #endif
+    return true;
 }
