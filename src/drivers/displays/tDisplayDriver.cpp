@@ -62,6 +62,7 @@ int limite = 0;
 int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
+int mirarTiempo = 0;
 float porcentaje = 0.00;
 const char* nombrecillo;
 const char* apiUrl = "http://ip-api.com/json/";
@@ -112,12 +113,21 @@ int zonasHorarias[] = {
   2, 1, -5, -3, 2   // El Cairo, Amsterdam, Toronto, Sao Paulo, Cape Town
 };
 bool esHorarioDeVerano(int mes, int dia);
+bool transicionEjecutada = false;
 char result[MAX_RESULT_LENGTH];
 String textoFinalm8ax1;
 String textoFinalm8ax2;
 String textoFinalm8ax3;
 String textoFinalm8ax4;
 String cadenanoti = "";
+String ciudad="";
+String tempciudad="";
+
+/// Telegram Bot Y Chat - Para Enviar Datos Al Grupo De Telegram Que Configureis...
+
+String BOT_TOKEN = "TU_BOT_TOKEN"; // Token del bot de Telegram
+String CHAT_ID = "-100XXXXXXXXXX"; // ID del canal (con el "-" delante)
+
 uint32_t rndnumero;
 uint32_t rndnumero2 = 0;
 uint32_t rndnumero3 = 0;
@@ -132,6 +142,7 @@ uint32_t ContadorEspecial = 0;
 moonPhase moonPhase;
 WiFiUDP udp;
 HTTPClient http;
+WiFiClientSecure client;
 
 typedef struct {
   int value;
@@ -179,6 +190,98 @@ void tDisplay_AlternateScreenState(void) {
 
 void tDisplay_AlternateRotation(void) {
   tft.setRotation(flipRotation(tft.getRotation()));
+}
+
+// Por Si Alguno Le Interesa Puede Poner En Las Declaraciones De Variables Su ID Del Grupo Y BOT Y El NerdMinerv2 Le Enviara Mensajes De Esado Cada 3H...
+
+void enviarMensajeATelegram(String mensaje) {
+    if (WiFi.status() != WL_CONNECTED) return;
+    
+    Serial.println("Enviando mensaje...");
+    
+    String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensaje;
+    
+    if (client.connect("api.telegram.org", 443)) {
+        client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                     "Host: api.telegram.org\r\n" +
+                     "Connection: close\r\n\r\n");
+        delay(1000);
+        while (client.available()) {
+            String line = client.readStringUntil('\r');
+            Serial.print(line);
+        }
+        Serial.println("\nMensaje enviado");
+    } else {
+        Serial.println("Error de conexión");
+    }
+    client.stop();
+}
+
+String getPublicIP() {
+  HTTPClient http;
+  String publicIP = "";
+
+  // Realizar la solicitud GET a un servicio que devuelva la IP pública
+  http.begin("http://api.ipify.org");  // Servicio que devuelve la IP pública
+  int httpCode = http.GET();
+
+  if (httpCode == HTTP_CODE_OK) {
+    publicIP = http.getString();  // Obtener la respuesta del servidor
+  }
+
+  http.end();
+  return publicIP;
+}
+
+std::pair<String, String> obtenerCiudadYTemperatura(const String& ip) {
+  String ciudad = "";
+  String temperatura = "";
+
+  // Obtener la ciudad usando la API de geolocalización
+  HTTPClient http;
+  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city";  // Obtener solo la ciudad
+  http.begin(urlGeo);
+  
+  int httpCode = http.GET();
+  if (httpCode > 0) {
+    String payload = http.getString();
+
+    // Parsear el JSON para obtener la ciudad
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      Serial.println("Error al parsear JSON de la ciudad");
+      return std::make_pair(ciudad, temperatura);  // Devolver vacías en caso de error
+    }
+    ciudad = doc["city"].as<String>();  // Ciudad obtenida
+  } else {
+    Serial.println("Error al obtener ciudad");
+    return std::make_pair(ciudad, temperatura);  // Devolver vacías si hay error
+  }
+  
+  http.end();
+
+  // Obtener la temperatura usando wttr.in con HTTPS
+  if (ciudad != "") {
+    // Usamos WiFiClientSecure para HTTPS
+    WiFiClientSecure client;
+    client.setInsecure();  // Permitimos conexiones HTTPS sin verificar certificado (menos seguro)
+
+    String urlTemp = "https://wttr.in/" + ciudad + "?format=%t";  // Usar https para obtener temperatura
+    http.begin(client, urlTemp);  // Iniciar la solicitud HTTPS
+    httpCode = http.GET();
+
+    if (httpCode > 0) {
+      temperatura = http.getString();  // Obtener la temperatura
+    } else {
+      Serial.println("Error al obtener temperatura");
+    }
+    http.end();
+  } else {
+    Serial.println("Ciudad no encontrada para la IP.");
+  }
+
+  return std::make_pair(ciudad, temperatura);  // Devolver ciudad y temperatura
 }
 
 void drawGrid(void) {
@@ -382,7 +485,7 @@ void drawCenteredText(const char* text, int y, int delayTime) {
 
   // Efecto de escritura letra por letra
   for (int i = 0; i < strlen(text); i++) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI], TFT_BLACK);
     tft.drawChar(text[i], x, y, 2);           // Dibuja una letra
     x += tft.textWidth(String(text[i])) + 5;  // Ajusta la posición X para la siguiente letra
@@ -397,7 +500,7 @@ void television() {
 
   // Barras horizontales
   for (int y = 0; y < tft.height(); y += barWidth) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.fillRect(0, y, tft.width(), barWidth, colors[colorI]);
     delay(speed);
     tft.fillRect(0, y, tft.width(), barWidth, TFT_BLACK);
@@ -405,7 +508,7 @@ void television() {
 
   // Barras verticales
   for (int x = 0; x < tft.width(); x += barWidth) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.fillRect(x, 0, barWidth, tft.height(), colors[colorI]);
     delay(speed);
     tft.fillRect(x, 0, barWidth, tft.height(), TFT_BLACK);
@@ -413,14 +516,14 @@ void television() {
 
   // Barras diagonales (de esquina a esquina)
   for (int i = 0; i < tft.width() + tft.height(); i += barWidth) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.drawLine(i, 0, 0, i, colors[colorI]);  // Diagonal de arriba a la izquierda
     delay(speed);
     tft.drawLine(i, 0, 0, i, TFT_BLACK);  // Borrar la línea
   }
 
   for (int i = 0; i < tft.width() + tft.height(); i += barWidth) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, colors[colorI]);  // Diagonal de abajo a la derecha
     delay(speed);
     tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, TFT_BLACK);  // Borrar la línea
@@ -430,7 +533,7 @@ void television() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(7);
   tft.setCursor(76, 52);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.print("HOLA");
   tft.setTextSize(1);
@@ -468,7 +571,7 @@ void nevar() {
 
   // Muestra "FELIZ NAVIDAD" al final
   tft.fillScreen(TFT_BLACK);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextDatum(MC_DATUM);                // Centra el texto
   tft.setFreeFont(FSB18);                    // Fuente grande (cambia si es necesario)
@@ -509,7 +612,7 @@ void nevar2() {
 
   // Muestra "FELIZ --- AÑO" al final
   tft.fillScreen(TFT_BLACK);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextDatum(MC_DATUM);                 // Centra el texto
   tft.setFreeFont(FSB18);                     // Fuente grande (cambia si es necesario)
@@ -519,7 +622,7 @@ void nevar2() {
 }
 
 void M8AXTicker() {
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextSize(2);
@@ -549,7 +652,7 @@ void nevar3() {
   while (millis() - startTime < 2000) {  // 5 segundos
     tft.fillScreen(TFT_BLACK);           // Borra pantalla
     for (int i = 0; i < NUM_COPOS; i++) {
-      colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+      colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
       tft.drawPixel(x[i], y[i], colors[colorI]);  // Dibuja copo de nieve
       y[i] += random(1, 5);                       // Baja la posición del copo
 
@@ -589,7 +692,7 @@ void cortinas() {
 }
 
 void M8AXTicker2() {
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextSize(2);
@@ -603,7 +706,7 @@ void M8AXTicker2() {
 }
 
 void M8AXTicker3() {
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextSize(2);
@@ -617,7 +720,7 @@ void M8AXTicker3() {
 }
 
 void M8AXTicker4() {
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.setTextSize(2);
@@ -832,7 +935,7 @@ void dibujaAnalogKH(float khs) {
   int agujaY = centerY + radius * sin(radianes);
 
   // Dibujar la aguja
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.drawLine(centerX, centerY, agujaX, agujaY, TFT_GREENYELLOW);  // Dibuja la aguja
   tft.setCursor(142, 96);
   tft.setTextSize(1);
@@ -891,7 +994,7 @@ void obtenerNoticias() {
     }
     tft.setCursor(1, 26);
     tft.setTextSize(1);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print(quitarAcentos(cadenanoti));
     cadenanoti = "";
@@ -908,44 +1011,79 @@ void obtenerNoticias() {
 }
 
 float obtenerPrecio(String currency_pair) {
-  HTTPClient http;
-  String url = "https://api.coinbase.com/v2/prices/" + currency_pair + "/spot";
-  http.begin(url);
-  http.setTimeout(1000);  // Aumenta el tiempo de espera a 10 segundos
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi no conectado, intentando reconectar...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(500);
+  }
 
-  Serial.print("Solicitando precio de ");
-  Serial.println(currency_pair);
+  WiFiClientSecure client;
+  client.setInsecure();  // Desactiva verificación SSL (Coinbase usa HTTPS)
 
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK) {
-    String payload = http.getString();
-    Serial.println("Respuesta de la API:");
-    Serial.println(payload);
+  const char* host = "api.coinbase.com";
+  const int port = 443;  // HTTPS usa el puerto 443
 
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, payload);
-    taskYIELD();
-    if (error) {
-      Serial.print("Error Al Parsear JSON: ");
-      Serial.println(error.c_str());
-      http.end();
+  Serial.print("Conectando a ");
+  Serial.println(host);
+
+  if (!client.connect(host, port)) {
+    Serial.println("Error: No se pudo conectar al servidor");
+    return -1;
+  }
+
+  // Construimos la petición HTTP manualmente
+  String url = "/v2/prices/" + currency_pair + "/spot";
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" +
+               "User-Agent: ESP32\r\n" +
+               "Connection: close\r\n\r\n");
+
+  // Esperamos la respuesta del servidor
+  unsigned long timeout = millis();
+  while (client.available() == 0) {
+    if (millis() - timeout > 5000) {  // Timeout de 5 segundos
+      Serial.println("Error: Timeout esperando respuesta del servidor");
+      client.stop();
       return -1;
     }
+  }
 
-    if (doc.containsKey("data") && doc["data"].containsKey("amount")) {
-      String amountStr = doc["data"]["amount"];
-      float precio = amountStr.toFloat();
-      http.end();
-      return precio;
-    } else {
-      Serial.println("El JSON No Tiene El Formato Esperado.");
-      http.end();
-      return -1;
+  // Leemos y descartamos los headers HTTP
+  while (client.available()) {
+    String linea = client.readStringUntil('\n');
+    if (linea == "\r") {
+      break;  // Fin de los headers
     }
+  }
+
+  // Leemos solo el JSON de la respuesta
+  String payload = "";
+  while (client.available()) {
+    payload += client.readString();
+  }
+
+  Serial.println("Respuesta de la API:");
+  Serial.println(payload);
+
+  client.stop();  // Cerramos la conexión
+
+  // Parseamos el JSON con menos consumo de RAM
+  DynamicJsonDocument doc(256);
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if (error) {
+    Serial.print("Error al parsear JSON: ");
+    Serial.println(error.c_str());
+    return -1;
+  }
+
+  // Extraemos el precio si existe
+  if (doc.containsKey("data") && doc["data"].containsKey("amount")) {
+    float precio = doc["data"]["amount"].as<float>();
+    return precio;
   } else {
-    Serial.print("Error En La Solicitud HTTP: ");
-    Serial.println(httpCode);
-    http.end();
+    Serial.println("El JSON no tiene el formato esperado.");
     return -1;
   }
 }
@@ -1115,7 +1253,7 @@ void displayQuote(String quote) {
   // Configuración de la fuente
   tft.setTextSize(2);
   tft.setCursor(0, 28);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
   tft.print(quitarAcentos(quote));
@@ -1230,16 +1368,22 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
     int yInterior = centroY + radio * 0.8 * sin(radians(anguloMarca));
     tft.drawLine(xInterior, yInterior, xExterior, yExterior, colors[colorIndex]);
   }
-  tft.setCursor(14, 5);
+  tft.setCursor(4, 5);
   tft.setTextColor(colors[colorIndex]);
   tft.setTextSize(3);
   tft.print(dia);
-  tft.setCursor(14, 50);
+  tft.setCursor(4, 37);
   tft.print(mesecillo);
-  tft.setCursor(14, 95);
+  tft.setCursor(4, 69);
   tft.print(String(quediase.c_str()));
-  tft.setCursor(14, 142);
+  tft.setCursor(4, 101);
   tft.print(anio);
+  tft.setCursor(4, 133);
+  tft.setTextSize(2);
+  tft.print(quitarAcentos(ciudad).substring(0, 7));
+  tft.setCursor(23, 153);
+  tempciudad.replace("°", "");  
+  tft.print(tempciudad);        
   tft.setTextSize(1);
   tft.setCursor(143, 115);
   tft.print(HRate);
@@ -1263,7 +1407,7 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   tft.setCursor(230, 150);
   tft.setTextSize(2);
   tft.print("NoRICO");
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   if (millonario == 0) {
     tft.setTextColor(colors[colorI]);
     tft.setCursor(230, 150);
@@ -1276,27 +1420,30 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
     tft.print("RICO");
   }
   dibujarPorcentajeLunar(281, 84, 25, porcentajeIluminado);
+  if (mirarTiempo == 0 || ciudad=="ERROR" || (minutos % 10 == 0 && segundos == 0)) {
+    mirarTiempo=1;
+    // Aquí pones lo que deseas hacer cuando se cumple la condición
+    std::pair<String, String> resultado = obtenerCiudadYTemperatura(getPublicIP());
+    // Verificar si los valores fueron obtenidos correctamente
+    if (resultado.first != "" && resultado.second != "") {
+      // Imprimir los resultados en el Monitor Serie
+      Serial.println("Ciudad: " + resultado.first);
+      Serial.println("Temperatura: " + resultado.second);
+      ciudad=resultado.first;
+      tempciudad=resultado.second;
+
+    } else {
+      Serial.println("No se pudo obtener la ciudad o la temperatura.");
+      ciudad="ERROR";
+      tempciudad="ERROR";
+    }
+  }
+  
   actualizarc = 0;
 }
 
 int aleaESP32(int min, int max) {
   return (esp_random() % (max - min + 1)) + min;
-}
-
-String getPublicIP() {
-  HTTPClient http;
-  String publicIP = "";
-
-  // Realizar la solicitud GET a un servicio que devuelva la IP pública
-  http.begin("http://api.ipify.org");  // Servicio que devuelve la IP pública
-  int httpCode = http.GET();
-
-  if (httpCode == HTTP_CODE_OK) {
-    publicIP = http.getString();  // Obtener la respuesta del servidor
-  }
-
-  http.end();
-  return publicIP;
 }
 
 // Función para generar 6 números únicos y devolverlos como String
@@ -1565,7 +1712,7 @@ moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const i
 void incrementCounter() {
   secondCounter++;
   if (secondCounter >= 59) {
-    colorIndex = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorIndex = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     secondCounter = 0;
   } else {
     if (colorIndex % 2 == 0) {
@@ -1890,6 +2037,7 @@ void tDisplay_m8axScreen1(unsigned long mElapsed) {
   incrementCounter();
   actualizarcalen = 0;
   actualizarc = 0;
+  mirarTiempo=0;
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
   String fechita = dataa.currentDate + " " + String(quediase.c_str());
   String fechacondiasemana = dataa.currentDate + " " + String(quediase.c_str());
@@ -2243,62 +2391,62 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   tft.setTextSize(6);
   tft.setCursor(3, 2);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(hRoman);
   tft.setCursor(3, 62);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(mRoman);
   tft.setCursor(3, 122);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
 
   tft.setTextSize(1);
   tft.setCursor(250, 2);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("d " + RDia);
   tft.setCursor(250, 16);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("m " + RMes);
   tft.setCursor(250, 30);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("a " + RAnio);
   tft.setCursor(250, 44);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(quediase.c_str()));
   tft.setCursor(250, 58);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
   if (millonario == 1) {
     tft.setCursor(250, 72);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
   } else {
     tft.setCursor(250, 72);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("NO RICO");
   }
   tft.setCursor(250, 93);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("V.BLOCKS");
   tft.setCursor(260, 109);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextSize(5);
   tft.print(millonario);
   tft.setTextSize(1);
   tft.setCursor(250, 153);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
@@ -2347,62 +2495,62 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   tft.setTextSize(6);
   tft.setCursor(3, 2);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(hRoman);
   tft.setCursor(3, 62);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(mRoman);
   tft.setCursor(3, 122);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
 
   tft.setTextSize(1);
   tft.setCursor(240, 2);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("d " + RDia);
   tft.setCursor(240, 16);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("m " + RMes);
   tft.setCursor(240, 30);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("a " + RAnio);
   tft.setCursor(240, 44);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(quediase.c_str()));
   tft.setCursor(240, 58);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
   if (millonario == 1) {
     tft.setCursor(240, 72);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
   } else {
     tft.setCursor(240, 72);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("NO RICO");
   }
   tft.setCursor(240, 93);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("V.BLOCKS");
   tft.setCursor(250, 109);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextSize(5);
   tft.print(millonario);
   tft.setTextSize(1);
   tft.setCursor(240, 153);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
@@ -2454,66 +2602,66 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   tft.setTextSize(3);
   tft.setCursor(3, 0);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(hRoman);
   tft.setCursor(3, 75);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(mRoman);
   tft.setCursor(3, 150);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
 
   tft.setTextSize(1);
   tft.setCursor(240, 2);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("d " + RDia);
   tft.setCursor(240, 16);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("m " + RMes);
   tft.setCursor(240, 30);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("a " + RAnio);
   tft.setCursor(240, 38);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(RAnio2);
   tft.setCursor(240, 52);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(quediase.c_str()));
   tft.setCursor(240, 66);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
   if (millonario == 1) {
     tft.setCursor(240, 80);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
   } else {
     tft.setCursor(240, 80);
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("NO RICO");
   }
   tft.setCursor(240, 95);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("V.BLOCKS");
   tft.setCursor(250, 113);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextSize(5);
   tft.print(millonario);
   tft.setTextSize(1);
   tft.setCursor(225, 155);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
@@ -2546,14 +2694,14 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
       // En caso de que el número esté fuera de rango, puedes poner una imagen predeterminada o hacer algo más.
       break;
   }
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   if (colorI % 2 == 0) {
     limite = esp_random() % 15000;  // Rango: 0 a 54400
   } else {
     limite = esp_random() % 5000;  // Rango: 0 a 54400
   }
   tft.setCursor(30, 60);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextSize(7);
   tft.print(String(data.currentHashRate.c_str()));
@@ -2564,7 +2712,7 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
   tft.setTextSize(2);
   tft.print("https://youtube.com/m8ax");
   for (int i = 0; i < limite; i++) {
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     int ancho = esp_random() % 341;  // Rango: 0 a 340
     int alto = esp_random() % 171;   // Rango: 0 a 170
     tft.drawPixel(ancho, alto, colors[colorI]);
@@ -2629,7 +2777,7 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
           x = 3 * (tft.width() / 4) + 20;
           y = 20 + (i - 15) * 30;
         }
-        colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+        colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.setTextSize(1);
         tft.drawLine(0, 13, 320, 13, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
@@ -2637,7 +2785,7 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
         tft.setCursor(16, 2);
         tft.print(Textito);
         tft.setCursor(x, y);
-        colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+        colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.print(criptomonedas[i]);
         tft.setCursor(x, y + 15);
@@ -2661,7 +2809,7 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
           x = 3 * (tft.width() / 4) + 20;
           y = 20 + (i - 15) * 30;
         }
-        colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+        colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.setTextSize(1);
         tft.drawLine(0, 13, 320, 13, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
@@ -2669,7 +2817,7 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
         tft.setCursor(16, 2);
         tft.print(Textito);
         tft.setCursor(x, y);
-        colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+        colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.print(criptomonedas[i]);
         tft.setCursor(x, y + 15);
@@ -2746,7 +2894,7 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
     actualizarcalen++;
   }
   background.pushSprite(0, 0);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   if (segundo % 30 == 0) {
@@ -2775,7 +2923,7 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   tft.setCursor(4, 154);
   tft.print(String(rndnumero3) + " - " + (factorizacion));
   Serial.println("M8AX - Factorizando Número - " + String(rndnumero3) + " - " + (factorizacion));
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setCursor(4, 144);
   tft.setTextColor(colors[colorI]);
   tft.print("Factorizacion Nerd");
@@ -2946,7 +3094,7 @@ void tDisplay_m8axScreen16(unsigned long mElapsed) {
     int x = (i % 4) * 80;  // Las ciudades se distribuyen en 4 columnas
 
     // Muestra la ciudad y la hora
-    colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
     tft.setTextColor(colors[colorI]);
     tft.setTextSize(1);
@@ -3006,7 +3154,7 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
   actual = 0;
   actuanot = 0;
   correccion = 0;
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextSize(3);
   tft.setCursor(20, 1);
@@ -3116,7 +3264,7 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   correccion = 0;
   actuanot = 0;
   tft.setTextColor(TFT_WHITE);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextSize(1);
   tft.setCursor(1, 90);
   tft.print("'Las Cifras' Num - " + String(totalci) + ". AC - " + String(aciertos) + " FA - " + String(fallos));
@@ -3188,11 +3336,11 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   dibujaQR(String(segundos), 228, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
   tft.setTextSize(5);
   tft.setCursor(87, 30);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(":");
   tft.setCursor(202, 30);
-  colorI = random(0, sizeof(colors) / sizeof(colors[0]));
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.setTextColor(TFT_WHITE);
   tft.print(":");
@@ -3238,9 +3386,8 @@ void monedaYdado(unsigned long mElapsed) {
   correccion = 0;
   actuanot = 0;
   actualizarcalen = 0;
-  randomSeed(analogRead(0));  // Inicializa la semilla aleatoria
-  int dado = random(1, 7);    // Números del 1 al 6
-  int moneda = random(0, 2);  // 0 (cara), 1 (cruz)
+  int dado = esp_random() % 6 + 1;    // Números del 1 al 6
+  int moneda = esp_random() % 2;     // 0 (cara), 1 (cruz)
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(108, 88);
   tft.setTextSize(1);
@@ -3329,21 +3476,167 @@ void tDisplay_m8axvida(unsigned long mElapsed) {
   actual = 0;
 }
 
-void marquesina(unsigned long mElapsed) {
+void RelojDeNumeros(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
-  int horita = dataa.currentTime.substring(0, 2).toInt();
-  int minutitos = dataa.currentTime.substring(3, 5).toInt();
-  unsigned long segundo = timeClient.getSeconds();
-  int segundos = segundo % 60;
-  char horaStr[9];  // Buffer para almacenar la hora en formato HH:MM:SS
-  sprintf(horaStr, "%02d:%02d:%02d", horita, minutitos, segundos);
+  int millonario = atoi(data.valids.c_str());
   incrementCounter();
-  tft.fillScreen(TFT_BLACK);
-  tft.setCursor(30, 80);
-  tft.setTextColor(TFT_WHITE);
-  tft.print("en construccion pulsa para siguiente pantalla");
-}
+  mirarTiempo=0;
+  unsigned long segundo = timeClient.getSeconds();
+  int horas = dataa.currentTime.substring(0, 2).toInt();
+  int minutos = dataa.currentTime.substring(3, 5).toInt();
+  int segundos = segundo % 60;
+  int horis1 = horas / 10; // Primer dígito de las horas
+  int horis2 = horas % 10; // Segundo dígito de las horas
+  int minutis1 = minutos / 10; // Primer dígito de los minutos
+  int minutis2 = minutos % 10; // Segundo dígito de los minutos
+  int segundis1 = segundos / 10; // Primer dígito de los segundos
+  int segundis2 = segundos % 10; // Segundo dígito de los segundos
+
+  if (segundos % 59 == 0) {
+    actualizarc = 0;
+  }
+  std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
+  int dia = dataa.currentDate.substring(0, 2).toInt();
+  int mes = dataa.currentDate.substring(3, 5).toInt();
+  int anio = dataa.currentDate.substring(6, 10).toInt();
+  int horis = dataa.currentTime.substring(0, 2).toInt();
+  int mins = dataa.currentTime.substring(3, 5).toInt();
+  int segundosDelDia = (horis * 3600) + (mins * 60) + segundos;
+  String hRoman1 = numeroAEscrito(horis1);
+  String hRoman2 = numeroAEscrito(horis2);
+  String mRoman1 = numeroAEscrito(minutis1);
+  String mRoman2 = numeroAEscrito(minutis2);
+  String sRoman1 = numeroAEscrito(segundis1);
+  String sRoman2 = numeroAEscrito(segundis2);
+  String RDia = numeroAEscrito(dia);
+  String RMes = numeroAEscrito(mes);
+  String RAnio =String (anio);
+  String TempCPU = String(data.temp.c_str());
+  if (actualizarc == 0) {
+    random_number = 1 + (esp_random() % 4);
+  }
+  if (random_number == 1) {
+    background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
+    background.pushSprite(0, 0);
+  } else if (random_number == 2) {
+    background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
+    background.pushSprite(0, 0);
+  } else if (random_number == 3) {
+    background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
+    background.pushSprite(0, 0);
+  } else if (random_number == 4) {
+    background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
+    background.pushSprite(0, 0);
+  }
+  actualizarc++;
+  Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
+                data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
+  tft.setTextSize(3);
+  tft.setCursor(3, 2);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(hRoman1);
+  tft.setCursor(133, 2);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(hRoman2);
+  tft.setCursor(3, 77);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(mRoman1);
+  tft.setCursor(133, 77);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(mRoman2);
+  tft.setCursor(3, 148);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(sRoman1);
+  tft.setCursor(133, 148);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(sRoman2);
+  tft.setTextSize(1);
+  tft.setCursor(250, 2);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("d " + RDia);
+  tft.setCursor(250, 16);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("m " + RMes);
+  tft.setCursor(250, 30);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("a " + RAnio);
+  tft.setCursor(250, 44);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(String(quediase.c_str()));
+  tft.setCursor(250, 58);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print(String(data.currentHashRate.c_str()) + " KH/s");
+  if (millonario == 1) {
+    tft.setCursor(250, 72);
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.setTextColor(colors[colorI]);
+    tft.print("ERES RICO");
+  } else {
+    tft.setCursor(250, 72);
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.setTextColor(colors[colorI]);
+    tft.print("NO RICO");
+  }
+  tft.setCursor(250, 93);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("V.BLOCKS");
+  tft.setCursor(260, 109);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.setTextSize(5);
+  tft.print(millonario);
+  tft.setTextSize(1);
+  tft.setCursor(250, 153);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("T " + TempCPU + "g");
+  tft.setTextSize(1);
+  tft.setCursor(5, 50);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("0 KH/s ");
+  tft.setCursor(192, 50);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("360 KH/s");
+  int grosor=5;
+  int X_INICIO = 5;                                       // Columna fija
+  int X_FINAL = 242;                                        // Base de la barra
+  int Y_POS = 43;                                          // Punto más alto
+  int longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
+  int longitud_pintada = (longitud_total * data.currentHashRate.toInt()) / 360;  // Porcentaje de la barra según los segundos
+  tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
+  tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
+  tft.setCursor(5, 124);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("0 Horas");
+  tft.setCursor(192, 124);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI]);
+  tft.print("24 Horas");
+  grosor=5;
+  X_INICIO = 4;                                       // Columna fija
+  X_FINAL = 242;                                        // Base de la barra
+  Y_POS = 117;                                          // Punto más alto
+  longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
+  longitud_pintada = (longitud_total * segundosDelDia) / 86400;  // Porcentaje de la barra según los segundos
+  tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
+  tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
+  }
 
 void tDisplay_LoadingScreen(void) {
   int effect = random(6);  // Selecciona un efecto aleatorio
@@ -3372,6 +3665,7 @@ void tDisplay_LoadingScreen(void) {
   tft.setTextColor(TFT_BLACK);
   tft.setTextSize(1);
   tft.drawString(CURRENT_VERSION, 25, 148, FONT2);
+
 }
 
 void tDisplay_SetupScreen(void) {
@@ -3409,7 +3703,7 @@ void analiCadaSegundo(unsigned long frame) {
   }
 
   rndnumero = esp_random();
-  if (rndnumero <= 10031977) {
+  if (rndnumero <= 10031977 && segundos %2==0 and dia %2 !=0) {
     Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
     actualizarcalen = 0;
     actualizarc = 0;
@@ -3459,7 +3753,7 @@ void tDisplay_AnimateCurrentScreen(unsigned long frame) {
 void tDisplay_DoLedStuff(unsigned long frame) {
 }
 
-CyclicScreenFunction tDisplayCyclicScreens[] = { marquesina, tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida };
+CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida };
 
 DisplayDriver tDisplayDriver = {
   tDisplay_Init,

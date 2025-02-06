@@ -688,7 +688,7 @@ void setup()
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
   #ifdef HARDWARE_SHA265
-    xTaskCreate(minerWorkerHw, "MvIiIaX-MinerHW-0", 2048, (void*)0, 3, &minerTask1);
+    xTaskCreate(minerWorkerHw, "MvIiIaX-MinerHW-0", 4096, (void*)0, 3, &minerTask1);
   #else
     xTaskCreate(minerWorkerSw, "M8AX-MinerSW-0", 6000, (void*)0, 1, &minerTask1);
   #endif

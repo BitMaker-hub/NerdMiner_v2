@@ -430,43 +430,70 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 	// minimum diff value to display
 	const double min_diff = 0.001;
     const byte maxNdigits = 2;
-	char suffix[2] = "";
+	char suffix[2] = {0,0};
 	bool decimal = true;
 	double dval;
 
 	if (val >= exa) {
 		val /= peta;
 		dval = val / kilo;
-		strcpy(suffix, "E");
+        suffix[0] = 'E';
+        if (dval > 999.99)
+            dval = 999.99;
 	} else if (val >= peta) {
 		val /= tera;
 		dval = val / kilo;
-		strcpy(suffix, "P");
+		suffix[0] = 'P';
 	} else if (val >= tera) {
 		val /= giga;
 		dval = val / kilo;
-		strcpy(suffix, "T");
+		suffix[0] = 'T';
 	} else if (val >= giga) {
 		val /= mega;
 		dval = val / kilo;
-		strcpy(suffix, "G");
+		suffix[0] = 'G';
 	} else if (val >= mega) {
 		val /= kilo;
 		dval = val / kilo;
-		strcpy(suffix, "M");
+		suffix[0] = 'M';
 	} else if (val >= kilo) {
 		dval = val / kilo;
-		strcpy(suffix, "K");
+		suffix[0] = 'K';
 	} else {
 		dval = val;
 		if (dval < min_diff)
 			dval = 0.0;
 	}
+    
+    int frac = 3;
+    if (suffix[0] != 0)
+    {
+        if (dval > 99.999)
+            frac = 1;
+        else if (dval > 9.999)
+            frac = 2;
+    } else
+    {
+        if (dval > 99.999)
+            frac = 2;
+        else if (dval > 9.999)
+            frac = 3;
+        else
+            frac = 4;
+    }
 
 	if (!sigdigits) {
 		if (decimal)
-			snprintf(buf, bufsiz, "%.3f%s", dval, suffix);
-		else
+        {
+            if (frac == 4)
+			    snprintf(buf, bufsiz, "%.4f%s", dval, suffix);
+            else if (frac == 3)
+			    snprintf(buf, bufsiz, "%.3f%s", dval, suffix);
+            else if (frac == 2)
+			    snprintf(buf, bufsiz, "%.2f%s", dval, suffix);
+            else
+			    snprintf(buf, bufsiz, "%.1f%s", dval, suffix);
+        } else
 			snprintf(buf, bufsiz, "%d%s", (unsigned int)dval, suffix);
 	} else {
 		/* Always show sigdigits + 1, padded on right with zeroes

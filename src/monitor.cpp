@@ -37,6 +37,7 @@ global_data gData;
 pool_data pData;
 String poolAPIUrl;
 
+
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
 
@@ -248,6 +249,7 @@ static double s_top_hashrate = 0.0;
 
 static std::list<double> s_hashrate_avg_list;
 static double s_hashrate_summ = 0.0;
+static uint8_t s_hashrate_recalc = 0;
 
 String getCurrentHashRate(unsigned long mElapsed)
 {
@@ -261,7 +263,17 @@ String getCurrentHashRate(unsigned long mElapsed)
     s_hashrate_avg_list.pop_front();
   }
 
+  ++s_hashrate_recalc;
+  if (s_hashrate_recalc == 0)
+  {
+    s_hashrate_summ = 0.0;
+    for (auto itt = s_hashrate_avg_list.begin(); itt != s_hashrate_avg_list.end(); ++itt)
+      s_hashrate_summ += *itt;
+  }
+
   double avg_hashrate = s_hashrate_summ / (double)s_hashrate_avg_list.size();
+  if (avg_hashrate < 0.0)
+    avg_hashrate = 0.0;
 
   if (s_skip_first > 0)
   {
@@ -297,11 +309,13 @@ mining_data getMiningData(unsigned long mElapsed)
   suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
-  uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
-  int days = secElapsed / 86400;
-  int hours = (secElapsed - (days * 86400)) / 3600;               // Number of seconds in an hour
-  int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; // Remove the number of hours and calculate the minutes.
-  int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);
+  uint64_t tm = upTime;
+  int secs = tm % 60;
+  tm /= 60;
+  int mins = tm % 60;
+  tm /= 60;
+  int hours = tm % 24;
+  int days = tm / 24;
   sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
 
   data.completedShares = shares;
