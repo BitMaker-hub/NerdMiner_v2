@@ -99,13 +99,13 @@ void resetToFirstScreen()
 // Lanza El Dado Y Una Moneda 
 void monedaydado()
 {
-  currentDisplayDriver->current_cyclic_screen = 22;
+  currentDisplayDriver->current_cyclic_screen = 23;
 }
 
 // Reloj Mesilla De Noche
 void relojnoche()
 {
-  currentDisplayDriver->current_cyclic_screen = 9;
+  currentDisplayDriver->current_cyclic_screen = 10;
 }
 
 // Switches to the next cyclic screen without drawing it

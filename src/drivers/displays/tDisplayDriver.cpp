@@ -16,6 +16,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <qrcode.h>
+#include <urlencode.h>
 #include <limits.h>
 #include <stdio.h>
 #include "monitor.h"
@@ -120,13 +121,13 @@ String textoFinalm8ax2;
 String textoFinalm8ax3;
 String textoFinalm8ax4;
 String cadenanoti = "";
-String ciudad="";
-String tempciudad="";
+String ciudad = "";
+String tempciudad = "";
 
-/// Telegram Bot Y Chat - Para Enviar Datos Al Grupo De Telegram Que Configureis...
+/// Telegram Bot Y Chat - Para Enviar Datos Al Canal De Telegram Que Configureis...
 
-String BOT_TOKEN = "TU_BOT_TOKEN"; // Token del bot de Telegram
-String CHAT_ID = "-100XXXXXXXXXX"; // ID del canal (con el "-" delante)
+String BOT_TOKEN = "NO CONFIGURADO";  // Token del bot de Telegram
+String CHAT_ID = "NO CONFIGURADO";                                    // ID del canal (con el "-" delante)
 
 uint32_t rndnumero;
 uint32_t rndnumero2 = 0;
@@ -139,10 +140,12 @@ uint32_t correccion = 0;
 uint32_t numfrases = 0;
 uint32_t numnotis = 0;
 uint32_t ContadorEspecial = 0;
-moonPhase moonPhase;
 WiFiUDP udp;
 HTTPClient http;
-WiFiClientSecure client;
+mining_data mineria;
+clock_data relojete;
+coin_data monedilla;
+moonPhase moonPhase;
 
 typedef struct {
   int value;
@@ -192,29 +195,355 @@ void tDisplay_AlternateRotation(void) {
   tft.setRotation(flipRotation(tft.getRotation()));
 }
 
-// Por Si Alguno Le Interesa Puede Poner En Las Declaraciones De Variables Su ID Del Grupo Y BOT Y El NerdMinerv2 Le Enviara Mensajes De Esado Cada 3H...
+String quitarAcentos(String str) {
+  str.replace("á", "a");
+  str.replace("é", "e");
+  str.replace("í", "i");
+  str.replace("ó", "o");
+  str.replace("ú", "u");
+  str.replace("Á", "A");
+  str.replace("É", "E");
+  str.replace("Í", "I");
+  str.replace("Ó", "O");
+  str.replace("Ú", "U");
+  str.replace("ñ", "n");
+  str.replace("Ñ", "N");
+  str.replace("¿", "");  // Eliminar signos de interrogación al principio de la frase
+  str.replace("¡", "");  // Eliminar signos de exclamación al principio de la frase
+  return str;
+}
+
+void borrarDesdeUltimoGuion(char *str) {
+  char *pos = strrchr(str, '-'); // Encuentra el último '-'
+  if (pos) {
+      *pos = '\0'; // Corta la cadena en ese punto
+  }
+}
+
+// Función recursiva para encontrar operaciones
+void find_operations(int numbers[], int target, State current, State* best, int depth, int used[]) {
+  // Si alcanzamos el objetivo, actualizamos el mejor resultado
+  if (current.value == target) {
+    *best = current;
+    return;
+  }
+
+  // Si hemos usado todos los números o hemos alcanzado la profundidad máxima, verificamos si este resultado es mejor
+  if (depth == MAX_DEPTH) {
+    int diff = abs(current.value - target);
+    int mejor_diff = abs(best->value - target);
+    if (diff < mejor_diff) {
+      *best = current;
+    }
+    return;
+  }
+
+  // Iterar sobre todos los números disponibles
+  for (int i = 0; i < MAX_NUMBERS; i++) {
+    if (!used[i]) {
+      used[i] = 1;  // Marcar el número como usado
+
+      // Suma
+      int new_value = current.value + numbers[i];
+      if (new_value >= 0) {  // No se permiten resultados negativos
+        State new_state;
+        new_state.value = new_value;
+        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d + %d) = %d", current.operation, current.value, numbers[i], new_value);
+        find_operations(numbers, target, new_state, best, depth + 1, used);
+      }
+
+      // Resta (solo si no genera negativos)
+      if (current.value - numbers[i] >= 0) {
+        State new_state;
+        new_state.value = current.value - numbers[i];
+        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d - %d) = %d", current.operation, current.value, numbers[i], new_state.value);
+        find_operations(numbers, target, new_state, best, depth + 1, used);
+      }
+
+      // Multiplicación (solo si no es innecesario)
+      int mult_value = current.value * numbers[i];
+      if (mult_value >= 0 && mult_value <= target + 100) {  // Limitar el rango de multiplicación
+        State new_state;
+        new_state.value = mult_value;
+        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d * %d) = %d", current.operation, current.value, numbers[i], mult_value);
+        find_operations(numbers, target, new_state, best, depth + 1, used);
+      }
+
+      // División exacta (solo si no genera fracciones)
+      if (numbers[i] != 0 && current.value % numbers[i] == 0) {
+        State new_state;
+        new_state.value = current.value / numbers[i];
+        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d / %d) = %d", current.operation, current.value, numbers[i], new_state.value);
+        find_operations(numbers, target, new_state, best, depth + 1, used);
+      }
+
+      used[i] = 0;  // Desmarcar el número
+    }
+  }
+}
+
+void calculate_operations(int numbers[], int target, char* result) {
+  int used[MAX_NUMBERS] = { 0 };    // Para rastrear números usados
+  State best = { numbers[0], "" };  // Inicializamos con el primer número
+
+  // Empezamos probando con cada número en la lista como punto de inicio
+  for (int i = 0; i < MAX_NUMBERS; i++) {
+    State current;
+    current.value = numbers[i];  // Probar cada número como inicio
+    snprintf(current.operation, sizeof(current.operation), "Inicio: %d", numbers[i]);
+
+    // Marcar el número actual como usado
+    memset(used, 0, sizeof(used));
+    used[i] = 1;
+
+    // Buscar las mejores operaciones desde el número actual
+    find_operations(numbers, target, current, &best, 1, used);
+  }
+
+  // Añadir información sobre si es exacto o no
+  snprintf(result, 500, "%s\nResultado: %d", best.operation, best.value);
+  // Verificar si se ha alcanzado el objetivo exacto
+  totalci = (totalci == 0) ? 1 : totalci;
+  porcentaje = (aciertos * 100) / totalci;
+  if (best.value == target) {
+    aciertos++;
+    strcat(result, ", ( EXACTO ) -");
+    char porcentaje_str[20];
+    snprintf(porcentaje_str, sizeof(porcentaje_str), " ( AC %.2f%% )", porcentaje);
+    strcat(result, porcentaje_str);
+  } else {
+    fallos++;
+    int diff = abs(best.value - target);
+    char diff_str[50];
+    snprintf(diff_str, sizeof(diff_str), ", Dif. - ( %d ) -", diff);
+    strcat(result, diff_str);
+    char porcentaje_str[20];
+    snprintf(porcentaje_str, sizeof(porcentaje_str), " ( AC %.2f%% )", porcentaje);
+    strcat(result, porcentaje_str);
+  }
+  totalci++;
+}
+
+void generate_random_numbers(int numbers[], int size, int min, int max) {
+  for (int i = 0; i < size; i++) {
+    numbers[i] = min + (esp_random() % (max - min + 1));
+  }
+}
+
+const char* factorize(uint32_t number) {
+  char buffer[20];        // Buffer temporal para formatear factores
+  uint32_t factors[16];   // Almacena factores primos
+  uint8_t exponents[16];  // Almacena exponentes
+  uint8_t count = 0;      // Número de factores encontrados
+
+  // Factorización por 2
+  if (number % 2 == 0) {
+    factors[count] = 2;
+    exponents[count] = 0;
+    while (number % 2 == 0) {
+      number >>= 1;  // Dividir por 2 usando desplazamiento de bits
+      exponents[count]++;
+    }
+    count++;
+  }
+
+  // Factorización por divisores impares
+  uint32_t sqrt_num = sqrt(number);
+  for (uint32_t divisor = 3; divisor <= sqrt_num; divisor += 2) {
+    if (number % divisor == 0) {
+      factors[count] = divisor;
+      exponents[count] = 0;
+      while (number % divisor == 0) {
+        number /= divisor;
+        exponents[count]++;
+      }
+      count++;
+      sqrt_num = sqrt(number);
+    }
+  }
+
+  // Si el número restante es primo
+  if (number > 1) {
+    factors[count] = number;
+    exponents[count] = 1;
+    count++;
+  }
+
+  // Construir la cadena de resultado
+  result[0] = '\0';  // Inicializar el buffer de resultado
+  for (uint8_t i = 0; i < count; i++) {
+    if (i > 0) {
+      strcat(result, " * ");  // Separador
+    }
+    if (exponents[i] == 1) {
+      sprintf(buffer, "%u", factors[i]);
+    } else {
+      sprintf(buffer, "%ue%u", factors[i], exponents[i]);  // Formato "2e3"
+    }
+    strcat(result, buffer);
+  }
+
+  // Verificar si el número era primo
+  if (count == 1 && exponents[0] == 1) {
+    strcat(result, " ( PRIMO )");
+  }
+
+  return result;
+}
+
+// Las 2 Funciones Siguientes Son Para Telegram. Por Si Alguno Le Interesa Puede Poner En Las Declaraciones De Variables Su BOT E ID Del Grupo De Telegram Y El NerdMinerv2 Le Enviará Mensajes De Estado Cada 30m...
 
 void enviarMensajeATelegram(String mensaje) {
-    if (WiFi.status() != WL_CONNECTED) return;
-    
-    Serial.println("Enviando mensaje...");
-    
-    String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensaje;
-    
-    if (client.connect("api.telegram.org", 443)) {
-        client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-                     "Host: api.telegram.org\r\n" +
-                     "Connection: close\r\n\r\n");
-        delay(1000);
-        while (client.available()) {
-            String line = client.readStringUntil('\r');
-            Serial.print(line);
-        }
-        Serial.println("\nMensaje enviado");
-    } else {
-        Serial.println("Error de conexión");
+  WiFiClientSecure client;
+  client.setInsecure();
+  // Reemplazar los saltos de línea con %0A
+  String mensajeCodificado = urlEncode(mensaje);
+  mensajeCodificado.replace("\n", "%0A");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("No hay conexión WiFi.");
+    return;
+  }
+
+  Serial.println("Enviando mensaje...");
+
+  String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
+
+  if (client.connect("api.telegram.org", 443)) {
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: api.telegram.org\r\n" + "Connection: close\r\n\r\n");
+    delay(1000);  // Espera para dar tiempo a la respuesta
+
+    while (client.available()) {
+      String line = client.readStringUntil('\r');
+      Serial.print(line);
     }
-    client.stop();
+    Serial.println("\nMensaje enviado");
+  } else {
+    Serial.println("Error de conexión");
+  }
+  client.stop();
+}
+
+void recopilaTelegram() {
+  unsigned long epochTime = timeClient.getEpochTime();  // Obtener segundos desde 1970
+  time_t epoch = (time_t)epochTime;                     // Convertir a time_t
+  struct tm* timeinfo = localtime(&epoch);              // Convertir a una estructura de tiempo local
+  int dia = timeinfo->tm_mday;                          // Día del mes (1 a 31)
+  int mes = timeinfo->tm_mon + 1;                       // Mes (1 a 12)
+  int anio = timeinfo->tm_year + 1900;                  // Año (por defecto es desde 1900)
+  int horita = timeinfo->tm_hour;                       // Hora
+  int minutitos = timeinfo->tm_min;                     // Minutos
+  int segundos = timeinfo->tm_sec;                      // Segundos
+  String telrb = monedilla.remainingBlocks;
+  String cadenaEnvio = "--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio += "--------------------------------- M8AX - NerdMinerV2 DATOS DE MINERÍA - M8AX ---------------------------------\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio = cadenaEnvio + "--------------------------------------------- " + relojete.currentDate + " - " + relojete.currentTime + " ---------------------------------------------\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
+  cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s\n";
+  cadenaEnvio += "Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "°\n";
+  cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
+  cadenaEnvio += "Shares Completados Y Enviados A La Pool - " + mineria.completedShares + "\n";
+  cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
+  cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
+  cadenaEnvio += "Cómputo Total (KH) - " + mineria.totalKHashes + "\n";
+  cadenaEnvio += "Cómputo Total (MH) - " + String(atof(mineria.totalKHashes.c_str()) / 1000, 5) + "\n";
+  cadenaEnvio += "Hash Rate Global - " + monedilla.globalHashRate + " EH/s\n";
+  cadenaEnvio += "Precio De BITCOIN - " + monedilla.btcPrice + "\n";
+  cadenaEnvio += "Promedio Por Transacción, FEE - " + monedilla.halfHourFee + "\n";
+  cadenaEnvio += "Altura De Bloque - " + relojete.blockHeight + "\n";
+  telrb.replace("BLOCKS", "Bloques");
+  cadenaEnvio += "Total De Bloques Entre Halvings - 210000 Bloques\n";
+  cadenaEnvio += "Bloques Restantes Para El Próximo Halving - " + String(telrb) + "\n";
+  long int hechos = 210000 - telrb.toInt();
+  cadenaEnvio += "Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques\n";
+  char buffer[10];
+  dtostrf((hechos * 100.0) / 210000.0, 6, 5, buffer);  // Convierte float a string con 5 decimales
+  cadenaEnvio += "Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%\n";
+  cadenaEnvio += "Porcentaje Restante Para Próximo Halving - " + String(100.00000 - round(atof(buffer) * 100000) / 100000, 5) + "%\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  if (mineria.valids.toInt() == 1) {
+    cadenaEnvio += "El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||\n";
+  } else {
+    cadenaEnvio += "El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||\n";
+  }
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio += "----------------------------------------- M8AX - DATOS NERD - M8AX -------------------------------------------\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  rndnumero = esp_random();
+  cadenaEnvio += "Factorización De Número - " + String(rndnumero) + " -> " + factorize(rndnumero)+"\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  int numeritos[6];
+  int destino = 1 + (esp_random() % 1000);
+  generate_random_numbers(numeritos, 6, 1, 100);
+  cadenaEnvio+="Números - "; 
+  for (int i = 0; i < 6; i++) {
+    if (i != 5){
+      cadenaEnvio+=String(numeritos[i])+", ";
+    } else {  
+      cadenaEnvio+=String(numeritos[i]);
+    }  
+  }
+  cadenaEnvio+="\nDestino A Alcanzar - ( + - * / ) -> "+String(destino)+"\n";
+  calculate_operations(numeritos, destino, result);
+  borrarDesdeUltimoGuion(result);
+  cadenaEnvio+=result;
+  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------\n                                      By M8AX Corp. " + String(anio);
+  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------\n";
+  enviarMensajeATelegram(cadenaEnvio);
+  Serial.println(cadenaEnvio);
+  cadenaEnvio = "";
+}
+
+void recopilaTelegram2() {
+  unsigned long epochTime = timeClient.getEpochTime();  // Obtener segundos desde 1970
+  time_t epoch = (time_t)epochTime;                     // Convertir a time_t
+  struct tm* timeinfo = localtime(&epoch);              // Convertir a una estructura de tiempo local
+  int dia = timeinfo->tm_mday;                          // Día del mes (1 a 31)
+  int mes = timeinfo->tm_mon + 1;                       // Mes (1 a 12)
+  int anio = timeinfo->tm_year + 1900;                  // Año (por defecto es desde 1900)
+  int horita = timeinfo->tm_hour;                       // Hora
+  int minutitos = timeinfo->tm_min;                     // Minutos
+  int segundos = timeinfo->tm_sec;                      // Segundos
+  String telrb = monedilla.remainingBlocks;
+  String cadenaEnvio2="";
+  cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
+  cadenaEnvio2 += " Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
+  cadenaEnvio2 += " HashRate Actual - " + mineria.currentHashRate + " KH/s";
+  cadenaEnvio2 += " Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "g";
+  cadenaEnvio2 += " Plantillas De Bloque - " + mineria.templates;
+  cadenaEnvio2 += " Shares Completados Y Enviados A La Pool - " + mineria.completedShares;
+  cadenaEnvio2 += " Mejor Dificultad Alcanzada - " + mineria.bestDiff;
+  cadenaEnvio2 += " Dificultad De La Red - " + monedilla.netwrokDifficulty;
+  cadenaEnvio2 += " Cómputo Total (KH) - " + mineria.totalKHashes;
+  cadenaEnvio2 += " Cómputo Total (MH) - " + String(atof(mineria.totalKHashes.c_str()) / 1000, 5);
+  cadenaEnvio2 += " Hash Rate Global - " + monedilla.globalHashRate + " EH/s";
+  cadenaEnvio2 += " Precio De BITCOIN - " + monedilla.btcPrice ;
+  cadenaEnvio2 += " Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
+  cadenaEnvio2 += " Altura De Bloque - " + relojete.blockHeight;
+  telrb.replace("BLOCKS", "Bloques");
+  cadenaEnvio2 += " Total De Bloques Entre Halvings - 210000 Bloques";
+  cadenaEnvio2 += " Bloques Restantes Para El Próximo Halving - " + String(telrb);
+  long int hechos = 210000 - telrb.toInt();
+  cadenaEnvio2 += " Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques";
+  char buffer[10];
+  dtostrf((hechos * 100.0) / 210000.0, 6, 5, buffer);  // Convierte float a string con 5 decimales
+  cadenaEnvio2 += " Porcentaje Completado Desde El Último Halving - " + String(buffer);
+  cadenaEnvio2 += " Porcentaje Restante Para Próximo Halving - " + String(100.00000 - round(atof(buffer) * 100000) / 100000, 5);
+  if (mineria.valids.toInt() == 1) {
+    cadenaEnvio2 += " El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||";
+  } else {
+    cadenaEnvio2 += " El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
+  }
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(1,1);
+  tft.setTextSize(2);
+  tft.print("   DATOS EN TEXTO PLANO");
+  tft.setCursor(1,22);
+  tft.setTextSize(1);
+  tft.setTextColor(colors[colorIndex]);
+  tft.print(quitarAcentos(cadenaEnvio2));
+  cadenaEnvio2 = "";
 }
 
 String getPublicIP() {
@@ -241,7 +570,7 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String& ip) {
   HTTPClient http;
   String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city";  // Obtener solo la ciudad
   http.begin(urlGeo);
-  
+
   int httpCode = http.GET();
   if (httpCode > 0) {
     String payload = http.getString();
@@ -258,7 +587,7 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String& ip) {
     Serial.println("Error al obtener ciudad");
     return std::make_pair(ciudad, temperatura);  // Devolver vacías si hay error
   }
-  
+
   http.end();
 
   // Obtener la temperatura usando wttr.in con HTTPS
@@ -268,7 +597,7 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String& ip) {
     client.setInsecure();  // Permitimos conexiones HTTPS sin verificar certificado (menos seguro)
 
     String urlTemp = "https://wttr.in/" + ciudad + "?format=%t";  // Usar https para obtener temperatura
-    http.begin(client, urlTemp);  // Iniciar la solicitud HTTPS
+    http.begin(client, urlTemp);                                  // Iniciar la solicitud HTTPS
     httpCode = http.GET();
 
     if (httpCode > 0) {
@@ -458,24 +787,6 @@ void dibujarMoneda(int moneda, int x, int y) {
     tft.setTextSize(2);
     tft.drawCentreString("X", x, y - 20, 4);  // Dibuja "X" para cruz
   }
-}
-
-String quitarAcentos(String str) {
-  str.replace("á", "a");
-  str.replace("é", "e");
-  str.replace("í", "i");
-  str.replace("ó", "o");
-  str.replace("ú", "u");
-  str.replace("Á", "A");
-  str.replace("É", "E");
-  str.replace("Í", "I");
-  str.replace("Ó", "O");
-  str.replace("Ú", "U");
-  str.replace("ñ", "n");
-  str.replace("Ñ", "N");
-  str.replace("¿", "");  // Eliminar signos de interrogación al principio de la frase
-  str.replace("¡", "");  // Eliminar signos de exclamación al principio de la frase
-  return str;
 }
 
 void drawCenteredText(const char* text, int y, int delayTime) {
@@ -758,118 +1069,6 @@ void dibujaQR(String data, int xPos, int yPos, int qrSize, int color) {
   }
 }
 
-// Función recursiva para encontrar operaciones
-void find_operations(int numbers[], int target, State current, State* best, int depth, int used[]) {
-  // Si alcanzamos el objetivo, actualizamos el mejor resultado
-  if (current.value == target) {
-    *best = current;
-    return;
-  }
-
-  // Si hemos usado todos los números o hemos alcanzado la profundidad máxima, verificamos si este resultado es mejor
-  if (depth == MAX_DEPTH) {
-    int diff = abs(current.value - target);
-    int mejor_diff = abs(best->value - target);
-    if (diff < mejor_diff) {
-      *best = current;
-    }
-    return;
-  }
-
-  // Iterar sobre todos los números disponibles
-  for (int i = 0; i < MAX_NUMBERS; i++) {
-    if (!used[i]) {
-      used[i] = 1;  // Marcar el número como usado
-
-      // Suma
-      int new_value = current.value + numbers[i];
-      if (new_value >= 0) {  // No se permiten resultados negativos
-        State new_state;
-        new_state.value = new_value;
-        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d + %d) = %d", current.operation, current.value, numbers[i], new_value);
-        find_operations(numbers, target, new_state, best, depth + 1, used);
-      }
-
-      // Resta (solo si no genera negativos)
-      if (current.value - numbers[i] >= 0) {
-        State new_state;
-        new_state.value = current.value - numbers[i];
-        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d - %d) = %d", current.operation, current.value, numbers[i], new_state.value);
-        find_operations(numbers, target, new_state, best, depth + 1, used);
-      }
-
-      // Multiplicación (solo si no es innecesario)
-      int mult_value = current.value * numbers[i];
-      if (mult_value >= 0 && mult_value <= target + 100) {  // Limitar el rango de multiplicación
-        State new_state;
-        new_state.value = mult_value;
-        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d * %d) = %d", current.operation, current.value, numbers[i], mult_value);
-        find_operations(numbers, target, new_state, best, depth + 1, used);
-      }
-
-      // División exacta (solo si no genera fracciones)
-      if (numbers[i] != 0 && current.value % numbers[i] == 0) {
-        State new_state;
-        new_state.value = current.value / numbers[i];
-        snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d / %d) = %d", current.operation, current.value, numbers[i], new_state.value);
-        find_operations(numbers, target, new_state, best, depth + 1, used);
-      }
-
-      used[i] = 0;  // Desmarcar el número
-    }
-  }
-}
-
-// Función principal
-void calculate_operations(int numbers[], int target, char* result) {
-  int used[MAX_NUMBERS] = { 0 };    // Para rastrear números usados
-  State best = { numbers[0], "" };  // Inicializamos con el primer número
-
-  // Empezamos probando con cada número en la lista como punto de inicio
-  for (int i = 0; i < MAX_NUMBERS; i++) {
-    State current;
-    current.value = numbers[i];  // Probar cada número como inicio
-    snprintf(current.operation, sizeof(current.operation), "Inicio: %d", numbers[i]);
-
-    // Marcar el número actual como usado
-    memset(used, 0, sizeof(used));
-    used[i] = 1;
-
-    // Buscar las mejores operaciones desde el número actual
-    find_operations(numbers, target, current, &best, 1, used);
-  }
-
-  // Añadir información sobre si es exacto o no
-  snprintf(result, 500, "%s\nResultado: %d", best.operation, best.value);
-  // Verificar si se ha alcanzado el objetivo exacto
-  totalci = (totalci == 0) ? 1 : totalci;
-  porcentaje = (aciertos * 100) / totalci;
-  if (best.value == target) {
-    aciertos++;
-    strcat(result, ", ( EXACTO ) -");
-    char porcentaje_str[20];
-    snprintf(porcentaje_str, sizeof(porcentaje_str), " ( AC %.2f%% )", porcentaje);
-    strcat(result, porcentaje_str);
-  } else {
-    fallos++;
-    int diff = abs(best.value - target);
-    char diff_str[50];
-    snprintf(diff_str, sizeof(diff_str), ", Dif. - ( %d ) -", diff);
-    strcat(result, diff_str);
-    char porcentaje_str[20];
-    snprintf(porcentaje_str, sizeof(porcentaje_str), " ( AC %.2f%% )", porcentaje);
-    strcat(result, porcentaje_str);
-  }
-  totalci++;
-}
-
-
-void generate_random_numbers(int numbers[], int size, int min, int max) {
-  for (int i = 0; i < size; i++) {
-    numbers[i] = min + (esp_random() % (max - min + 1));
-  }
-}
-
 bool esHorarioDeVerano(int mes, int dia) {
   if (mes > 3 && mes < 10) {
     return true;
@@ -1034,10 +1233,7 @@ float obtenerPrecio(String currency_pair) {
 
   // Construimos la petición HTTP manualmente
   String url = "/v2/prices/" + currency_pair + "/spot";
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "User-Agent: ESP32\r\n" +
-               "Connection: close\r\n\r\n");
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "User-Agent: ESP32\r\n" + "Connection: close\r\n\r\n");
 
   // Esperamos la respuesta del servidor
   unsigned long timeout = millis();
@@ -1086,67 +1282,6 @@ float obtenerPrecio(String currency_pair) {
     Serial.println("El JSON no tiene el formato esperado.");
     return -1;
   }
-}
-
-const char* factorize(uint32_t number) {
-  char buffer[20];        // Buffer temporal para formatear factores
-  uint32_t factors[16];   // Almacena factores primos
-  uint8_t exponents[16];  // Almacena exponentes
-  uint8_t count = 0;      // Número de factores encontrados
-
-  // Factorización por 2
-  if (number % 2 == 0) {
-    factors[count] = 2;
-    exponents[count] = 0;
-    while (number % 2 == 0) {
-      number >>= 1;  // Dividir por 2 usando desplazamiento de bits
-      exponents[count]++;
-    }
-    count++;
-  }
-
-  // Factorización por divisores impares
-  uint32_t sqrt_num = sqrt(number);
-  for (uint32_t divisor = 3; divisor <= sqrt_num; divisor += 2) {
-    if (number % divisor == 0) {
-      factors[count] = divisor;
-      exponents[count] = 0;
-      while (number % divisor == 0) {
-        number /= divisor;
-        exponents[count]++;
-      }
-      count++;
-      sqrt_num = sqrt(number);
-    }
-  }
-
-  // Si el número restante es primo
-  if (number > 1) {
-    factors[count] = number;
-    exponents[count] = 1;
-    count++;
-  }
-
-  // Construir la cadena de resultado
-  result[0] = '\0';  // Inicializar el buffer de resultado
-  for (uint8_t i = 0; i < count; i++) {
-    if (i > 0) {
-      strcat(result, " * ");  // Separador
-    }
-    if (exponents[i] == 1) {
-      sprintf(buffer, "%u", factors[i]);
-    } else {
-      sprintf(buffer, "%ue%u", factors[i], exponents[i]);  // Formato "2e3"
-    }
-    strcat(result, buffer);
-  }
-
-  // Verificar si el número era primo
-  if (count == 1 && exponents[0] == 1) {
-    strcat(result, " ( PRIMO )");
-  }
-
-  return result;
 }
 
 String Amorse(int n) {
@@ -1382,8 +1517,8 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   tft.setTextSize(2);
   tft.print(quitarAcentos(ciudad).substring(0, 7));
   tft.setCursor(23, 153);
-  tempciudad.replace("°", "");  
-  tft.print(tempciudad);        
+  tempciudad.replace("°", "");
+  tft.print(tempciudad);
   tft.setTextSize(1);
   tft.setCursor(143, 115);
   tft.print(HRate);
@@ -1420,8 +1555,8 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
     tft.print("RICO");
   }
   dibujarPorcentajeLunar(281, 84, 25, porcentajeIluminado);
-  if (mirarTiempo == 0 || ciudad=="ERROR" || (minutos % 10 == 0 && segundos == 0)) {
-    mirarTiempo=1;
+  if (mirarTiempo == 0 || ciudad == "ERROR" || (minutos % 10 == 0 && segundos == 0)) {
+    mirarTiempo = 1;
     // Aquí pones lo que deseas hacer cuando se cumple la condición
     std::pair<String, String> resultado = obtenerCiudadYTemperatura(getPublicIP());
     // Verificar si los valores fueron obtenidos correctamente
@@ -1429,16 +1564,16 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
       // Imprimir los resultados en el Monitor Serie
       Serial.println("Ciudad: " + resultado.first);
       Serial.println("Temperatura: " + resultado.second);
-      ciudad=resultado.first;
-      tempciudad=resultado.second;
+      ciudad = resultado.first;
+      tempciudad = resultado.second;
 
     } else {
       Serial.println("No se pudo obtener la ciudad o la temperatura.");
-      ciudad="ERROR";
-      tempciudad="ERROR";
+      ciudad = "ERROR";
+      tempciudad = "ERROR";
     }
   }
-  
+
   actualizarc = 0;
 }
 
@@ -1726,6 +1861,9 @@ void incrementCounter() {
 void tDisplay_MinerScreen(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int horiac = dataa.currentTime.substring(0, 2).toInt();
   incrementCounter();
   actualizarcalen = 0;
@@ -1818,6 +1956,9 @@ void tDisplay_MinerScreen(unsigned long mElapsed) {
 void tDisplay_ClockScreen(unsigned long mElapsed) {
   clock_data data = getClockData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   moonData_t moon;
   actualizarcalen = 0;
   actualizarc = 0;
@@ -1896,6 +2037,9 @@ void tDisplay_ClockScreen(unsigned long mElapsed) {
 void tDisplay_GlobalHashScreen(unsigned long mElapsed) {
   coin_data data = getCoinData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   actualizarcalen = 0;
   // Print background screen
@@ -1964,6 +2108,9 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed) {
 void tDisplay_BTCprice(unsigned long mElapsed) {
   clock_data data = getClockData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
   // data.currentDate ="01/12/2023";
@@ -2033,11 +2180,14 @@ void tDisplay_BTCprice(unsigned long mElapsed) {
 void tDisplay_m8axScreen1(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   moonData_t moon;
   incrementCounter();
   actualizarcalen = 0;
   actualizarc = 0;
-  mirarTiempo=0;
+  mirarTiempo = 0;
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
   String fechita = dataa.currentDate + " " + String(quediase.c_str());
   String fechacondiasemana = dataa.currentDate + " " + String(quediase.c_str());
@@ -2079,8 +2229,12 @@ void tDisplay_m8axScreen1(unsigned long mElapsed) {
 
 void tDisplay_m8axScreen2(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   actualizarcalen = 0;
+  actualizarc=0;
   background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -2119,6 +2273,9 @@ void tDisplay_m8axScreen2(unsigned long mElapsed) {
 void tDisplay_m8axScreen3(unsigned long mElapsed) {
   clock_data dataa = getClockData(mElapsed);
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   correccion = 0;
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
@@ -2142,6 +2299,9 @@ void tDisplay_m8axScreen3(unsigned long mElapsed) {
 
 void tDisplay_m8axScreen4(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   actualizarcalen = 0;
   tft.setTextColor(TFT_WHITE);
@@ -2221,13 +2381,15 @@ void tDisplay_m8axScreen5(unsigned long mElapsed) {
   incrementCounter();
   actualizarcalen = 0;
   mining_data data = getMiningData(mElapsed);
-  char buffer[256];
-  String line;
-  snprintf(buffer, sizeof(buffer), "C. %s Share(s) %s kH Med. HR %s KH/s %sg",
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
+  char bbuffer[100];
+  snprintf(bbuffer, sizeof(bbuffer), "C. %s Share(s) %s kH Med. HR %s KH/s %sg",
            data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  line = String(buffer);
+  String lineaa = bbuffer;
   if (columna == 0) {
     random_number = 1 + (esp_random() % 4);
   }
@@ -2242,7 +2404,8 @@ void tDisplay_m8axScreen5(unsigned long mElapsed) {
   }
   tft.setTextColor(colors[colorIndex]);
   tft.setTextSize(1);
-  tft.drawString(line, 2, columna);
+  tft.setCursor(2,columna);
+  tft.print(lineaa);
   columna += 1;
   if (columna >= 166) {
     columna = 0;  // Reinicia la columna
@@ -2257,6 +2420,9 @@ void tDisplay_m8axScreen6(unsigned long mElapsed) {
   actuanot = 0;
   correccion = 0;
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   tft.pushImage(0, 0, ImagenFinalPWidth, ImagenFinalPHeight, ImagenFinalPM8AX);  // Muestra la imagen
@@ -2268,6 +2434,9 @@ void tDisplay_m8axScreen6(unsigned long mElapsed) {
 void tDisplay_m8axScreen7(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int millonario = atoi(data.valids.c_str());
   actualizarc = 0;
   incrementCounter();
@@ -2304,6 +2473,9 @@ void tDisplay_m8axScreen7(unsigned long mElapsed) {
 void tDisplay_m8axScreen8(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -2350,6 +2522,9 @@ void tDisplay_m8axScreen8(unsigned long mElapsed) {
 void tDisplay_m8axScreen9(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int millonario = atoi(data.valids.c_str());
   incrementCounter();
   unsigned long segundo = timeClient.getSeconds();
@@ -2454,6 +2629,9 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
 void tDisplay_m8axScreen10(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int millonario = atoi(data.valids.c_str());
   incrementCounter();
   unsigned long segundo = timeClient.getSeconds();
@@ -2558,6 +2736,9 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
 void tDisplay_m8axScreen11(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int millonario = atoi(data.valids.c_str());
   incrementCounter();
   unsigned long segundo = timeClient.getSeconds();
@@ -2669,6 +2850,9 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
 void tDisplay_m8axScreen12(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -2728,6 +2912,9 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
 void tDisplay_m8axScreen13(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int x, y;
   incrementCounter();
   unsigned long segundo = timeClient.getSeconds();
@@ -2837,6 +3024,9 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
 void tDisplay_m8axScreen14(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -2883,6 +3073,9 @@ void tDisplay_m8axScreen14(unsigned long mElapsed) {
 void tDisplay_m8axScreen15(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
   int horas = dataa.currentTime.substring(0, 2).toInt();
@@ -3041,6 +3234,9 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
 void tDisplay_m8axScreen16(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
   int horita = dataa.currentTime.substring(0, 2).toInt();
@@ -3123,6 +3319,9 @@ void tDisplay_m8axScreen16(unsigned long mElapsed) {
 
 void tDisplay_m8axScreen17(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   String btcm8 = "bitcoin:bc1qljq00pm2plq2l9jxzdzt0xc8t79j9wcmu7r8em";
   unsigned long segundo = timeClient.getSeconds();
   incrementCounter();
@@ -3230,6 +3429,9 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
 void tDisplay_m8axScreen18(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int horita = dataa.currentTime.substring(0, 2).toInt();
   int minutitos = dataa.currentTime.substring(3, 5).toInt();
   unsigned long segundo = timeClient.getSeconds();
@@ -3351,6 +3553,9 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
 void monedaYdado(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int horita = dataa.currentTime.substring(0, 2).toInt();
   int minutitos = dataa.currentTime.substring(3, 5).toInt();
   unsigned long segundo = timeClient.getSeconds();
@@ -3386,8 +3591,8 @@ void monedaYdado(unsigned long mElapsed) {
   correccion = 0;
   actuanot = 0;
   actualizarcalen = 0;
-  int dado = esp_random() % 6 + 1;    // Números del 1 al 6
-  int moneda = esp_random() % 2;     // 0 (cara), 1 (cruz)
+  int dado = esp_random() % 6 + 1;  // Números del 1 al 6
+  int moneda = esp_random() % 2;    // 0 (cara), 1 (cruz)
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(108, 88);
   tft.setTextSize(1);
@@ -3430,6 +3635,9 @@ void monedaYdado(unsigned long mElapsed) {
 
 void tDisplay_m8axvida(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   incrementCounter();
   Serial.printf("M8AX ->>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -3479,19 +3687,22 @@ void tDisplay_m8axvida(unsigned long mElapsed) {
 void RelojDeNumeros(unsigned long mElapsed) {
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
   int millonario = atoi(data.valids.c_str());
   incrementCounter();
-  mirarTiempo=0;
+  mirarTiempo = 0;
   unsigned long segundo = timeClient.getSeconds();
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  int horis1 = horas / 10; // Primer dígito de las horas
-  int horis2 = horas % 10; // Segundo dígito de las horas
-  int minutis1 = minutos / 10; // Primer dígito de los minutos
-  int minutis2 = minutos % 10; // Segundo dígito de los minutos
-  int segundis1 = segundos / 10; // Primer dígito de los segundos
-  int segundis2 = segundos % 10; // Segundo dígito de los segundos
+  int horis1 = horas / 10;        // Primer dígito de las horas
+  int horis2 = horas % 10;        // Segundo dígito de las horas
+  int minutis1 = minutos / 10;    // Primer dígito de los minutos
+  int minutis2 = minutos % 10;    // Segundo dígito de los minutos
+  int segundis1 = segundos / 10;  // Primer dígito de los segundos
+  int segundis2 = segundos % 10;  // Segundo dígito de los segundos
 
   if (segundos % 59 == 0) {
     actualizarc = 0;
@@ -3511,7 +3722,7 @@ void RelojDeNumeros(unsigned long mElapsed) {
   String sRoman2 = numeroAEscrito(segundis2);
   String RDia = numeroAEscrito(dia);
   String RMes = numeroAEscrito(mes);
-  String RAnio =String (anio);
+  String RAnio = String(anio);
   String TempCPU = String(data.temp.c_str());
   if (actualizarc == 0) {
     random_number = 1 + (esp_random() % 4);
@@ -3612,11 +3823,11 @@ void RelojDeNumeros(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("360 KH/s");
-  int grosor=5;
-  int X_INICIO = 5;                                       // Columna fija
-  int X_FINAL = 242;                                        // Base de la barra
-  int Y_POS = 43;                                          // Punto más alto
-  int longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
+  int grosor = 5;
+  int X_INICIO = 5;                                                              // Columna fija
+  int X_FINAL = 242;                                                             // Base de la barra
+  int Y_POS = 43;                                                                // Punto más alto
+  int longitud_total = X_FINAL - X_INICIO;                                       // Longitud total de la barra (80 píxeles)
   int longitud_pintada = (longitud_total * data.currentHashRate.toInt()) / 360;  // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
@@ -3628,15 +3839,58 @@ void RelojDeNumeros(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("24 Horas");
-  grosor=5;
-  X_INICIO = 4;                                       // Columna fija
-  X_FINAL = 242;                                        // Base de la barra
-  Y_POS = 117;                                          // Punto más alto
-  longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
+  grosor = 5;
+  X_INICIO = 4;                                                  // Columna fija
+  X_FINAL = 242;                                                 // Base de la barra
+  Y_POS = 117;                                                   // Punto más alto
+  longitud_total = X_FINAL - X_INICIO;                           // Longitud total de la barra (80 píxeles)
   longitud_pintada = (longitud_total * segundosDelDia) / 86400;  // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
+}
+
+void datoTextPlano(unsigned long mElapsed) {
+  mining_data data = getMiningData(mElapsed);
+  clock_data dataa = getClockData(mElapsed);
+  monedilla = getCoinData(mElapsed);
+  relojete = getClockData(mElapsed);
+  mineria = getMiningData(mElapsed);
+  unsigned long segundo = timeClient.getSeconds();
+  incrementCounter();
+  if (actualizarc == 0) {
+    background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
+    background.pushSprite(0, 0);
+    actualizarc++;
+    background.pushSprite(0, 0);
+    recopilaTelegram2();
   }
+  Serial.printf("M8AX ->>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
+                data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
+  if (segundo % 30 == 0) {
+    int random_number = 1 + (esp_random() % 4);
+    if (random_number == 1) {
+      background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
+      background.pushSprite(0, 0);
+    } else if (random_number == 2) {
+      background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
+      background.pushSprite(0, 0);
+    } else if (random_number == 3) {
+      background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
+      background.pushSprite(0, 0);
+    } else if (random_number == 4) {
+      background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
+      background.pushSprite(0, 0);
+    }
+  }
+  if (segundo % 5 == 0) {
+    background.pushSprite(0, 0);
+    recopilaTelegram2();
+  }  
+  actual = 0;
+  correccion = 0;
+  actuanot = 0;
+  actualizarcalen = 0;
+}
 
 void tDisplay_LoadingScreen(void) {
   int effect = random(6);  // Selecciona un efecto aleatorio
@@ -3665,7 +3919,6 @@ void tDisplay_LoadingScreen(void) {
   tft.setTextColor(TFT_BLACK);
   tft.setTextSize(1);
   tft.drawString(CURRENT_VERSION, 25, 148, FONT2);
-
 }
 
 void tDisplay_SetupScreen(void) {
@@ -3703,7 +3956,7 @@ void analiCadaSegundo(unsigned long frame) {
   }
 
   rndnumero = esp_random();
-  if (rndnumero <= 10031977 && segundos %2==0 and dia %2 !=0) {
+  if (rndnumero <= 10031977 && segundos <= 30 && segundos % 2 == 0 && dia % 2 != 0) {
     Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
     actualizarcalen = 0;
     actualizarc = 0;
@@ -3741,6 +3994,9 @@ void analiCadaSegundo(unsigned long frame) {
     }
     delay(3000);
   }
+  if (minutitos % 30 == 0 && segundos == 0 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO") {
+    recopilaTelegram();
+  }
 }
 
 void tDisplay_AnimateCurrentScreen(unsigned long frame) {
@@ -3753,7 +4009,7 @@ void tDisplay_AnimateCurrentScreen(unsigned long frame) {
 void tDisplay_DoLedStuff(unsigned long frame) {
 }
 
-CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida };
+CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, datoTextPlano,tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida };
 
 DisplayDriver tDisplayDriver = {
   tDisplay_Init,
