@@ -10,6 +10,8 @@ void alternateScreenState();
 void alternateScreenRotation();
 void switchToNextScreen();
 void resetToFirstScreen();
+void monedaydado();
+void relojnoche();
 void drawLoadingScreen();
 void drawSetupScreen();
 void drawCurrentScreen(unsigned long mElapsed);

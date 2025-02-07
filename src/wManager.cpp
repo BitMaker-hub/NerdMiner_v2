@@ -16,7 +16,6 @@
 #include "mining.h"
 #include "timeconst.h"
 
-
 // Flag for saving data
 bool shouldSaveConfig = false;
 
