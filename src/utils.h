@@ -9,11 +9,10 @@
 /*
  * General byte order swapping functions.
  */
+
 #define	bswap16(x)	__bswap16(x)
 #define	bswap32(x)	__bswap32(x)
 #define	bswap64(x)	__bswap64(x)
-
-
 
 uint8_t hex(char ch);
 
@@ -27,7 +26,5 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits);
 uint32_t crc32_reset();
 uint32_t crc32_add(uint32_t crc32, const void* data, size_t size);
 uint32_t crc32_finish(uint32_t crc32);
-
-
 
 #endif // UTILS_API_H

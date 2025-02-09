@@ -33,6 +33,8 @@ bool nvMemory::saveConfig(TSettings* Settings)
         json[JSON_SPIFFS_KEY_POOLPORT] = Settings->PoolPort;
         json[JSON_SPIFFS_KEY_POOLPASS] = Settings->PoolPassword;
         json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
+        json[JSON_SPIFFS_KEY_BOTTELEGRAM] = Settings->botTelegram;
+        json[JSON_SPIFFS_KEY_CHANELID] = Settings->ChanelIDTelegram;
         json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
         json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
         json[JSON_SPIFFS_KEY_INVCOLOR] = Settings->invertColors;
@@ -93,6 +95,8 @@ bool nvMemory::loadConfig(TSettings* Settings)
                     Settings->PoolAddress = json[JSON_SPIFFS_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->PoolPassword, json[JSON_SPIFFS_KEY_POOLPASS] | Settings->PoolPassword);
                     strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
+                    strcpy(Settings->botTelegram, json[JSON_SPIFFS_KEY_BOTTELEGRAM] | Settings->botTelegram);
+                    strcpy(Settings->ChanelIDTelegram, json[JSON_SPIFFS_KEY_CHANELID] | Settings->ChanelIDTelegram);
                     if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))

@@ -4,9 +4,7 @@
 //#include ".h"
 
 #include <WiFi.h>
-
 #include <WiFiManager.h>
-
 #include "wManager.h"
 #include "monitor.h"
 #include "drivers/displays/display.h"
@@ -33,7 +31,7 @@ extern SDCard SDCrd;
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
 {
-    Serial.println("Should save config");
+    Serial.println("Debería Guardar Configuración");
     shouldSaveConfig = true;    
     //wm.setConfigPortalBlocking(false);
 }
@@ -49,18 +47,18 @@ void saveConfigCallback()
 void configModeCallback(WiFiManager* myWiFiManager)
 // Called when config mode launched
 {
-    Serial.println("Entered Configuration Mode");
+    Serial.println("Entrando En Modo Configuración");
     drawSetupScreen();
-    Serial.print("Config SSID: ");
+    Serial.print("Configuración SSID: ");
     Serial.println(myWiFiManager->getConfigPortalSSID());
 
-    Serial.print("Config IP Address: ");
+    Serial.print("Configuración Dirección IP: ");
     Serial.println(WiFi.softAPIP());
 }
 
 void reset_configuration()
 {
-    Serial.println("Erasing Config, restarting");
+    Serial.println("Borrando Configuración, Reiniciando");
     nvMem.deleteConfig();
     resetStat();
     wm.resetSettings();
@@ -88,7 +86,7 @@ void init_WifiManager()
 #if defined(PIN_BUTTON_2)
     // Check if button2 is pressed to enter configMode with actual configuration
     if (!digitalRead(PIN_BUTTON_2)) {
-        Serial.println(F("Button pressed to force start config mode"));
+        Serial.println(F("Botón Presionado Para Forzar Entrar En Modo Configuración"));
         forceConfig = true;
         wm.setBreakAfterConfig(true); //Set to detect config edition and save
     }
@@ -139,42 +137,46 @@ void init_WifiManager()
     // Custom elements
 
     // Text box (String) - 80 characters maximum
-    WiFiManagerParameter pool_text_box("Poolurl", "Pool url", Settings.PoolAddress.c_str(), 80);
-
+    WiFiManagerParameter pool_text_box("Poolurl", "URL Del Pool", Settings.PoolAddress.c_str(), 80);
     // Need to convert numerical input to string to display the default value.
     char convertedValue[6];
     sprintf(convertedValue, "%d", Settings.PoolPort);
-
     // Text box (Number) - 7 characters maximum
-    WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
+    WiFiManagerParameter port_text_box_num("Poolport", "Puerto Del Pool", convertedValue, 7);
 
     // Text box (String) - 80 characters maximum
     //WiFiManagerParameter password_text_box("Poolpassword", "Pool password (Optional)", Settings.PoolPassword, 80);
 
     // Text box (String) - 80 characters maximum
-    WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", Settings.BtcWallet, 80);
+    WiFiManagerParameter addr_text_box("btcAddress", "Tu Billetera De Bitcoin, ( Añade .Identificador Para Identificar El Minador )", Settings.BtcWallet, 80);
+
+    WiFiManagerParameter addr_text_box1("botTelegram", "Solo Para NerdMinerV2: Configuración Del Bot De Telegram. Introduce El Token De Tu Bot De Telegram. Si No Deseas Usar Un Bot, Deja Este Campo Como Está. No Incluyas La Palabra 'bot' Al Inicio, Solo Copia El Token Tal Como Lo Proporciona Telegram. Dónde Encontrar Tu Token: 1. Abre Telegram Y Busca 'BotFather'. 2. Escribe '/newbot' Y Sigue Las Instrucciones. 3. Copia El Token Que Te Proporcione Y Pégalo Aquí.", Settings.botTelegram, 80);
+
+    WiFiManagerParameter addr_text_box2("chanelIDTelegram", "Solo Para NerdMinerV2: Configuración Del ID Del Canal De Telegram. Introduce El ID Del Canal De Telegram Al Que Quieres Que El NerdMinerV2 Envíe Mensajes. Si No Deseas Usar Esta Función, Deja Este Campo Como Está. Asegúrate De Copiar El ID Correctamente, Para Que El Envío De Mensajes Funcione. Importante: El Bot Debe Ser Administrador Del Canal Para Poder Enviar Mensajes. Dónde Encontrar El ID Del Canal: 1. Abre Telegram Y Ve Al Canal. 2. Reenvía Un Mensaje Del Canal A '@userinfobot'. 3. Copia El ID Que Te Proporcione Y Pégalo Aquí. 4. Agrega Tu Bot Al Canal Y Conviértelo En Administrador. Si Todo Está Bien Configurado, El NerdMinerV2 Mandará Un Mensaje Al Canal De Telegram Con Estadísticas De Minado, Desde Las 8AM Hasta Las 0AM, Cada 2 Horas Y Ambas Incluidas, ' 9 Mensajes Diarios '...", Settings.ChanelIDTelegram, 80);
 
   // Text box (Number) - 2 characters maximum
   char charZone[6];
   sprintf(charZone, "%d", Settings.Timezone);
-  WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
+  WiFiManagerParameter time_text_box_num("TimeZone", "Zona Horaria Desde UTC (-12/+12)", charZone, 3);
 
-  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
+  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Nuevas Funcionalidades</label>");
 
   char checkboxParams[24] = "type=\"checkbox\"";
   if (Settings.saveStats)
   {
     strcat(checkboxParams, " checked");
   }
-  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Save mining statistics to flash memory.", "T", 2, checkboxParams, WFM_LABEL_AFTER);
+  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Graba Estadísticas De Minado A La Memoria Flash, Se Recuperan Al Reiniciar.", "T", 2, checkboxParams, WFM_LABEL_AFTER);
   // Text box (String) - 80 characters maximum
-  WiFiManagerParameter password_text_box("Poolpassword - Optional", "Pool password", Settings.PoolPassword, 80);
+  WiFiManagerParameter password_text_box("PoolPassword - Opcional", "Pool Password", Settings.PoolPassword, 80);
 
   // Add all defined parameters
   wm.addParameter(&pool_text_box);
   wm.addParameter(&port_text_box_num);
   wm.addParameter(&password_text_box);
   wm.addParameter(&addr_text_box);
+  wm.addParameter(&addr_text_box1);
+  wm.addParameter(&addr_text_box2);
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
@@ -195,7 +197,7 @@ void init_WifiManager()
     wm.addParameter(&brightness_text_box_num);
   #endif
 
-    Serial.println("AllDone: ");
+    Serial.println("¡ Todo Hecho !: ");
     if (forceConfig)    
     {
         // Run if we need a configuration
@@ -206,11 +208,13 @@ void init_WifiManager()
         if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             //Could be break forced after edditing, so save new config
-            Serial.println("failed to connect and hit timeout");
+            Serial.println("Falló Al Conectar Y Se Alcanzó El Tiempo De Espera");
             Settings.PoolAddress = pool_text_box.getValue();
             Settings.PoolPort = atoi(port_text_box_num.getValue());
             strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+            strncpy(Settings.botTelegram, addr_text_box1.getValue(), sizeof(Settings.botTelegram));
+            strncpy(Settings.ChanelIDTelegram, addr_text_box2.getValue(), sizeof(Settings.ChanelIDTelegram));
             Settings.Timezone = atoi(time_text_box_num.getValue());
             //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
@@ -237,13 +241,15 @@ void init_WifiManager()
         // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
         if (!wm.autoConnect(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
-            Serial.println("Failed to connect to configured WIFI, and hit timeout");
+            Serial.println("Falló Al Conectar Al WIFI Configurado Y Se Alcanzó El Tiempo De Espera");
             if (shouldSaveConfig) {
                 // Save new config            
                 Settings.PoolAddress = pool_text_box.getValue();
                 Settings.PoolPort = atoi(port_text_box_num.getValue());
                 strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
                 strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+                strncpy(Settings.botTelegram, addr_text_box1.getValue(), sizeof(Settings.botTelegram));
+                strncpy(Settings.ChanelIDTelegram, addr_text_box2.getValue(), sizeof(Settings.ChanelIDTelegram));
                 Settings.Timezone = atoi(time_text_box_num.getValue());
                 // Serial.println(save_stats_to_nvs.getValue());
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
@@ -264,8 +270,8 @@ void init_WifiManager()
     if (WiFi.status() == WL_CONNECTED) {
         //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
         Serial.println("");
-        Serial.println("WiFi connected");
-        Serial.print("IP address: ");
+        Serial.println("WiFi Conectada");
+        Serial.print("Dirección IP: ");
         Serial.println(WiFi.localIP());
 
         // Lets deal with the user config values
@@ -273,27 +279,37 @@ void init_WifiManager()
         // Copy the string value
         Settings.PoolAddress = pool_text_box.getValue();
         //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-        Serial.print("PoolString: ");
+        Serial.print("Cadena De Pool: ");
         Serial.println(Settings.PoolAddress);
 
         //Convert the number value
         Settings.PoolPort = atoi(port_text_box_num.getValue());
-        Serial.print("portNumber: ");
+        Serial.print("Número De Puerto: ");
         Serial.println(Settings.PoolPort);
 
         // Copy the string value
         strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-        Serial.print("poolPassword: ");
+        Serial.print("Password De Pool: ");
         Serial.println(Settings.PoolPassword);
 
         // Copy the string value
         strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-        Serial.print("btcString: ");
+        Serial.print("Billetera De Bitcoin: ");
         Serial.println(Settings.BtcWallet);
+
+         // Copy the string value
+         strncpy(Settings.botTelegram, addr_text_box1.getValue(), sizeof(Settings.botTelegram));
+         Serial.print("Bot De Telegram: ");
+         Serial.println(Settings.botTelegram);
+
+          // Copy the string value
+        strncpy(Settings.ChanelIDTelegram, addr_text_box2.getValue(), sizeof(Settings.ChanelIDTelegram));
+        Serial.print("ID Canal De Telegram: ");
+        Serial.println(Settings.ChanelIDTelegram);
 
         //Convert the number value
         Settings.Timezone = atoi(time_text_box_num.getValue());
-        Serial.print("TimeZone fromUTC: ");
+        Serial.print("ZonaHoraria Desde UTC: ");
         Serial.println(Settings.Timezone);
 
         #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -333,9 +349,9 @@ void wifiManagerProcess() {
     int newStatus = WiFi.status();
     if (newStatus != oldStatus) {
         if (newStatus == WL_CONNECTED) {
-            Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
+            Serial.println("CONECTADO - IP Actual: " + WiFi.localIP().toString());
         } else {
-            Serial.print("[Error] - current status: ");
+            Serial.print("[Error] - Estado Actual: ");
             Serial.println(newStatus);
         }
         oldStatus = newStatus;

@@ -117,6 +117,8 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
                     strcpy(Settings->PoolPassword, json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
                     strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
+                    strcpy(Settings->botTelegram, json[JSON_KEY_BOTTELEGRAM] | Settings->botTelegram);
+                    strcpy(Settings->ChanelIDTelegram, json[JSON_KEY_CHANELID] | Settings->ChanelIDTelegram);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))
