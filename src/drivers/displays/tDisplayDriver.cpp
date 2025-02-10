@@ -68,12 +68,8 @@ int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
 int mirarTiempo = 0;
-int pantallaEncendida=0;
-int maxtemp=0;
-int mintemp=50000;
+int sumatele=0;
 float porcentaje = 0.00;
-float maxkh=0.00;
-float minkh=50000.00;
 const char* nombrecillo;
 const char* apiUrl = "http://ip-api.com/json/";
 const char* serverName = "https://zenquotes.io/api/random";
@@ -123,7 +119,6 @@ int zonasHorarias[] = {
   2, 1, -5, -3, 2   // El Cairo, Amsterdam, Toronto, Sao Paulo, Cape Town
 };
 bool esHorarioDeVerano(int mes, int dia);
-bool transicionEjecutada = false;
 char result[MAX_RESULT_LENGTH];
 String textoFinalm8ax1;
 String textoFinalm8ax2;
@@ -132,9 +127,9 @@ String textoFinalm8ax4;
 String cadenanoti = "";
 String ciudad = "";
 String tempciudad = "";
-String BOT_TOKEN = Settings.botTelegram;
-String CHAT_ID = Settings.ChanelIDTelegram;
-uint32_t rndnumero;
+String BOT_TOKEN;
+String CHAT_ID;
+uint32_t rndnumero = 0;
 uint32_t rndnumero2 = 0;
 uint32_t rndnumero3 = 0;
 uint32_t actualizarcalen = 0;
@@ -145,19 +140,12 @@ uint32_t correccion = 0;
 uint32_t numfrases = 0;
 uint32_t numnotis = 0;
 uint32_t ContadorEspecial = 0;
-uint32_t sumatelegram=0;
-uint32_t tempalert=0;
 WiFiUDP udp;
 HTTPClient http;
 mining_data mineria;
 clock_data relojete;
 coin_data monedilla;
 moonPhase moonPhase;
-
-
-unsigned long ppreviousMillis = 0;  // Variable para almacenar el tiempo anterior
-const long iinterval = 3000;        // Intervalo de 3 segundos (en milisegundos)
-bool ppantallaEncendida = true;      // Variable para saber si la pantalla está encendida o apagada
 
 typedef struct {
   int value;
@@ -201,31 +189,10 @@ void tDisplay_AlternateScreenState(void) {
   int screen_state = digitalRead(TFT_BL);
   Serial.println("Switching display state");
   digitalWrite(TFT_BL, !screen_state);
-  pantallaEncendida=screen_state;
 }
 
 void tDisplay_AlternateRotation(void) {
   tft.setRotation(flipRotation(tft.getRotation()));
-}
-
-void manejarPantalla() {
-  unsigned long currentMillis = millis();  // Obtenemos el tiempo actual
-  
-  if (currentMillis - ppreviousMillis >= iinterval) {  // Si han pasado 10 segundos
-    // Guardamos el tiempo actual
-    ppreviousMillis = currentMillis;
-
-    // Apagar o encender la pantalla
-    if (ppantallaEncendida) {
-      digitalWrite(TFT_BL, LOW);  // Apagar la pantalla
-      ppantallaEncendida = false;  // Actualizar el estado
-      vTaskDelay(pdMS_TO_TICKS(2000));
-    } else {
-      digitalWrite(TFT_BL, HIGH);  // Encender la pantalla
-      ppantallaEncendida = true;    // Actualizar el estado
-      vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-  }
 }
 
 String convertirARomanos(int num) {
@@ -485,33 +452,45 @@ const char* factorize(uint32_t number) {
 // Las 2 Funciones Siguientes Son Para Telegram. Por Si Alguno Le Interesa Puede Poner En Las Declaraciones De Variables Su BOT E ID Del Grupo De Telegram Y El NerdMinerv2 Le Enviará Mensajes De Estado Cada 30m...
 
 void enviarMensajeATelegram(String mensaje) {
+  // Verificar y reconectar WiFi si es necesario
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Reconectando WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(5000);  // Espera para reconectar
+
+    // Si después del intento sigue sin conexión, salir de la función
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("No Se Pudo Reconectar WiFi...");
+      return;
+    }
+  }
   WiFiClientSecure client;
   client.setInsecure();
-  // Reemplazar los saltos de línea con %0A
   String mensajeCodificado = urlEncode(mensaje);
-  mensajeCodificado.replace("\n", "%0A");
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("No hay conexión WiFi.");
-    return;
-  }
+  mensaje="";
 
-  Serial.println("Enviando mensaje...");
+  // Reemplazar los saltos de línea con %0A
+
+  mensajeCodificado.replace("\n", "%0A");
+
+  Serial.println("Enviando Mensaje A Telegram...");
 
   String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
+  mensajeCodificado="";
 
   if (client.connect("api.telegram.org", 443)) {
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: api.telegram.org\r\n" + "Connection: close\r\n\r\n");
-    delay(1000);  // Espera para dar tiempo a la respuesta
-
-    while (client.available()) {
-      String line = client.readStringUntil('\r');
-      Serial.print(line);
-    }
-    Serial.println("\nMensaje enviado");
+    delay(1500);  // Espera para dar tiempo a la respuesta
+    Serial.println("\nMensaje Enviado A Telegram...");
+    client.flush();
+    client.stop();
   } else {
-    Serial.println("Error de conexión");
+    Serial.println("Error De Conexión, Mensaje A Telegram Falló...");
+    client.flush();
+    client.stop();
   }
-  client.stop();
 }
 
 void recopilaTelegram() {
@@ -539,21 +518,17 @@ void recopilaTelegram() {
   String cadenaEnvio = "--------------------------------------------------------------------------------------------------------------\n";
   cadenaEnvio += "------------------------------- M8AX - NerdMinerV2-" + u4digits + " DATOS DE MINERÍA - M8AX ------------------------------\n";
   cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  cadenaEnvio = cadenaEnvio + "------------------------------------------- " + fechaFormateada + " " + quediase.c_str()+" - " + horaFormateada + " ----------------------------------------\n";
+  cadenaEnvio += "------------------------------------------ " + String(fechaFormateada) + " " + quediase.c_str()+" - " + horaFormateada + " -----------------------------------------\n";
   cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  cadenaEnvio += "Mensaje Enviado Número - "+convertirARomanos(sumatelegram)+"\n";
-  cadenaEnvio += "Modelo De Chip - "+String(ESP.getChipModel())+"\n";
-  cadenaEnvio += "Versión De SDK - "+String(ESP.getSdkVersion())+"\n";
+  cadenaEnvio += "Mensaje Número - " +convertirARomanos(sumatele)+"\n";
   cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
-  cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s"+ " ( Max - "+String(maxkh)+" KH/s | Min - "+String(minkh)+" KH/s )\n";
-  cadenaEnvio += "Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "° ( Max - "+String(maxtemp)+"° | Min - "+String(mintemp)+"° )\n";
-  cadenaEnvio += "Alertas De Temperatura, Más De 70° - "+String(tempalert)+" Veces\n";
+  cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s\n";
+  cadenaEnvio += "Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "°\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
   cadenaEnvio += "Shares Completados Y Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
   cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
-  cadenaEnvio += "Cómputo Total (KH) - " + mineria.totalKHashes + "\n";
-  cadenaEnvio += "Cómputo Total (MH) - " + String(atof(mineria.totalKHashes.c_str()) / 1000, 5) + "\n";
+  cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( "+String(atof(mineria.totalKHashes.c_str()) / 1000, 3)+" MH )\n";
   cadenaEnvio += "Hash Rate Global - " + monedilla.globalHashRate + " EH/s\n";
   cadenaEnvio += "Precio De BITCOIN - " + monedilla.btcPrice + "\n";
   cadenaEnvio += "Promedio Por Transacción, FEE - " + monedilla.halfHourFee + "\n";
@@ -564,13 +539,13 @@ void recopilaTelegram() {
   long int hechos = 210000 - telrb.toInt();
   cadenaEnvio += "Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques\n";
   char buffer[10];
-  dtostrf((hechos * 100.0) / 210000.0, 6, 5, buffer);  // Convierte float a string con 5 decimales
+  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer);  // Convierte float a string con 3 decimales
   cadenaEnvio += "Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%\n";
-  cadenaEnvio += "Porcentaje Restante Para Próximo Halving - " + String(100.00000 - round(atof(buffer) * 100000) / 100000, 5) + "%\n";
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De Bitcoin - " + String(Settings.BtcWallet) + "\n";
   cadenaEnvio += "Tu IP - " + getPublicIP() + "\n";
+  cadenaEnvio += "YT - https://youtube.com/m8ax\n";
   cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
   if (mineria.valids.toInt() == 1) {
     cadenaEnvio += "El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA :) |||\n";
@@ -582,26 +557,9 @@ void recopilaTelegram() {
   cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
   rndnumero = esp_random();
   cadenaEnvio += "Factorización De Número - " + String(rndnumero) + " -> " + factorize(rndnumero) + "\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  int numeritos[6];
-  int destino = 1 + (esp_random() % 1000);
-  generate_random_numbers(numeritos, 6, 1, 100);
-  cadenaEnvio += "Números - ";
-  for (int i = 0; i < 6; i++) {
-    if (i != 5) {
-      cadenaEnvio += String(numeritos[i]) + ", ";
-    } else {
-      cadenaEnvio += String(numeritos[i]);
-    }
-  }
-  cadenaEnvio += "\nDestino A Alcanzar - ( + - * / ) -> " + String(destino) + "\n";
-  calculate_operations(numeritos, destino, result);
-  borrarDesdeUltimoGuion(result);
-  cadenaEnvio += result;
-  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------\n                                              By M8AX Corp. " + String(anio);
-  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n                                              By M8AX Corp. " + String(anio);
+  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------";
   enviarMensajeATelegram(cadenaEnvio);
-  Serial.println(cadenaEnvio);
   cadenaEnvio = "";
 }
 
@@ -618,32 +576,31 @@ void recopilaTelegram2() {
   String telrb = monedilla.remainingBlocks;
   String cadenaEnvio2 = "";
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
-  cadenaEnvio2 += " Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
-  cadenaEnvio2 += " HashRate Actual - " + mineria.currentHashRate + " KH/s";
-  cadenaEnvio2 += " Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "g";
-  cadenaEnvio2 += " Plantillas De Bloque - " + mineria.templates;
-  cadenaEnvio2 += " Shares Completados Y Enviados A La Pool - " + mineria.completedShares;
-  cadenaEnvio2 += " Mejor Dificultad Alcanzada - " + mineria.bestDiff;
-  cadenaEnvio2 += " Dificultad De La Red - " + monedilla.netwrokDifficulty;
-  cadenaEnvio2 += " Cómputo Total (KH) - " + mineria.totalKHashes;
-  cadenaEnvio2 += " Cómputo Total (MH) - " + String(atof(mineria.totalKHashes.c_str()) / 1000, 5);
-  cadenaEnvio2 += " Hash Rate Global - " + monedilla.globalHashRate + " EH/s";
-  cadenaEnvio2 += " Precio De BITCOIN - " + monedilla.btcPrice;
-  cadenaEnvio2 += " Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
-  cadenaEnvio2 += " Altura De Bloque - " + relojete.blockHeight;
+  cadenaEnvio2 += ". Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
+  cadenaEnvio2 += ". HashRate Actual - " + mineria.currentHashRate + " KH/s";
+  cadenaEnvio2 += ". Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "g";
+  cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
+  cadenaEnvio2 += ". Shares Completados Y Enviados A La Pool - " + mineria.completedShares;
+  cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
+  cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
+  cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( "+String(atof(mineria.totalKHashes.c_str()) / 1000, 3)+" MH )";
+  cadenaEnvio2 += ". Hash Rate Global - " + monedilla.globalHashRate + " EH/s";
+  cadenaEnvio2 += ". Precio De BITCOIN - " + monedilla.btcPrice;
+  cadenaEnvio2 += ". Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
+  cadenaEnvio2 += ". Altura De Bloque - " + relojete.blockHeight;
   telrb.replace("BLOCKS", "Bloques");
-  cadenaEnvio2 += " Total De Bloques Entre Halvings - 210000 Bloques";
-  cadenaEnvio2 += " Bloques Restantes Para El Próximo Halving - " + String(telrb);
+  cadenaEnvio2 += ". Total De Bloques Entre Halvings - 210000 Bloques";
+  cadenaEnvio2 += ". Bloques Restantes Para El Próximo Halving - " + String(telrb);
   long int hechos = 210000 - telrb.toInt();
-  cadenaEnvio2 += " Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques";
+  cadenaEnvio2 += ". Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques";
   char buffer[10];
-  dtostrf((hechos * 100.0) / 210000.0, 6, 5, buffer);  // Convierte float a string con 5 decimales
-  cadenaEnvio2 += " Porcentaje Completado Desde El Último Halving - " + String(buffer);
-  cadenaEnvio2 += " Porcentaje Restante Para Próximo Halving - " + String(100.00000 - round(atof(buffer) * 100000) / 100000, 5);
+  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer);  // Convierte float a string con 5 decimales
+  cadenaEnvio2 += ". Porcentaje Completado Desde El Último Halving - " + String(buffer)+"%";
+  cadenaEnvio2 += ". Porcentaje Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3)+"%";
   if (mineria.valids.toInt() == 1) {
-    cadenaEnvio2 += " El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||";
+    cadenaEnvio2 += ". El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||";
   } else {
-    cadenaEnvio2 += " El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
+    cadenaEnvio2 += ". El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
   }
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(1, 1);
@@ -731,7 +688,7 @@ void initGrid(void) {
       if (x == 0 || x == GRIDX - 1 || y == 0 || y == GRIDY - 1) {
         grid[x][y] = 0;
       } else {
-        if (random(3) == 1)
+        if (esp_random() % 3 == 1)
           grid[x][y] = 1;
         else
           grid[x][y] = 0;
@@ -899,9 +856,8 @@ void drawCenteredText(const char* text, int y, int delayTime) {
 }
 
 void television() {
-
-  int barWidth = random(5, 41);  // Ancho de las barras
-  int speed = random(5, 26);     // Velocidad de movimiento (ajusta para más rápido o más lento)
+  int barWidth = (esp_random() % (41 - 5)) + 5;  // Genera un número entre 5 y 40
+  int speed = (esp_random() % (26 - 5)) + 5;     // Genera un número entre 5 y 25
 
   // Barras horizontales
   for (int y = 0; y < tft.height(); y += barWidth) {
@@ -952,8 +908,9 @@ void nevar() {
 
   // Inicializa copos en posiciones aleatorias
   for (int i = 0; i < NUM_COPOS; i++) {
-    x[i] = random(0, 320);
-    y[i] = random(0, 170);
+    x[i] = (esp_random() % 320);  // Genera un número entre 0 y 319
+    y[i] = (esp_random() % 170);  // Genera un número entre 0 y 169
+
   }
 
   unsigned long startTime = millis();
@@ -963,11 +920,11 @@ void nevar() {
 
     for (int i = 0; i < NUM_COPOS; i++) {
       tft.drawPixel(x[i], y[i], TFT_WHITE);  // Dibuja copo de nieve
-      y[i] += random(1, 5);                  // Baja la posición del copo
+      y[i] += (esp_random() % 4) + 1;                // Baja la posición del copo
 
       if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
-        x[i] = random(0, 320);
+        x[i] = esp_random() % 320;
       }
     }
 
@@ -993,8 +950,8 @@ void nevar2() {
 
   // Inicializa copos en posiciones aleatorias
   for (int i = 0; i < NUM_COPOS; i++) {
-    x[i] = random(0, 320);
-    y[i] = random(0, 170);
+    x[i] = esp_random() % 320;
+    y[i] = esp_random() % 170;
   }
 
   unsigned long startTime = millis();
@@ -1004,11 +961,10 @@ void nevar2() {
 
     for (int i = 0; i < NUM_COPOS; i++) {
       tft.drawPixel(x[i], y[i], TFT_WHITE);  // Dibuja copo de nieve
-      y[i] += random(1, 5);                  // Baja la posición del copo
-
+      y[i] += (esp_random() % 5) + 1;  // Baja Posición Del Copo
       if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
-        x[i] = random(0, 320);
+        x[i] = esp_random() % 320;
       }
     }
 
@@ -1048,8 +1004,8 @@ void nevar3() {
 
   // Inicializa copos en posiciones aleatorias
   for (int i = 0; i < NUM_COPOS; i++) {
-    x[i] = random(0, 320);
-    y[i] = random(0, 170);
+    x[i] = esp_random() % 320;
+    y[i] = esp_random() % 170;
   }
 
   unsigned long startTime = millis();
@@ -1059,14 +1015,14 @@ void nevar3() {
     for (int i = 0; i < NUM_COPOS; i++) {
       colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
       tft.drawPixel(x[i], y[i], colors[colorI]);  // Dibuja copo de nieve
-      y[i] += random(1, 5);                       // Baja la posición del copo
+      y[i] += (esp_random() % 5) + 1; // Baja La Posición DeL Copo
 
       if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
-        x[i] = random(0, 320);
+        x[i] = esp_random() % 320;
       }
     }
-    int nnumeroAleatorio = random(1, 20);
+    int nnumeroAleatorio = esp_random() % 20 + 1;
     delay(nnumeroAleatorio);  // Controla la velocidad de la animación
   }
   M8AXTicker();
@@ -1469,7 +1425,6 @@ void displayQuote(String quote) {
   tft.print(quitarAcentos(quote));
   taskYIELD();
 }
-
 
 String obtenerNombreMes(int mes) {
   switch (mes) {
@@ -2884,7 +2839,7 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("a " + RAnio);
-  tft.setCursor(240, 38);
+  tft.setCursor(253, 38);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(RAnio2);
@@ -3127,7 +3082,7 @@ void tDisplay_m8axScreen14(unsigned long mElapsed) {
     tft.setTextColor(TFT_WHITE);
     tft.setCursor(112, 160);
     tft.setTextSize(1);
-    tft.print("M8AX-Noticia Num-" + String(numnotis));
+    tft.print("M8AX-Noticias Num-" + String(numnotis));
     tft.setTextColor(TFT_WHITE);
     tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
     tft.setCursor(1, 6);
@@ -3498,7 +3453,7 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
   tft.setTextSize(1);
   tft.print(data.currentHashRate + " KH/s");
   uint16_t colorss[] = { TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW };  // Array de colores
-  int colorrr = random(0, 4);
+  int colorrr = esp_random() % 4;
   dibujaQR(btcm8, (320 - 150) / 2, (170 - 150) / 2, 150, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
 }
 
@@ -3606,11 +3561,11 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   calculate_operations(numeritos, destino, result);
   tft.print(result);
   uint16_t colorss[] = { TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW, TFT_LIGHTGREY, TFT_SILVER };  // Array de colores
-  int colorrr = random(0, 6);
+  int colorrr = esp_random() % 6;
   dibujaQR(String(horita), 0, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
-  colorrr = random(0, 6);
+  colorrr = esp_random() % 6;
   dibujaQR(String(minutitos), 115, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
-  colorrr = random(0, 6);
+  colorrr = esp_random() % 6;
   dibujaQR(String(segundos), 228, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
   tft.setTextSize(5);
   tft.setCursor(87, 30);
@@ -3969,7 +3924,7 @@ void datoTextPlano(unsigned long mElapsed) {
 }
 
 void tDisplay_LoadingScreen(void) {
-  int effect = random(6);  // Selecciona un efecto aleatorio
+  int effect = esp_random() % 6;
   switch (effect) {
     case 0:
       cortinas();
@@ -4011,49 +3966,9 @@ void analiCadaSegundo(unsigned long frame) {
   int horita = timeinfo->tm_hour;                       // Hora
   int minutitos = timeinfo->tm_min;                     // Minutos
   int segundos = timeinfo->tm_sec;                      // Segundos
-  int temper=mineria.temp.toInt();
-  float currentRate = mineria.currentHashRate.toFloat();
 
   BOT_TOKEN = Settings.botTelegram;
   CHAT_ID = Settings.ChanelIDTelegram;
-
-  if (currentRate > maxkh) {
-    maxkh = currentRate; // Asignar el nuevo valor máximo
-  }  
-
-  if (currentRate < minkh) {
-     minkh = currentRate; // Asignar el nuevo valor máximo   
-  }
-
-  if (temper > maxtemp) {
-    maxtemp= temper; // Asignar el nuevo valor máximo
-  }  
-
-  if (temper < mintemp) {
-     mintemp = temper; // Asignar el nuevo valor máximo
-  }
-
-  if (pantallaEncendida == 0 && temper > 70) {
-    digitalWrite(TFT_BL, LOW);  // Apaga la pantalla (esto depende de tu configuración)
-  }
-
-  // Condición para encender la pantalla si está encendida originalmente (pantallaEncendida == 0) 
-  // y la temperatura es menor de 60
-
-  if (pantallaEncendida == 0 && temper < 60) {
-    // Enciende la pantalla solo si estaba encendida originalmente
-    digitalWrite(TFT_BL, HIGH);  // Enciende la pantalla
-  }
-
-  if (ContadorEspecial % 6000 == 0 && temper > 70) {
-     tempalert+=1;
-  }
-  
-  if (temper> 84) {
-    Serial.println("M8AX - Apagando M8AX-NerdMinerV2 Durante 5 Minutos, Para Proteger La CPU De Temperaturas Muy Altas...");
-    esp_sleep_enable_timer_wakeup(300000000);  // 5 minutos en microsegundos (300,000 ms)
-    esp_deep_sleep_start();
-  }
 
   // Felicitar La Navidad O El Año Nuevo
 
@@ -4075,7 +3990,7 @@ void analiCadaSegundo(unsigned long frame) {
   }
 
   rndnumero = esp_random();
-  if (rndnumero <= 10031977 && segundos <= 10 && segundos % 2 == 0 && dia % 2 != 0) {
+  if (rndnumero <= 10031977 && segundos <= 10 && segundos % 2 == 0 && dia % 2 == 0) {
     Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
     actualizarcalen = 0;
     actualizarc = 0;
@@ -4115,8 +4030,8 @@ void analiCadaSegundo(unsigned long frame) {
   }
   
   if (horita % 2 == 0) {
-    if (((horita >= 8 && horita < 24) || (horita == 0)) && minutitos == 0 && segundos == 0 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO") {
-      sumatelegram+=1;
+    if (minutitos == 0 && segundos == 25 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO") {
+      sumatele+=1;
       recopilaTelegram();
     }  
   }
