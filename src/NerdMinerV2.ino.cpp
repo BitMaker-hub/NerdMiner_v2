@@ -730,6 +730,5 @@ void loop() {
   touchHandler.isTouched();
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
-
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

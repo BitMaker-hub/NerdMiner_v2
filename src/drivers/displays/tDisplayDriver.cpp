@@ -1,3 +1,14 @@
+/************************************************************************************
+ *   Written by: M8AX
+ *
+ *   Description:
+ *   Expansion of NerdMinerV2 Screens with Even More Data and Way Nerdier Than
+ *   It Already Was xD
+ *
+ *************************************************************************************/
+
+// Invocando las poderosas librerías que hacen posible esta obra maestra del minado nerd
+
 #include "displayDriver.h"
 #ifdef T_DISPLAY
 #include <TFT_eSPI.h>
@@ -36,28 +47,34 @@
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
 
+// Variables externas que cruzan fronteras en el código para hacer magia
+
 extern TSettings Settings;
+
+// Definiciones que configuran el cerebro del sistema
 
 #define WIDTH 340
 #define HEIGHT 170
-#define MIN_KH 0    // Valor mínimo de KH/s
-#define MAX_KH 360  // Valor máximo de KH/s
+#define MIN_KH 0
+#define MAX_KH 360
 #define MAX_RESULT_LENGTH 500
 #define MAX_NUMBERS 6
-#define MAX_DEPTH 4  // Limitar la profundidad de búsqueda para mejorar el rendimiento
+#define MAX_DEPTH 4
 #define MAX_GEN_COUNT 1000
 #define GRIDX 320
 #define GRIDY 170
 #define CELLXY 2
 #define GEN_DELAY 1
 
+// Declaración de variables globales
+
 OpenFontRender render;
-TFT_eSPI tft = TFT_eSPI();                   // Invoke library, pins defined in User_Setup.h
-TFT_eSprite background = TFT_eSprite(&tft);  // Invoke library sprite
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite background = TFT_eSprite(&tft);
 uint8_t grid[GRIDX][GRIDY];
 uint8_t newgrid[GRIDX][GRIDY];
 uint16_t genCount = 0;
-uint16_t colors[] = { TFT_WHITE, TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_GREENYELLOW, TFT_PINK, TFT_LIGHTGREY, TFT_SKYBLUE, TFT_OLIVE, TFT_GOLD, TFT_SILVER };
+uint16_t colors[] = {TFT_WHITE, TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_GREENYELLOW, TFT_PINK, TFT_LIGHTGREY, TFT_SKYBLUE, TFT_OLIVE, TFT_GOLD, TFT_SILVER};
 int colorIndex = 0;
 int colorI = 0;
 int columna = 0;
@@ -68,55 +85,59 @@ int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
 int mirarTiempo = 0;
-int sumatele=0;
+int sumatele = 0;
+int abortar = 0;
+int tempera = 0;
 float porcentaje = 0.00;
-const char* nombrecillo;
-const char* apiUrl = "http://ip-api.com/json/";
-const char* serverName = "https://zenquotes.io/api/random";
-const char* criptomonedas[] = {
-  "BTC-USD",    // Bitcoin
-  "ETH-USD",    // Ethereum
-  "BNB-USD",    // Binance Coin
-  "SOL-USD",    // Solana
-  "XRP-USD",    // Ripple
-  "ADA-USD",    // Cardano
-  "AVAX-USD",   // Avalanche
-  "DOGE-USD",   // Dogecoin (Elon Musk)
-  "DOT-USD",    // Polkadot
-  "LINK-USD",   // Chainlink
-  "MATIC-USD",  // Polygon (Matic)
-  "ATOM-USD",   // Cosmos
-  "HBAR-USD",   // Hedera
-  "UNI-USD",    // Uniswap
-  "ALGO-USD",   // Algorand
-  "FET-USD",    // Fetch.AI
-  "NEAR-USD",   // Near Protocol (añadido)
-  "APT-USD",    // Aptos (añadido)
-  "ARB-USD",    // Arbitrum (añadido)
-  "TRUMP-USD"   // TrumpCoin
+const char *nombrecillo;
+const char *apiUrl = "http://ip-api.com/json/";
+const char *serverName = "https://zenquotes.io/api/random";
+const char *criptomonedas[] = {
+    "BTC-USD",   // Bitcoin
+    "ETH-USD",   // Ethereum
+    "BNB-USD",   // Binance Coin
+    "SOL-USD",   // Solana
+    "XRP-USD",   // Ripple
+    "ADA-USD",   // Cardano
+    "AVAX-USD",  // Avalanche
+    "DOGE-USD",  // Dogecoin (Elon Musk)
+    "DOT-USD",   // Polkadot
+    "LINK-USD",  // Chainlink
+    "MATIC-USD", // Polygon (Matic)
+    "ATOM-USD",  // Cosmos
+    "HBAR-USD",  // Hedera
+    "UNI-USD",   // Uniswap
+    "ALGO-USD",  // Algorand
+    "FET-USD",   // Fetch.AI
+    "NEAR-USD",  // Near Protocol (añadido)
+    "APT-USD",   // Aptos (añadido)
+    "ARB-USD",   // Arbitrum (añadido)
+    "TRUMP-USD"  // TrumpCoin
 };
-const char* ciudades[] = {
-  "Nueva York", "Londres", "Paris", "Tokio", "Sidney",
-  "Los Angeles", "Beijing", "Moscu", "Delhi", "Buenos Aires",
-  "Berlin", "Mexico", "Madrid", "Seul", "Roma",
-  "El Cairo", "Amsterdam", "Toronto", "Sao Paulo", "Cape Town"
-};
+const char *ciudades[] = {
+    "Nueva York", "Londres", "Paris", "Tokio", "Sidney",
+    "Los Angeles", "Beijing", "Moscu", "Delhi", "Buenos Aires",
+    "Berlin", "Mexico", "Madrid", "Seul", "Roma",
+    "El Cairo", "Amsterdam", "Toronto", "Sao Paulo", "Cape Town"};
 String urls[] = {
-  "https://cointelegraph.com/rss",
-  "https://es.cointelegraph.com/rss/tag/altcoin",
-  "https://es.cointelegraph.com/rss/category/analysis",
-  "https://es.cointelegraph.com/rss/tag/regulation",
-  "https://es.cointelegraph.com/rss/tag/bitcoin",
-  "https://es.cointelegraph.com/rss/tag/blockchain",
-  "https://es.cointelegraph.com/rss/tag/ethereum",
-  "https://es.cointelegraph.com/rss/category/top-10-cryptocurrencies",
-  "https://es.cointelegraph.com/rss/category/market-analysis"
-};
+    "https://cointelegraph.com/rss",
+    "https://es.cointelegraph.com/rss/tag/altcoin",
+    "https://es.cointelegraph.com/rss/category/analysis",
+    "https://es.cointelegraph.com/rss/tag/regulation",
+    "https://es.cointelegraph.com/rss/tag/bitcoin",
+    "https://es.cointelegraph.com/rss/tag/blockchain",
+    "https://es.cointelegraph.com/rss/tag/ethereum",
+    "https://es.cointelegraph.com/rss/category/top-10-cryptocurrencies",
+    "https://es.cointelegraph.com/rss/category/market-analysis"};
+const char *urlsm8ax[] = {
+    "YT - https://youtube.com/m8ax",
+    "OS - https://opensea.io/es/m8ax",
+    "OC - https://oncyber.io/m8ax"};
 int zonasHorarias[] = {
-  -5, 0, 1, 9, 11,  // Nueva York, Londres, Paris, Tokio, Sidney
-  -8, 8, 3, 5, -3,  // Los Angeles, Beijing, Moscu, Delhi, Buenos Aires
-  1, -6, 1, 9, 1,   // Berlin, Mexico, Madrid, Seul, Roma
-  2, 1, -5, -3, 2   // El Cairo, Amsterdam, Toronto, Sao Paulo, Cape Town
+    -5, 0, 1, 9, 11, // Nueva York, Londres, Paris, Tokio, Sidney
+    -8, 8, 3, 5, -3, // Los Angeles, Beijing, Moscu, Delhi, Buenos Aires
+    1, -6, 1, 9, 1,  // Berlin, Mexico, Madrid, Seul, Roma
+    2, 1, -5, -3, 2  // El Cairo, Amsterdam, Toronto, Sao Paulo, Cape Town
 };
 bool esHorarioDeVerano(int mes, int dia);
 char result[MAX_RESULT_LENGTH];
@@ -145,21 +166,26 @@ HTTPClient http;
 mining_data mineria;
 clock_data relojete;
 coin_data monedilla;
-moonPhase moonPhase;
+moonPhase mymoonPhase;
 
-typedef struct {
+typedef struct
+{
   int value;
   char operation[500];
 } State;
 
-template<typename T, typename T2>
+template <typename T, typename T2>
 
-inline T map(T2 val, T2 in_min, T2 in_max, T out_min, T out_max) {
+inline T map(T2 val, T2 in_min, T2 in_max, T out_min, T out_max)
+{
   return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-void tDisplay_Init(void) {
-  //Init pin 15 to eneble 5V external power (LilyGo bug)
+void tDisplay_Init(void)
+{
+
+  // Inicializar el pin 15 para habilitar la alimentación externa de 5V (LilyGo bug)
+
 #ifdef PIN_ENABLE5V
   pinMode(PIN_ENABLE5V, OUTPUT);
   digitalWrite(PIN_ENABLE5V, HIGH);
@@ -171,41 +197,55 @@ void tDisplay_Init(void) {
 #else
   tft.setRotation(ROTATION_90);
 #endif
-  tft.setSwapBytes(true);                  // Swap the colour byte order when rendering
-  background.createSprite(WIDTH, HEIGHT);  // Background Sprite
+  tft.setSwapBytes(true);
+  background.createSprite(WIDTH, HEIGHT);
   background.setSwapBytes(true);
-  render.setDrawer(background);   // Link drawing object to background instance (so font will be rendered on background)
-  render.setLineSpaceRatio(0.9);  // Espaciado entre texto
+  render.setDrawer(background);
+  render.setLineSpaceRatio(0.9);
 
-  // Load the font and check it can be read OK
-  // if (render.loadFont(NotoSans_Bold, sizeof(NotoSans_Bold))) {
-  if (render.loadFont(DigitalNumbers, sizeof(DigitalNumbers))) {
-    Serial.println("Initialise error");
+  // Cargamos fuente y vemos si se puede leer
+
+  if (render.loadFont(DigitalNumbers, sizeof(DigitalNumbers)))
+  {
+    Serial.println("M8AX - Error En Carga De Fuente...");
     return;
   }
 }
 
-void tDisplay_AlternateScreenState(void) {
+// Cambiamos estado de la pantalla al pulsar el botón 1
+
+void tDisplay_AlternateScreenState(void)
+{
   int screen_state = digitalRead(TFT_BL);
-  Serial.println("Switching display state");
+  Serial.println("M8AX - Cambiando Estado De La Pantalla");
   digitalWrite(TFT_BL, !screen_state);
+  abortar = 1;
 }
 
-void tDisplay_AlternateRotation(void) {
+// Rotamos la pantalla
+
+void tDisplay_AlternateRotation(void)
+{
   tft.setRotation(flipRotation(tft.getRotation()));
 }
 
-String convertirARomanos(int num) {
-  if (num == 0) {
+// Funcion para convertir un numero entero a números romanos
+
+String convertirARomanos(int num)
+{
+  if (num == 0)
+  {
     return "CERO";
   }
 
   String result = "";
-  int values[] = { 1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1 };
-  String romans[] = { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" };
+  int values[] = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+  String romans[] = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
 
-  for (int i = 0; i < 13; i++) {
-    while (num >= values[i]) {
+  for (int i = 0; i < 13; i++)
+  {
+    while (num >= values[i])
+    {
       result += romans[i];
       num -= values[i];
     }
@@ -214,46 +254,50 @@ String convertirARomanos(int num) {
   return result;
 }
 
-std::string obtenerDiaSemana(const std::string& fecha) {
-  // Array con los nombres de los días en español, abreviados
-  const char* diasem[] = { "Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab" };
+// Funcion para obtener el día de la semana, Lun Mar Mie...
 
-  // Extraer día, mes y año de la cadena de fecha
-  int dia = std::stoi(fecha.substr(0, 2));      // Primeros 2 caracteres: día
-  int mes = std::stoi(fecha.substr(3, 2)) - 1;  // Mes (0-indexado)
-  int anio = std::stoi(fecha.substr(6, 4));     // Año
+std::string obtenerDiaSemana(const std::string &fecha)
+{
+  const char *diasem[] = {"Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"};
 
-  // Crear una estructura tm para la fecha
+  int dia = std::stoi(fecha.substr(0, 2));
+  int mes = std::stoi(fecha.substr(3, 2)) - 1;
+  int anio = std::stoi(fecha.substr(6, 4));
+
   std::tm timeStruct = {};
-  timeStruct.tm_mday = dia;          // Día del mes
-  timeStruct.tm_mon = mes;           // Mes (0 = enero, 11 = diciembre)
-  timeStruct.tm_year = anio - 1900;  // Año desde 1900
+  timeStruct.tm_mday = dia;
+  timeStruct.tm_mon = mes;
+  timeStruct.tm_year = anio - 1900;
 
-  // Convertir a time_t y obtener el día de la semana
   std::mktime(&timeStruct);
-  int diaSemana = timeStruct.tm_wday;  // 0 = domingo, 1 = lunes, ...
+  int diaSemana = timeStruct.tm_wday; // 0 = domingo, 1 = lunes, ...
 
-  // Devolver el nombre del día
   return diasem[diaSemana];
 }
 
-String getPublicIP() {
+// Funcion para obtener nuestra ip pública
+
+String getPublicIP()
+{
   HTTPClient http;
   String publicIP = "";
 
-  // Realizar la solicitud GET a un servicio que devuelva la IP pública
-  http.begin("http://api.ipify.org");  // Servicio que devuelve la IP pública
+  http.begin("http://api.ipify.org"); // Servicio que devuelve la IP pública
   int httpCode = http.GET();
 
-  if (httpCode == HTTP_CODE_OK) {
-    publicIP = http.getString();  // Obtener la respuesta del servidor
+  if (httpCode == HTTP_CODE_OK)
+  {
+    publicIP = http.getString(); // Obtener la respuesta del servidor
   }
 
   http.end();
   return publicIP;
 }
 
-String quitarAcentos(String str) {
+// Función para quitar acentos de una cadena de texto
+
+String quitarAcentos(String str)
+{
   str.replace("á", "a");
   str.replace("é", "e");
   str.replace("í", "i");
@@ -266,44 +310,61 @@ String quitarAcentos(String str) {
   str.replace("Ú", "U");
   str.replace("ñ", "n");
   str.replace("Ñ", "N");
-  str.replace("¿", "");  // Eliminar signos de interrogación al principio de la frase
-  str.replace("¡", "");  // Eliminar signos de exclamación al principio de la frase
+  str.replace("¿", ""); // Eliminar signos de interrogación al principio de la frase
+  str.replace("¡", ""); // Eliminar signos de exclamación al principio de la frase
   return str;
 }
 
-void borrarDesdeUltimoGuion(char* str) {
-  char* pos = strrchr(str, '-');  // Encuentra el último '-'
-  if (pos) {
-    *pos = '\0';  // Corta la cadena en ese punto
+// Funcion para cortar una cadena desde el ultimo guión ( - )
+
+void borrarDesdeUltimoGuion(char *str)
+{
+  char *pos = strrchr(str, '-'); // Encuentra el último '-'
+  if (pos)
+  {
+    *pos = '\0'; // Corta la cadena en ese punto
   }
 }
 
-// Función recursiva para encontrar operaciones
-void find_operations(int numbers[], int target, State current, State* best, int depth, int used[]) {
+// Función recursiva para encontrar operaciones matemáticas
+
+void find_operations(int numbers[], int target, State current, State *best, int depth, int used[])
+{
   // Si alcanzamos el objetivo, actualizamos el mejor resultado
-  if (current.value == target) {
+
+  if (current.value == target)
+  {
     *best = current;
     return;
   }
 
   // Si hemos usado todos los números o hemos alcanzado la profundidad máxima, verificamos si este resultado es mejor
-  if (depth == MAX_DEPTH) {
+
+  if (depth == MAX_DEPTH)
+  {
     int diff = abs(current.value - target);
     int mejor_diff = abs(best->value - target);
-    if (diff < mejor_diff) {
+    if (diff < mejor_diff)
+    {
       *best = current;
     }
     return;
   }
 
   // Iterar sobre todos los números disponibles
-  for (int i = 0; i < MAX_NUMBERS; i++) {
-    if (!used[i]) {
-      used[i] = 1;  // Marcar el número como usado
+
+  for (int i = 0; i < MAX_NUMBERS; i++)
+  {
+    if (!used[i])
+    {
+      used[i] = 1; // Marcar el número como usado
 
       // Suma
       int new_value = current.value + numbers[i];
-      if (new_value >= 0) {  // No se permiten resultados negativos
+
+      if (new_value >= 0)
+      { // No se permiten resultados negativos
+
         State new_state;
         new_state.value = new_value;
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d + %d) = %d", current.operation, current.value, numbers[i], new_value);
@@ -311,7 +372,8 @@ void find_operations(int numbers[], int target, State current, State* best, int 
       }
 
       // Resta (solo si no genera negativos)
-      if (current.value - numbers[i] >= 0) {
+      if (current.value - numbers[i] >= 0)
+      {
         State new_state;
         new_state.value = current.value - numbers[i];
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d - %d) = %d", current.operation, current.value, numbers[i], new_state.value);
@@ -320,7 +382,8 @@ void find_operations(int numbers[], int target, State current, State* best, int 
 
       // Multiplicación (solo si no es innecesario)
       int mult_value = current.value * numbers[i];
-      if (mult_value >= 0 && mult_value <= target + 100) {  // Limitar el rango de multiplicación
+      if (mult_value >= 0 && mult_value <= target + 100)
+      { // Limitar el rango de multiplicación
         State new_state;
         new_state.value = mult_value;
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d * %d) = %d", current.operation, current.value, numbers[i], mult_value);
@@ -328,26 +391,33 @@ void find_operations(int numbers[], int target, State current, State* best, int 
       }
 
       // División exacta (solo si no genera fracciones)
-      if (numbers[i] != 0 && current.value % numbers[i] == 0) {
+      if (numbers[i] != 0 && current.value % numbers[i] == 0)
+      {
         State new_state;
         new_state.value = current.value / numbers[i];
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d / %d) = %d", current.operation, current.value, numbers[i], new_state.value);
         find_operations(numbers, target, new_state, best, depth + 1, used);
       }
-
-      used[i] = 0;  // Desmarcar el número
+      used[i] = 0; // Desmarcar el número
     }
   }
 }
 
-void calculate_operations(int numbers[], int target, char* result) {
-  int used[MAX_NUMBERS] = { 0 };    // Para rastrear números usados
-  State best = { numbers[0], "" };  // Inicializamos con el primer número
+// Función para calcular las operaciones que transforman un conjunto de números en un valor objetivo.
+// Se realiza una búsqueda recursiva para encontrar la mejor combinación de operaciones y números,
+// registrando el mejor resultado obtenido. Al final, se devuelve el resultado con un mensaje indicando
+// si se alcanzó el valor exacto o no, junto con el porcentaje de aciertos acumulado.
+
+void calculate_operations(int numbers[], int target, char *result)
+{
+  int used[MAX_NUMBERS] = {0};   // Para rastrear números usados
+  State best = {numbers[0], ""}; // Inicializamos con el primer número
 
   // Empezamos probando con cada número en la lista como punto de inicio
-  for (int i = 0; i < MAX_NUMBERS; i++) {
+  for (int i = 0; i < MAX_NUMBERS; i++)
+  {
     State current;
-    current.value = numbers[i];  // Probar cada número como inicio
+    current.value = numbers[i]; // Probar cada número como inicio
     snprintf(current.operation, sizeof(current.operation), "Inicio: %d", numbers[i]);
 
     // Marcar el número actual como usado
@@ -363,13 +433,16 @@ void calculate_operations(int numbers[], int target, char* result) {
   // Verificar si se ha alcanzado el objetivo exacto
   totalci = (totalci == 0) ? 1 : totalci;
   porcentaje = (aciertos * 100) / totalci;
-  if (best.value == target) {
+  if (best.value == target)
+  {
     aciertos++;
     strcat(result, ", ( EXACTO ) -");
     char porcentaje_str[20];
     snprintf(porcentaje_str, sizeof(porcentaje_str), " ( AC %.2f%% )", porcentaje);
     strcat(result, porcentaje_str);
-  } else {
+  }
+  else
+  {
     fallos++;
     int diff = abs(best.value - target);
     char diff_str[50];
@@ -382,24 +455,42 @@ void calculate_operations(int numbers[], int target, char* result) {
   totalci++;
 }
 
-void generate_random_numbers(int numbers[], int size, int min, int max) {
-  for (int i = 0; i < size; i++) {
+// Genera una serie de números aleatorios dentro de un rango especificado
+// y los almacena en el arreglo 'numbers[]'.
+// 'size' define cuántos números generar, 'min' es el valor mínimo
+// y 'max' es el valor máximo del rango.
+// Los números generados se distribuyen de forma uniforme en el rango [min, max].
+
+void generate_random_numbers(int numbers[], int size, int min, int max)
+{
+  for (int i = 0; i < size; i++)
+  {
     numbers[i] = min + (esp_random() % (max - min + 1));
   }
 }
 
-const char* factorize(uint32_t number) {
-  char buffer[20];        // Buffer temporal para formatear factores
-  uint32_t factors[16];   // Almacena factores primos
-  uint8_t exponents[16];  // Almacena exponentes
-  uint8_t count = 0;      // Número de factores encontrados
+// Realiza la factorización prima de un número entero positivo 'number'.
+// La función descompone el número en factores primos y sus respectivos exponentes.
+// Los factores y exponentes se almacenan en dos arreglos: 'factors[]' y 'exponents[]'.
+// La cadena de caracteres 'result' contiene la representación de la factorización
+// en el formato: "factor1^exponente1 * factor2^exponente2 ..."
+// Si el número es primo, la cadena resultante también incluirá "( PRIMO )" al final.
+
+const char *factorize(uint32_t number)
+{
+  char buffer[20];       // Buffer temporal para formatear factores
+  uint32_t factors[16];  // Almacena factores primos
+  uint8_t exponents[16]; // Almacena exponentes
+  uint8_t count = 0;     // Número de factores encontrados
 
   // Factorización por 2
-  if (number % 2 == 0) {
+  if (number % 2 == 0)
+  {
     factors[count] = 2;
     exponents[count] = 0;
-    while (number % 2 == 0) {
-      number >>= 1;  // Dividir por 2 usando desplazamiento de bits
+    while (number % 2 == 0)
+    {
+      number >>= 1; // Dividir por 2 usando desplazamiento de bits
       exponents[count]++;
     }
     count++;
@@ -407,11 +498,14 @@ const char* factorize(uint32_t number) {
 
   // Factorización por divisores impares
   uint32_t sqrt_num = sqrt(number);
-  for (uint32_t divisor = 3; divisor <= sqrt_num; divisor += 2) {
-    if (number % divisor == 0) {
+  for (uint32_t divisor = 3; divisor <= sqrt_num; divisor += 2)
+  {
+    if (number % divisor == 0)
+    {
       factors[count] = divisor;
       exponents[count] = 0;
-      while (number % divisor == 0) {
+      while (number % divisor == 0)
+      {
         number /= divisor;
         exponents[count]++;
       }
@@ -421,114 +515,136 @@ const char* factorize(uint32_t number) {
   }
 
   // Si el número restante es primo
-  if (number > 1) {
+  if (number > 1)
+  {
     factors[count] = number;
     exponents[count] = 1;
     count++;
   }
 
   // Construir la cadena de resultado
-  result[0] = '\0';  // Inicializar el buffer de resultado
-  for (uint8_t i = 0; i < count; i++) {
-    if (i > 0) {
-      strcat(result, " * ");  // Separador
+  result[0] = '\0'; // Inicializar el buffer de resultado
+  for (uint8_t i = 0; i < count; i++)
+  {
+    if (i > 0)
+    {
+      strcat(result, " * "); // Separador
     }
-    if (exponents[i] == 1) {
+    if (exponents[i] == 1)
+    {
       sprintf(buffer, "%u", factors[i]);
-    } else {
-      sprintf(buffer, "%ue%u", factors[i], exponents[i]);  // Formato "2e3"
+    }
+    else
+    {
+      sprintf(buffer, "%ue%u", factors[i], exponents[i]); // Formato "2e3"
     }
     strcat(result, buffer);
   }
 
   // Verificar si el número era primo
-  if (count == 1 && exponents[0] == 1) {
+  if (count == 1 && exponents[0] == 1)
+  {
     strcat(result, " ( PRIMO )");
   }
 
   return result;
 }
 
-// Las 2 Funciones Siguientes Son Para Telegram. Por Si Alguno Le Interesa Puede Poner En Las Declaraciones De Variables Su BOT E ID Del Grupo De Telegram Y El NerdMinerv2 Le Enviará Mensajes De Estado Cada 30m...
+// Función que envía un texto que contiene estadísticas de minería a tu canal de telegram
 
-void enviarMensajeATelegram(String mensaje) {
+void enviarMensajeATelegram(String mensaje)
+{
   // Verificar y reconectar WiFi si es necesario
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Reconectando WiFi...");
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("M8AX - Reconectando WiFi...");
     WiFi.disconnect();
     WiFi.reconnect();
-    delay(5000);  // Espera para reconectar
+    delay(5000); // Espera para reconectar
 
     // Si después del intento sigue sin conexión, salir de la función
 
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("No Se Pudo Reconectar WiFi...");
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("M8AX - No Se Pudo Reconectar WiFi...");
       return;
     }
   }
   WiFiClientSecure client;
   client.setInsecure();
-  String mensajeCodificado = urlEncode(mensaje);
-  mensaje="";
+  String mensajeCodificado = urlEncode(mensaje); // Mirar función
+  mensaje = "";
 
   // Reemplazar los saltos de línea con %0A
 
   mensajeCodificado.replace("\n", "%0A");
 
-  Serial.println("Enviando Mensaje A Telegram...");
+  Serial.println("M8AX - Enviando Mensaje A Telegram...");
 
   String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
-  mensajeCodificado="";
+  mensajeCodificado = "";
 
-  if (client.connect("api.telegram.org", 443)) {
+  if (client.connect("api.telegram.org", 443))
+  {
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: api.telegram.org\r\n" + "Connection: close\r\n\r\n");
-    delay(1500);  // Espera para dar tiempo a la respuesta
-    Serial.println("\nMensaje Enviado A Telegram...");
+    delay(1500); // Espera para dar tiempo a la respuesta
+    Serial.println("M8AX - Mensaje Enviado A Telegram...");
     client.flush();
     client.stop();
-  } else {
-    Serial.println("Error De Conexión, Mensaje A Telegram Falló...");
+  }
+  else
+  {
+    Serial.println("\nM8AX - Error De Conexión, Mensaje A Telegram Falló...");
     client.flush();
     client.stop();
   }
 }
 
-void recopilaTelegram() {
-  unsigned long epochTime = timeClient.getEpochTime();  // Obtener segundos desde 1970
-  time_t epoch = (time_t)epochTime;                     // Convertir a time_t
-  struct tm* timeinfo = localtime(&epoch);              // Convertir a una estructura de tiempo local
-  int dia = timeinfo->tm_mday;                          // Día del mes (1 a 31)
-  int mes = timeinfo->tm_mon + 1;                       // Mes (1 a 12)
-  int anio = timeinfo->tm_year + 1900;                  // Año (por defecto es desde 1900)
-  int horita = timeinfo->tm_hour;                       // Hora
-  int minutitos = timeinfo->tm_min;                     // Minutos
-  int segundos = timeinfo->tm_sec;                      // Segundos
+// Función para recopilar todo lo que vamos a enviar a nuestro canal de telegram
+
+void recopilaTelegram()
+{
+  unsigned long epochTime = timeClient.getEpochTime(); // Obtener segundos desde 1970
+  time_t epoch = (time_t)epochTime;                    // Convertir a time_t
+  struct tm *timeinfo = localtime(&epoch);             // Convertir a una estructura de tiempo local
+  int dia = timeinfo->tm_mday;                         // Día del mes (1 a 31)
+  int mes = timeinfo->tm_mon + 1;                      // Mes (1 a 12)
+  int anio = timeinfo->tm_year + 1900;                 // Año (por defecto es desde 1900)
+  int horita = timeinfo->tm_hour;                      // Hora
+  int minutitos = timeinfo->tm_min;                    // Minutos
+  int segundos = timeinfo->tm_sec;                     // Segundos
+  int indice = esp_random() % 3;
+
   // Formatear la hora en "00:00:00"
   char horaFormateada[9];
   sprintf(horaFormateada, "%02d:%02d:%02d", horita, minutitos, segundos);
-  // Formatear la fecha en "dia/mes/año" 
+
+  // Formatear la fecha en "dia/mes/año"
   char fechaFormateada[11];
   sprintf(fechaFormateada, "%02d/%02d/%04d", dia, mes, anio);
+
   std::string quediase = obtenerDiaSemana(std::string(fechaFormateada));
   uint8_t mac[6];
   WiFi.macAddress(mac);
+
   // Extraer los últimos 4 dígitos de la mac
   String u4digits = String(mac[4], HEX) + String(mac[5], HEX);
   String telrb = monedilla.remainingBlocks;
-  String cadenaEnvio = "--------------------------------------------------------------------------------------------------------------\n";
+
+  String cadenaEnvio = F("--------------------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "------------------------------- M8AX - NerdMinerV2-" + u4digits + " DATOS DE MINERÍA - M8AX ------------------------------\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  cadenaEnvio += "------------------------------------------ " + String(fechaFormateada) + " " + quediase.c_str()+" - " + horaFormateada + " -----------------------------------------\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  cadenaEnvio += "Mensaje Número - " +convertirARomanos(sumatele)+"\n";
+  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += "------------------------------------------ " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " -----------------------------------------\n";
+  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
   cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
   cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s\n";
-  cadenaEnvio += "Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "°\n";
+  cadenaEnvio += "Temperatura De CPU - " + mineria.temp + "°\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
   cadenaEnvio += "Shares Completados Y Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
   cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
-  cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( "+String(atof(mineria.totalKHashes.c_str()) / 1000, 3)+" MH )\n";
+  cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )\n";
   cadenaEnvio += "Hash Rate Global - " + monedilla.globalHashRate + " EH/s\n";
   cadenaEnvio += "Precio De BITCOIN - " + monedilla.btcPrice + "\n";
   cadenaEnvio += "Promedio Por Transacción, FEE - " + monedilla.halfHourFee + "\n";
@@ -539,51 +655,58 @@ void recopilaTelegram() {
   long int hechos = 210000 - telrb.toInt();
   cadenaEnvio += "Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques\n";
   char buffer[10];
-  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer);  // Convierte float a string con 3 decimales
+  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer); // Convierte float a string con 3 decimales
   cadenaEnvio += "Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%\n";
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De Bitcoin - " + String(Settings.BtcWallet) + "\n";
   cadenaEnvio += "Tu IP - " + getPublicIP() + "\n";
-  cadenaEnvio += "YT - https://youtube.com/m8ax\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  if (mineria.valids.toInt() == 1) {
+  cadenaEnvio += urlsm8ax[indice];
+  cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------------------\n");
+  if (mineria.valids.toInt() == 1)
+  {
     cadenaEnvio += "El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA :) |||\n";
-  } else {
+  }
+  else
+  {
     cadenaEnvio += "El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||\n";
   }
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
-  cadenaEnvio += "----------------------------------------- M8AX - DATOS NERD - M8AX -------------------------------------------\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n";
+  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += F("----------------------------------------- M8AX - DATOS NERD - M8AX -------------------------------------------\n");
+  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
   rndnumero = esp_random();
   cadenaEnvio += "Factorización De Número - " + String(rndnumero) + " -> " + factorize(rndnumero) + "\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n                                              By M8AX Corp. " + String(anio);
-  cadenaEnvio += "\n--------------------------------------------------------------------------------------------------------------";
+  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n                                              By M8AX Corp. " + convertirARomanos(anio);
+  cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------------------");
   enviarMensajeATelegram(cadenaEnvio);
   cadenaEnvio = "";
 }
 
-void recopilaTelegram2() {
-  unsigned long epochTime = timeClient.getEpochTime();  // Obtener segundos desde 1970
-  time_t epoch = (time_t)epochTime;                     // Convertir a time_t
-  struct tm* timeinfo = localtime(&epoch);              // Convertir a una estructura de tiempo local
-  int dia = timeinfo->tm_mday;                          // Día del mes (1 a 31)
-  int mes = timeinfo->tm_mon + 1;                       // Mes (1 a 12)
-  int anio = timeinfo->tm_year + 1900;                  // Año (por defecto es desde 1900)
-  int horita = timeinfo->tm_hour;                       // Hora
-  int minutitos = timeinfo->tm_min;                     // Minutos
-  int segundos = timeinfo->tm_sec;                      // Segundos
+// Función para imprimir datos en pantalla en formato texto plano, todo seguido con información
+
+void datosPantallaTextoPlano()
+{
+  unsigned long epochTime = timeClient.getEpochTime(); // Obtener segundos desde 1970
+  time_t epoch = (time_t)epochTime;                    // Convertir a time_t
+  struct tm *timeinfo = localtime(&epoch);             // Convertir a una estructura de tiempo local
+  int dia = timeinfo->tm_mday;                         // Día del mes (1 a 31)
+  int mes = timeinfo->tm_mon + 1;                      // Mes (1 a 12)
+  int anio = timeinfo->tm_year + 1900;                 // Año (por defecto es desde 1900)
+  int horita = timeinfo->tm_hour;                      // Hora
+  int minutitos = timeinfo->tm_min;                    // Minutos
+  int segundos = timeinfo->tm_sec;                     // Segundos
   String telrb = monedilla.remainingBlocks;
   String cadenaEnvio2 = "";
+
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
   cadenaEnvio2 += ". Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
   cadenaEnvio2 += ". HashRate Actual - " + mineria.currentHashRate + " KH/s";
-  cadenaEnvio2 += ". Temperatura De CPU De NerdMinerV2 - " + mineria.temp + "g";
+  cadenaEnvio2 += ". Temperatura De CPU - " + mineria.temp + "g";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
   cadenaEnvio2 += ". Shares Completados Y Enviados A La Pool - " + mineria.completedShares;
   cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
   cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
-  cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( "+String(atof(mineria.totalKHashes.c_str()) / 1000, 3)+" MH )";
+  cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )";
   cadenaEnvio2 += ". Hash Rate Global - " + monedilla.globalHashRate + " EH/s";
   cadenaEnvio2 += ". Precio De BITCOIN - " + monedilla.btcPrice;
   cadenaEnvio2 += ". Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
@@ -594,12 +717,15 @@ void recopilaTelegram2() {
   long int hechos = 210000 - telrb.toInt();
   cadenaEnvio2 += ". Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques";
   char buffer[10];
-  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer);  // Convierte float a string con 5 decimales
-  cadenaEnvio2 += ". Porcentaje Completado Desde El Último Halving - " + String(buffer)+"%";
-  cadenaEnvio2 += ". Porcentaje Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3)+"%";
-  if (mineria.valids.toInt() == 1) {
+  dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer); // Convierte float a string con 5 decimales
+  cadenaEnvio2 += ". Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%";
+  cadenaEnvio2 += ". Porcentaje Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3) + "%";
+  if (mineria.valids.toInt() == 1)
+  {
     cadenaEnvio2 += ". El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||";
-  } else {
+  }
+  else
+  {
     cadenaEnvio2 += ". El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
   }
   tft.setTextColor(TFT_WHITE);
@@ -613,81 +739,126 @@ void recopilaTelegram2() {
   cadenaEnvio2 = "";
 }
 
-std::pair<String, String> obtenerCiudadYTemperatura(const String& ip) {
+// Función para obterner la ciudad y la temperatura mediante la IP pública
+
+std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
+{
   String ciudad = "";
   String temperatura = "";
 
   // Obtener la ciudad usando la API de geolocalización
+
   HTTPClient http;
-  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city";  // Obtener solo la ciudad
+  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city"; // Obtener solo la ciudad
   http.begin(urlGeo);
 
   int httpCode = http.GET();
-  if (httpCode > 0) {
+  if (httpCode > 0)
+  {
     String payload = http.getString();
 
     // Parsear el JSON para obtener la ciudad
+
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-      Serial.println("Error al parsear JSON de la ciudad");
-      return std::make_pair(ciudad, temperatura);  // Devolver vacías en caso de error
+    if (error)
+    {
+      Serial.println("M8AX - Error Al Parsear JSON De La Ciudad");
+      return std::make_pair(ciudad, temperatura); // Devolver vacías en caso de error
     }
-    ciudad = doc["city"].as<String>();  // Ciudad obtenida
-  } else {
-    Serial.println("Error al obtener ciudad");
-    return std::make_pair(ciudad, temperatura);  // Devolver vacías si hay error
+    ciudad = doc["city"].as<String>(); // Ciudad obtenida
+  }
+  else
+  {
+    Serial.println("M8AX - Error Al Obtener Ciudad");
+    return std::make_pair(ciudad, temperatura); // Devolver vacías si hay error
   }
 
   http.end();
 
   // Obtener la temperatura usando wttr.in con HTTPS
-  if (ciudad != "") {
+
+  if (ciudad != "")
+  {
     // Usamos WiFiClientSecure para HTTPS
     WiFiClientSecure client;
-    client.setInsecure();  // Permitimos conexiones HTTPS sin verificar certificado (menos seguro)
+    client.setInsecure(); // Permitimos conexiones HTTPS sin verificar certificado (menos seguro pero usa menos RAM)
 
-    String urlTemp = "https://wttr.in/" + ciudad + "?format=%t";  // Usar https para obtener temperatura
-    http.begin(client, urlTemp);                                  // Iniciar la solicitud HTTPS
+    String urlTemp = "https://wttr.in/" + ciudad + "?format=%t"; // Usar https para obtener temperatura
+    http.begin(client, urlTemp);                                 // Iniciar la solicitud HTTPS
     httpCode = http.GET();
 
-    if (httpCode > 0) {
-      temperatura = http.getString();  // Obtener la temperatura
-    } else {
-      Serial.println("Error al obtener temperatura");
+    if (httpCode > 0)
+    {
+      temperatura = http.getString(); // Obtener la temperatura
+    }
+    else
+    {
+      Serial.println("M8AX - Error Al Obtener Temperatura");
     }
     http.end();
-  } else {
-    Serial.println("Ciudad no encontrada para la IP.");
+  }
+  else
+  {
+    Serial.println("M8AX - Ciudad No Encontrada Para La IP");
   }
 
-  return std::make_pair(ciudad, temperatura);  // Devolver ciudad y temperatura
+  return std::make_pair(ciudad, temperatura); // Devolver ciudad y temperatura
 }
 
-void drawGrid(void) {
+// Dibuja una cuadrícula en la pantalla TFT, actualizando las celdas cuya
+// condición ha cambiado entre el estado anterior (grid) y el nuevo (newgrid).
+// Cada celda se dibuja con el color correspondiente (blanco si el valor es 1,
+// negro si el valor es 0), utilizando el tamaño de celda definido por 'CELLXY'.
+// La función recorre todas las celdas de la cuadrícula y actualiza las que han cambiado.
+
+void drawGrid(void)
+{
   uint16_t color = color = TFT_WHITE;
-  for (int16_t x = 1; x < GRIDX - 1; x++) {
-    for (int16_t y = 1; y < GRIDY - 1; y++) {
-      if ((grid[x][y]) != (newgrid[x][y])) {
-        if (newgrid[x][y] == 1) color = 0xFFFF;  //random(0xFFFF);
-        else color = 0;
+  for (int16_t x = 1; x < GRIDX - 1; x++)
+  {
+    for (int16_t y = 1; y < GRIDY - 1; y++)
+    {
+      if ((grid[x][y]) != (newgrid[x][y]))
+      {
+        if (newgrid[x][y] == 1)
+          color = 0xFFFF; // random(0xFFFF);
+        else
+          color = 0;
         tft.fillRect(CELLXY * x, CELLXY * y, CELLXY, CELLXY, color);
       }
     }
   }
 }
 
-int getNumberOfNeighbors(int x, int y) {
+// Calcula y devuelve el número de vecinos activos (celdas con valor 1)
+// alrededor de una celda ubicada en las coordenadas (x, y) en la cuadrícula.
+// La función considera las 8 celdas adyacentes (incluyendo diagonales) y suma
+// el valor de cada celda vecina (1 si está activa, 0 si no lo está).
+
+int getNumberOfNeighbors(int x, int y)
+{
   return grid[x - 1][y] + grid[x - 1][y - 1] + grid[x][y - 1] + grid[x + 1][y - 1] + grid[x + 1][y] + grid[x + 1][y + 1] + grid[x][y + 1] + grid[x - 1][y + 1];
 }
 
-void initGrid(void) {
-  for (int16_t x = 0; x < GRIDX; x++) {
-    for (int16_t y = 0; y < GRIDY; y++) {
+// Inicializa la cuadrícula 'grid' y 'newgrid'. La cuadrícula está compuesta por
+// celdas activas (valor 1) e inactivas (valor 0). Las celdas en los bordes
+// están inactivas, mientras que las celdas internas se asignan aleatoriamente como
+// activas con una probabilidad de 1/3. 'newgrid' se inicializa a 0 en todas sus celdas.
+
+void initGrid(void)
+{
+  for (int16_t x = 0; x < GRIDX; x++)
+  {
+    for (int16_t y = 0; y < GRIDY; y++)
+    {
       newgrid[x][y] = 0;
-      if (x == 0 || x == GRIDX - 1 || y == 0 || y == GRIDY - 1) {
+      if (x == 0 || x == GRIDX - 1 || y == 0 || y == GRIDY - 1)
+      {
         grid[x][y] = 0;
-      } else {
+      }
+      else
+      {
         if (esp_random() % 3 == 1)
           grid[x][y] = 1;
         else
@@ -697,170 +868,287 @@ void initGrid(void) {
   }
 }
 
-//Compute the CA. Basically everything related to CA starts here
-void computeCA() {
-  for (int16_t x = 1; x < GRIDX; x++) {
-    for (int16_t y = 1; y < GRIDY; y++) {
+// Calcula el siguiente estado de la cuadrícula en base a las reglas del
+// autómata celular. Para cada celda de la cuadrícula, se evalúa el número
+// de vecinos activos (1). Si la celda está activa (1) y tiene 2 o 3 vecinos,
+// permanece activa en el siguiente paso. Si tiene menos de 2 o más de 3 vecinos,
+// se desactiva. Si la celda está inactiva (0) y tiene exactamente 3 vecinos,
+// se activa en el siguiente paso. El resultado se almacena en 'newgrid'.
+
+void computeCA()
+{
+  for (int16_t x = 1; x < GRIDX; x++)
+  {
+    for (int16_t y = 1; y < GRIDY; y++)
+    {
       int neighbors = getNumberOfNeighbors(x, y);
-      if (grid[x][y] == 1 && (neighbors == 2 || neighbors == 3)) {
+      if (grid[x][y] == 1 && (neighbors == 2 || neighbors == 3))
+      {
         newgrid[x][y] = 1;
-      } else if (grid[x][y] == 1) newgrid[x][y] = 0;
-      if (grid[x][y] == 0 && (neighbors == 3)) {
+      }
+      else if (grid[x][y] == 1)
+        newgrid[x][y] = 0;
+      if (grid[x][y] == 0 && (neighbors == 3))
+      {
         newgrid[x][y] = 1;
-      } else if (grid[x][y] == 0) newgrid[x][y] = 0;
+      }
+      else if (grid[x][y] == 0)
+        newgrid[x][y] = 0;
     }
   }
 }
 
-String capitalizar(String palabra) {
-  if (palabra.length() > 0) {
+// Función que recibe una palabra y la devuelve con la primera letra en mayúscula
+
+String capitalizar(String palabra)
+{
+  if (palabra.length() > 0)
+  {
     palabra[0] = toupper(palabra[0]);
   }
   return palabra;
 }
 
-String numeroAEscrito(int num, bool esDecimal = false) {
-  if (num < 0 || num > 9999) return "Número Fuera De Rango";
+// Función que recibe un número entero y lo devuelve en formato cadena y escrito en letra
 
-  String unidades[] = { "Cero", "Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve" };
-  String especiales[] = { "Diez", "Once", "Doce", "Trece", "Catorce", "Quince",
-                          "Dieciséis", "Diecisiete", "Dieciocho", "Diecinueve" };
-  String decenas[] = { "", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta",
-                       "Sesenta", "Setenta", "Ochenta", "Noventa" };
-  String centenas[] = { "", "Ciento", "Doscientos", "Trescientos", "Cuatrocientos",
-                        "Quinientos", "Seiscientos", "Setecientos", "Ochocientos", "Novecientos" };
+String numeroAEscrito(int num, bool esDecimal = false)
+{
+  if (num < 0 || num > 9999)
+    return "Número Fuera De Rango";
 
-  if (num == 100) return "Cien";  // Caso especial
-  if (num == 0) return "Cero";
+  String unidades[] = {"Cero", "Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve"};
+  String especiales[] = {"Diez", "Once", "Doce", "Trece", "Catorce", "Quince",
+                         "Dieciséis", "Diecisiete", "Dieciocho", "Diecinueve"};
+  String decenas[] = {"", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta",
+                      "Sesenta", "Setenta", "Ochenta", "Noventa"};
+  String centenas[] = {"", "Ciento", "Doscientos", "Trescientos", "Cuatrocientos",
+                       "Quinientos", "Seiscientos", "Setecientos", "Ochocientos", "Novecientos"};
+
+  if (num == 100)
+    return "Cien"; // Caso especial
+  if (num == 0)
+    return "Cero";
 
   String resultado = "";
 
   // Si es la parte decimal y el número es menor que 10, agregar "Cero"
-  if (esDecimal && num < 10) {
+
+  if (esDecimal && num < 10)
+  {
     resultado += "Cero ";
   }
 
   // Miles
-  if (num >= 1000) {
-    if (num / 1000 == 1) {
+
+  if (num >= 1000)
+  {
+    if (num / 1000 == 1)
+    {
       resultado += "Mil";
-    } else {
+    }
+    else
+    {
       resultado += capitalizar(unidades[num / 1000]) + " Mil";
     }
-    num %= 1000;  // Eliminamos los miles
-    if (num > 0) resultado += " ";
+    num %= 1000; // Eliminamos los miles
+    if (num > 0)
+      resultado += " ";
   }
 
   // Centenas
-  if (num >= 100) {
+
+  if (num >= 100)
+  {
     resultado += capitalizar(centenas[num / 100]);
-    num %= 100;  // Eliminamos las centenas
-    if (num > 0) resultado += " ";
+    num %= 100; // Eliminamos las centenas
+    if (num > 0)
+      resultado += " ";
   }
 
   // Decenas y unidades
-  if (num >= 10 && num <= 19) {
-    resultado += capitalizar(especiales[num - 10]);  // Números entre 10 y 19
-  } else {
-    if (num >= 20) {
-      resultado += capitalizar(decenas[num / 10]);
-      if (num % 10 > 0) resultado += " Y " + capitalizar(unidades[num % 10]);  // "Veintiuno", "Treinta Y Uno"
-    } else if (num > 0) {
-      resultado += capitalizar(unidades[num]);  // Unidades solas
+
+  if (num >= 10 && num <= 19)
+  {
+    resultado += capitalizar(especiales[num - 10]); // Números entre 10 y 19
+  }
+  else
+  {
+    if (num >= 20)
+    {
+      // Para números del 20 al 29, usamos la forma correcta "Veinti" + unidades
+
+      if (num < 30)
+      {
+        resultado += "Veinti";
+        if (num % 10 > 0)
+          resultado += capitalizar(unidades[num % 10]); // "VeintiUno", "VeintiTres", etc.
+      }
+      else
+      {
+        resultado += capitalizar(decenas[num / 10]);
+        if (num % 10 > 0)
+          resultado += " Y " + capitalizar(unidades[num % 10]); // "Treinta Y Uno", "Cuarenta Y Cinco"
+      }
+    }
+    else if (num > 0)
+    {
+      resultado += capitalizar(unidades[num]); // Unidades solas
     }
   }
 
   return resultado;
 }
 
-void dibujarDado(int numero, int x, int y) {
-  // Dibuja el borde del dado
-  tft.drawRect(x - 30, y - 30, 60, 60, TFT_WHITE);  // Cuadrado del dado
+/**
+ * Dibuja un dado en la pantalla TFT en la posición especificada.
+ *
+ * @param numero Número del dado a dibujar (1 a 6).
+ * @param x Coordenada X del centro del dado.
+ * @param y Coordenada Y del centro del dado.
+ *
+ * La función dibuja un cuadrado representando el dado y coloca los puntos según el número indicado.
+ * - El dado tiene un tamaño de 60x60 píxeles, centrado en (x, y).
+ * - Los puntos se dibujan con un radio de 5 píxeles.
+ * - Se usa `fillCircle` para dibujar los puntos en la posición correcta según el número del dado.
+ * - Se verifica cada número de 1 a 6 para posicionar los puntos correctamente.
+ */
 
-  int r = 5;  // Radio de los puntos
+void dibujarDado(int numero, int x, int y)
+{
+  // Dibuja el borde del dado
+  tft.drawRect(x - 30, y - 30, 60, 60, TFT_WHITE); // Cuadrado del dado
+
+  int r = 5; // Radio de los puntos
 
   // Posiciones de los puntos del dado según el número (del 1 al 6)
   // Definimos los puntos en un arreglo para que siempre se muestren correctamente
-  switch (numero) {
-    case 1:
-      // Un solo punto en el centro
-      tft.fillCircle(x, y, r, TFT_WHITE);
-      break;
-    case 2:
-      // Dos puntos en esquinas opuestas
-      tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
-      break;
-    case 3:
-      // Tres puntos: dos en las esquinas y uno en el centro
-      tft.fillCircle(x, y, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
-      break;
-    case 4:
-      // Cuatro puntos: en las esquinas
-      tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
-      break;
-    case 5:
-      // Cinco puntos: cuatro en las esquinas y uno en el centro
-      tft.fillCircle(x, y, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
-      break;
-    case 6:
-      // Seis puntos: en filas de 3
-      tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y, r, TFT_WHITE);
-      tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
-      tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
-      break;
+  switch (numero)
+  {
+  case 1:
+    // Un solo punto en el centro
+    tft.fillCircle(x, y, r, TFT_WHITE);
+    break;
+  case 2:
+    // Dos puntos en esquinas opuestas
+    tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
+    break;
+  case 3:
+    // Tres puntos: dos en las esquinas y uno en el centro
+    tft.fillCircle(x, y, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
+    break;
+  case 4:
+    // Cuatro puntos: en las esquinas
+    tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
+    break;
+  case 5:
+    // Cinco puntos: cuatro en las esquinas y uno en el centro
+    tft.fillCircle(x, y, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
+    break;
+  case 6:
+    // Seis puntos: en filas de 3
+    tft.fillCircle(x - 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y - 15, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y, r, TFT_WHITE);
+    tft.fillCircle(x - 15, y + 15, r, TFT_WHITE);
+    tft.fillCircle(x + 15, y + 15, r, TFT_WHITE);
+    break;
   }
 }
 
-void dibujarMoneda(int moneda, int x, int y) {
-  int radio = 45;  // Un tamaño más grande para la moneda
+/**
+ * Dibuja una moneda en la pantalla TFT en la posición especificada.
+ *
+ * @param moneda Valor de la moneda: 0 para "Cara", 1 para "Cruz".
+ * @param x Coordenada X del centro de la moneda.
+ * @param y Coordenada Y del centro de la moneda.
+ *
+ * La función representa una moneda con:
+ * - Un círculo de radio 45 píxeles para la forma de la moneda.
+ * - Un texto "C" en color verde si la moneda muestra "Cara".
+ * - Un texto "X" en color rojo si la moneda muestra "Cruz".
+ * - El texto se posiciona centrado dentro de la moneda.
+ */
 
-  tft.drawCircle(x, y, radio, TFT_WHITE);  // Dibujar la moneda
+void dibujarMoneda(int moneda, int x, int y)
+{
+  int radio = 45; // Un tamaño más grande para la moneda
 
-  if (moneda == 0) {
+  tft.drawCircle(x, y, radio, TFT_WHITE); // Dibujar la moneda
+
+  if (moneda == 0)
+  {
     tft.setTextColor(TFT_GREEN);
     tft.setTextSize(2);
-    tft.drawCentreString("C", x, y - 20, 4);  // Dibuja "C" para cara
-  } else {
+    tft.drawCentreString("C", x, y - 20, 4); // Dibuja "C" para cara
+  }
+  else
+  {
     tft.setTextColor(TFT_RED);
     tft.setTextSize(2);
-    tft.drawCentreString("X", x, y - 20, 4);  // Dibuja "X" para cruz
+    tft.drawCentreString("X", x, y - 20, 4); // Dibuja "X" para cruz
   }
 }
 
-void drawCenteredText(const char* text, int y, int delayTime) {
-  int screenWidth = tft.width();          // Ancho de la pantalla
-  int textWidth = tft.textWidth(text);    // Ancho del texto
-  int x = (screenWidth - textWidth) / 5;  // Posición X para centrar el texto
+/**
+ * Dibuja un texto centrado en la pantalla con efecto de escritura letra por letra.
+ *
+ * La función calcula el ancho del texto y lo centra horizontalmente en la pantalla.
+ * Luego, dibuja cada letra una por una con un pequeño retardo para generar un efecto
+ * de escritura progresiva. Cada letra se muestra con un color aleatorio.
+ *
+ * @param text       Cadena de texto a mostrar.
+ * @param y          Coordenada Y donde se dibujará el texto.
+ * @param delayTime  Tiempo de espera (en milisegundos) entre cada letra.
+ */
+
+void drawCenteredText(const char *text, int y, int delayTime)
+{
+  int screenWidth = tft.width();         // Ancho de la pantalla
+  int textWidth = tft.textWidth(text);   // Ancho del texto
+  int x = (screenWidth - textWidth) / 5; // Posición X para centrar el texto
 
   // Efecto de escritura letra por letra
-  for (int i = 0; i < strlen(text); i++) {
+  for (int i = 0; i < strlen(text); i++)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI], TFT_BLACK);
-    tft.drawChar(text[i], x, y, 2);           // Dibuja una letra
-    x += tft.textWidth(String(text[i])) + 5;  // Ajusta la posición X para la siguiente letra
-    delay(delayTime);                         // Retardo para el efecto
+    tft.drawChar(text[i], x, y, 2);          // Dibuja una letra
+    x += tft.textWidth(String(text[i])) + 5; // Ajusta la posición X para la siguiente letra
+    delay(delayTime);                        // Retardo para el efecto
   }
 }
 
-void television() {
-  int barWidth = (esp_random() % (41 - 5)) + 5;  // Genera un número entre 5 y 40
-  int speed = (esp_random() % (26 - 5)) + 5;     // Genera un número entre 5 y 25
+/**
+ * Simula una pantalla de televisión con efectos de barras y diagonales de colores aleatorios.
+ *
+ * La función genera y muestra en pantalla una serie de barras de colores en diferentes direcciones
+ * (horizontales, verticales y diagonales), con un breve retraso entre cada una para crear una animación.
+ * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" en un color aleatorio.
+ *
+ * - El ancho de las barras y la velocidad del efecto se generan aleatoriamente dentro de un rango.
+ * - Se utilizan colores aleatorios para cada barra y se eliminan tras un breve retraso.
+ * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" con un tamaño de texto grande.
+ */
+
+void television()
+{
+  int barWidth = (esp_random() % (41 - 5)) + 5; // Genera un número entre 5 y 40
+  int speed = (esp_random() % (26 - 5)) + 5;    // Genera un número entre 5 y 25
 
   // Barras horizontales
-  for (int y = 0; y < tft.height(); y += barWidth) {
+  for (int y = 0; y < tft.height(); y += barWidth)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.fillRect(0, y, tft.width(), barWidth, colors[colorI]);
     delay(speed);
@@ -868,7 +1156,8 @@ void television() {
   }
 
   // Barras verticales
-  for (int x = 0; x < tft.width(); x += barWidth) {
+  for (int x = 0; x < tft.width(); x += barWidth)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.fillRect(x, 0, barWidth, tft.height(), colors[colorI]);
     delay(speed);
@@ -876,18 +1165,20 @@ void television() {
   }
 
   // Barras diagonales (de esquina a esquina)
-  for (int i = 0; i < tft.width() + tft.height(); i += barWidth) {
+  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.drawLine(i, 0, 0, i, colors[colorI]);  // Diagonal de arriba a la izquierda
+    tft.drawLine(i, 0, 0, i, colors[colorI]); // Diagonal de arriba a la izquierda
     delay(speed);
-    tft.drawLine(i, 0, 0, i, TFT_BLACK);  // Borrar la línea
+    tft.drawLine(i, 0, 0, i, TFT_BLACK); // Borrar la línea
   }
 
-  for (int i = 0; i < tft.width() + tft.height(); i += barWidth) {
+  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, colors[colorI]);  // Diagonal de abajo a la derecha
+    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, colors[colorI]); // Diagonal de abajo a la derecha
     delay(speed);
-    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, TFT_BLACK);  // Borrar la línea
+    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, TFT_BLACK); // Borrar la línea
   }
 
   // Finalizar con la pantalla en negro
@@ -900,89 +1191,131 @@ void television() {
   tft.setTextSize(1);
 }
 
-void nevar() {
-  tft.fillScreen(TFT_BLACK);  // Fondo negro (puedes cambiarlo)
+/**
+ * Simula una animación de nieve cayendo en la pantalla.
+ *
+ * La función dibuja copos de nieve que caen desde posiciones aleatorias en la parte superior
+ * de la pantalla y los mueve hacia abajo con velocidades aleatorias. Cuando un copo alcanza
+ * la parte inferior, reaparece en la parte superior en una nueva posición horizontal.
+ *
+ * - Se generan 100 copos de nieve con posiciones iniciales aleatorias.
+ * - La animación dura 5 segundos y se actualiza cada 35 ms.
+ * - Al finalizar, se muestra el mensaje "FELIZ NAVIDAD" centrado en la pantalla con un color aleatorio.
+ */
 
-  const int NUM_COPOS = 100;       // Número de copos de nieve en pantalla
-  int x[NUM_COPOS], y[NUM_COPOS];  // Coordenadas de los copos
+void nevar()
+{
+  tft.fillScreen(TFT_BLACK); // Fondo negro (puedes cambiarlo)
+
+  const int NUM_COPOS = 100;      // Número de copos de nieve en pantalla
+  int x[NUM_COPOS], y[NUM_COPOS]; // Coordenadas de los copos
 
   // Inicializa copos en posiciones aleatorias
-  for (int i = 0; i < NUM_COPOS; i++) {
-    x[i] = (esp_random() % 320);  // Genera un número entre 0 y 319
-    y[i] = (esp_random() % 170);  // Genera un número entre 0 y 169
-
+  for (int i = 0; i < NUM_COPOS; i++)
+  {
+    x[i] = (esp_random() % 320); // Genera un número entre 0 y 319
+    y[i] = (esp_random() % 170); // Genera un número entre 0 y 169
   }
 
   unsigned long startTime = millis();
 
-  while (millis() - startTime < 5000) {  // 5 segundos
-    tft.fillScreen(TFT_BLACK);           // Borra pantalla
+  while (millis() - startTime < 5000)
+  {                            // 5 segundos
+    tft.fillScreen(TFT_BLACK); // Borra pantalla
 
-    for (int i = 0; i < NUM_COPOS; i++) {
-      tft.drawPixel(x[i], y[i], TFT_WHITE);  // Dibuja copo de nieve
-      y[i] += (esp_random() % 4) + 1;                // Baja la posición del copo
+    for (int i = 0; i < NUM_COPOS; i++)
+    {
+      tft.drawPixel(x[i], y[i], TFT_WHITE); // Dibuja copo de nieve
+      y[i] += (esp_random() % 4) + 1;       // Baja la posición del copo
 
-      if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
+      if (y[i] > 170)
+      { // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
         x[i] = esp_random() % 320;
       }
     }
 
-    delay(35);  // Controla la velocidad de la animación
+    delay(35); // Controla la velocidad de la animación
   }
 
   // Muestra "FELIZ NAVIDAD" al final
   tft.fillScreen(TFT_BLACK);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
-  tft.setTextDatum(MC_DATUM);                // Centra el texto
-  tft.setFreeFont(FSB18);                    // Fuente grande (cambia si es necesario)
-  tft.drawString("FELIZ NAVIDAD", 160, 85);  // Texto en el centro
+  tft.setTextDatum(MC_DATUM);               // Centra el texto
+  tft.setFreeFont(FSB18);                   // Fuente grande (cambia si es necesario)
+  tft.drawString("FELIZ NAVIDAD", 160, 85); // Texto en el centro
   delay(1500);
   tft.setFreeFont(NULL);
 }
 
-void nevar2() {
-  tft.fillScreen(TFT_BLACK);  // Fondo negro (puedes cambiarlo)
+/**
+ * Simula una animación de nieve cayendo con mayor densidad y velocidad.
+ *
+ * Esta función es una versión mejorada de "nevar()", aumentando el número de copos a 200
+ * y ajustando la velocidad de caída para un efecto más dinámico.
+ *
+ * - Se generan 200 copos de nieve en posiciones aleatorias dentro de la pantalla.
+ * - La animación dura 5 segundos, con actualizaciones cada 25 ms para una caída más rápida.
+ * - Al finalizar, muestra el mensaje "HAPPY NEW YEAR" centrado en la pantalla con un color aleatorio.
+ */
 
-  const int NUM_COPOS = 200;       // Número de copos de nieve en pantalla
-  int x[NUM_COPOS], y[NUM_COPOS];  // Coordenadas de los copos
+void nevar2()
+{
+  tft.fillScreen(TFT_BLACK); // Fondo negro (puedes cambiarlo)
+
+  const int NUM_COPOS = 200;      // Número de copos de nieve en pantalla
+  int x[NUM_COPOS], y[NUM_COPOS]; // Coordenadas de los copos
 
   // Inicializa copos en posiciones aleatorias
-  for (int i = 0; i < NUM_COPOS; i++) {
+  for (int i = 0; i < NUM_COPOS; i++)
+  {
     x[i] = esp_random() % 320;
     y[i] = esp_random() % 170;
   }
 
   unsigned long startTime = millis();
 
-  while (millis() - startTime < 5000) {  // 5 segundos
-    tft.fillScreen(TFT_BLACK);           // Borra pantalla
+  while (millis() - startTime < 5000)
+  {                            // 5 segundos
+    tft.fillScreen(TFT_BLACK); // Borra pantalla
 
-    for (int i = 0; i < NUM_COPOS; i++) {
-      tft.drawPixel(x[i], y[i], TFT_WHITE);  // Dibuja copo de nieve
-      y[i] += (esp_random() % 5) + 1;  // Baja Posición Del Copo
-      if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
+    for (int i = 0; i < NUM_COPOS; i++)
+    {
+      tft.drawPixel(x[i], y[i], TFT_WHITE); // Dibuja copo de nieve
+      y[i] += (esp_random() % 5) + 1;       // Baja Posición Del Copo
+      if (y[i] > 170)
+      { // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
         x[i] = esp_random() % 320;
       }
     }
 
-    delay(25);  // Controla la velocidad de la animación
+    delay(25); // Controla la velocidad de la animación
   }
 
   // Muestra "FELIZ --- AÑO" al final
   tft.fillScreen(TFT_BLACK);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
-  tft.setTextDatum(MC_DATUM);                 // Centra el texto
-  tft.setFreeFont(FSB18);                     // Fuente grande (cambia si es necesario)
-  tft.drawString("HAPPY NEW YEAR", 160, 85);  // Texto en el centro
+  tft.setTextDatum(MC_DATUM);                // Centra el texto
+  tft.setFreeFont(FSB18);                    // Fuente grande (cambia si es necesario)
+  tft.drawString("HAPPY NEW YEAR", 160, 85); // Texto en el centro
   delay(1500);
   tft.setFreeFont(NULL);
 }
 
-void M8AXTicker() {
+/**
+ * Muestra un mensaje animado y ejecuta un efecto de televisión.
+ *
+ * - Borra la pantalla y selecciona un color aleatorio para el texto.
+ * - Muestra tres líneas de texto centradas con un efecto de escritura.
+ * - Espera 500 ms y luego ejecuta la animación "television()".
+ * - Tras la animación, espera 1 segundo y restablece el tamaño del texto a 1.
+ */
+
+void M8AXTicker()
+{
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
@@ -996,52 +1329,93 @@ void M8AXTicker() {
   tft.setTextSize(1);
 }
 
-void nevar3() {
-  tft.fillScreen(TFT_BLACK);  // Fondo negro (puedes cambiarlo)
+/**
+ * Simula una nevada animada en la pantalla con colores aleatorios.
+ *
+ * - Llena la pantalla de negro como fondo inicial.
+ * - Genera 500 copos de nieve con posiciones aleatorias.
+ * - Durante 2 segundos, los copos caen con velocidades aleatorias y se
+ *   regeneran en la parte superior cuando salen de la pantalla.
+ * - Cada copo de nieve se dibuja con un color aleatorio.
+ * - La velocidad de la animación varía aleatoriamente en cada iteración.
+ * - Al finalizar, se ejecuta la función M8AXTicker().
+ */
 
-  const int NUM_COPOS = 500;       // Número de copos de nieve en pantalla
-  int x[NUM_COPOS], y[NUM_COPOS];  // Coordenadas de los copos
+void nevar3()
+{
+  tft.fillScreen(TFT_BLACK); // Fondo negro (puedes cambiarlo)
+
+  const int NUM_COPOS = 500;      // Número de copos de nieve en pantalla
+  int x[NUM_COPOS], y[NUM_COPOS]; // Coordenadas de los copos
 
   // Inicializa copos en posiciones aleatorias
-  for (int i = 0; i < NUM_COPOS; i++) {
+  for (int i = 0; i < NUM_COPOS; i++)
+  {
     x[i] = esp_random() % 320;
     y[i] = esp_random() % 170;
   }
 
   unsigned long startTime = millis();
 
-  while (millis() - startTime < 2000) {  // 5 segundos
-    tft.fillScreen(TFT_BLACK);           // Borra pantalla
-    for (int i = 0; i < NUM_COPOS; i++) {
+  while (millis() - startTime < 2000)
+  {                            // 5 segundos
+    tft.fillScreen(TFT_BLACK); // Borra pantalla
+    for (int i = 0; i < NUM_COPOS; i++)
+    {
       colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-      tft.drawPixel(x[i], y[i], colors[colorI]);  // Dibuja copo de nieve
-      y[i] += (esp_random() % 5) + 1; // Baja La Posición DeL Copo
+      tft.drawPixel(x[i], y[i], colors[colorI]); // Dibuja copo de nieve
+      y[i] += (esp_random() % 5) + 1;            // Baja La Posición DeL Copo
 
-      if (y[i] > 170) {  // Si sale de la pantalla, reaparece arriba
+      if (y[i] > 170)
+      { // Si sale de la pantalla, reaparece arriba
         y[i] = 0;
         x[i] = esp_random() % 320;
       }
     }
     int nnumeroAleatorio = esp_random() % 20 + 1;
-    delay(nnumeroAleatorio);  // Controla la velocidad de la animación
+    delay(nnumeroAleatorio); // Controla la velocidad de la animación
   }
   M8AXTicker();
 }
 
-void cortinas2() {
-  int centerX = tft.width() / 2;   // Centro de la pantalla en X
-  int centerY = tft.height() / 2;  // Centro de la pantalla en Y
+/**
+ * Simula el cierre de unas cortinas en la pantalla.
+ *
+ * - Dibuja dos líneas verticales negras que se alejan del centro de la pantalla.
+ * - La animación comienza desde el centro de la pantalla y las líneas se expanden hacia los bordes.
+ * - Utiliza líneas verticales para dar el efecto de cortinas cerrándose.
+ * - La velocidad de la animación se controla con un retraso de 10 ms entre cada paso.
+ */
 
-  for (int i = 0; i <= centerX; i++) {
+void cortinas2()
+{
+  int centerX = tft.width() / 2;  // Centro de la pantalla en X
+  int centerY = tft.height() / 2; // Centro de la pantalla en Y
+
+  for (int i = 0; i <= centerX; i++)
+  {
     // Dibuja líneas verticales que se alejan del centro
-    tft.drawFastVLine(centerX - i, 0, tft.height(), TFT_BLACK);  // Izquierda
-    tft.drawFastVLine(centerX + i, 0, tft.height(), TFT_BLACK);  // Derecha
-    delay(10);                                                   // Ajusta la velocidad de la animación
+    tft.drawFastVLine(centerX - i, 0, tft.height(), TFT_BLACK); // Izquierda
+    tft.drawFastVLine(centerX + i, 0, tft.height(), TFT_BLACK); // Derecha
+    delay(10);                                                  // Ajusta la velocidad de la animación
   }
 }
 
-void cortinas() {
-  tft.fillScreen(TFT_BLACK);  // Fondo negro
+/**
+ * Muestra una animación de cortinas cerrándose y luego muestra información de la versión del software.
+ *
+ * - Llame a la función `cortinas2()` para crear el efecto de cortinas que se cierran en la pantalla.
+ * - Después de la animación de las cortinas, se muestran textos centrados en la pantalla con información:
+ *   - "M 8 A X"
+ *   - "NerdMiner V2"
+ *   - "V 10 . 03 . 77"
+ * - Luego de mostrar el texto, hay un pequeño retraso de 500 ms y después se ejecuta la función `television()`.
+ * - Después de 1000 ms, restablece el tamaño del texto a 1.
+ */
+
+void cortinas()
+{
+  tft.fillScreen(TFT_BLACK); // Fondo negro
   cortinas2();
   drawCenteredText("M 8 A X", 30, 100);
   drawCenteredText("NerdMiner V2", 70, 100);
@@ -1052,7 +1426,20 @@ void cortinas() {
   tft.setTextSize(1);
 }
 
-void M8AXTicker2() {
+/**
+ * Muestra una animación similar al M8AXTicker pero con un texto diferente, específicamente diseñado para el minador BTC.
+ *
+ * - Comienza llenando la pantalla con color negro y eligiendo un color de texto aleatorio.
+ * - Luego muestra tres líneas de texto centradas en la pantalla con la siguiente información:
+ *   - "B T C  M I N E R"
+ *   - "NerdMiner V2"
+ *   - "V  10 . 03 . 77"
+ * - Después de mostrar el texto, realiza una pausa de 500 ms antes de ejecutar la función `television()`.
+ * - Después de 1000 ms, restablece el tamaño del texto a 1.
+ */
+
+void M8AXTicker2()
+{
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
@@ -1066,7 +1453,21 @@ void M8AXTicker2() {
   tft.setTextSize(1);
 }
 
-void M8AXTicker3() {
+/**
+ * Muestra una animación similar al M8AXTicker, pero con el texto "M I N E  T E C H".
+ *
+ * - Llenará la pantalla con un fondo negro y luego seleccionará un color de texto aleatorio.
+ * - Muestra tres líneas de texto centradas:
+ *   - "M I N E  T E C H"
+ *   - "NerdMiner V2"
+ *   - "V  10 . 03 . 77"
+ * - Después de mostrar el texto, realiza una pausa de 500 ms.
+ * - Luego ejecuta la función `television()`, que probablemente genera algún tipo de animación visual.
+ * - Después de 1000 ms, restablece el tamaño del texto a 1.
+ */
+
+void M8AXTicker3()
+{
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
@@ -1080,7 +1481,21 @@ void M8AXTicker3() {
   tft.setTextSize(1);
 }
 
-void M8AXTicker4() {
+/**
+ * Muestra una animación similar al M8AXTicker, pero con el texto "I M O D   T E C H".
+ *
+ * - Llena la pantalla con un fondo negro y luego selecciona un color de texto aleatorio.
+ * - Muestra tres líneas de texto centradas:
+ *   - "I M O D   T E C H"
+ *   - "NerdMiner V2"
+ *   - "V  10 . 03 . 77"
+ * - Después de mostrar el texto, realiza una pausa de 500 ms.
+ * - Luego ejecuta la función `television()`, que probablemente genera algún tipo de animación visual.
+ * - Después de 1000 ms, restablece el tamaño del texto a 1.
+ */
+
+void M8AXTicker4()
+{
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(colors[colorI], TFT_BLACK);
@@ -1094,9 +1509,23 @@ void M8AXTicker4() {
   tft.setTextSize(1);
 }
 
-void dibujaQR(String data, int xPos, int yPos, int qrSize, int color) {
+/**
+ * Dibuja un código QR en la pantalla TFT.
+ *
+ * Esta función genera un código QR a partir de una cadena de texto (`data`) y lo dibuja en la pantalla TFT
+ * en una posición específica con un tamaño y color determinado.
+ *
+ * @param data Cadena de texto que contiene la información a codificar en el código QR.
+ * @param xPos Posición X en la pantalla donde se ubicará el código QR.
+ * @param yPos Posición Y en la pantalla donde se ubicará el código QR.
+ * @param qrSize Tamaño total del código QR que se desea dibujar (en píxeles).
+ * @param color Color del código QR (normalmente blanco o negro para los módulos).
+ */
+
+void dibujaQR(String data, int xPos, int yPos, int qrSize, int color)
+{
   QRCode qrcode;
-  uint8_t qrcodeData[qrcode_getBufferSize(3)];  // Tamaño del QR, nivel 3
+  uint8_t qrcodeData[qrcode_getBufferSize(3)]; // Tamaño del QR, nivel 3
 
   // Inicializa el QR con los datos
   qrcode_initText(&qrcode, qrcodeData, 3, 0, data.c_str());
@@ -1108,10 +1537,13 @@ void dibujaQR(String data, int xPos, int yPos, int qrSize, int color) {
   int blockSize = qrSize / qrRealSize;
 
   // Dibujar los módulos (pixeles) del QR en la pantalla
-  for (int y = 0; y < qrRealSize; y++) {
-    for (int x = 0; x < qrRealSize; x++) {
+  for (int y = 0; y < qrRealSize; y++)
+  {
+    for (int x = 0; x < qrRealSize; x++)
+    {
       // Si es un módulo negro, dibujarlo
-      if (qrcode_getModule(&qrcode, x, y)) {
+      if (qrcode_getModule(&qrcode, x, y))
+      {
         tft.fillRect(xPos + x * blockSize, yPos + y * blockSize, blockSize, blockSize, color);
       }
       // Si es un módulo blanco, NO hacer nada (deja el fondo transparente)
@@ -1119,62 +1551,92 @@ void dibujaQR(String data, int xPos, int yPos, int qrSize, int color) {
   }
 }
 
-bool esHorarioDeVerano(int mes, int dia) {
-  if (mes > 3 && mes < 10) {
+/**
+ * Verifica si es horario de verano.
+ *
+ * Esta función determina si una fecha específica (mes y día) cae dentro del horario de verano.
+ *
+ * @param mes Mes del año (1-12).
+ * @param dia Día del mes.
+ * @return true si es horario de verano, false en caso contrario.
+ */
+
+bool esHorarioDeVerano(int mes, int dia)
+{
+  if (mes > 3 && mes < 10)
+  {
     return true;
   }
-  if (mes == 3 && dia >= 25) {
+  if (mes == 3 && dia >= 25)
+  {
     return true;
   }
-  if (mes == 10 && dia <= 31) {
+  if (mes == 10 && dia <= 31)
+  {
     return false;
   }
 
   return false;
 }
 
-void dibujaAnalogKH(float khs) {
+/**
+ * Dibuja un medidor analógico de KH/s.
+ *
+ * Esta función dibuja un medidor circular en la pantalla con graduaciones y una aguja que se mueve
+ * según el valor de KH/s. Además, muestra el valor numérico de KH/s en el centro del medidor.
+ *
+ * @param khs Valor de KH/s que se usa para mover la aguja.
+ */
+
+void dibujaAnalogKH(float khs)
+{
   int centerX = 160;
   int centerY = 85;
   int radius = 60;
   tft.setTextSize(1);
   tft.drawCircle(centerX, centerY, radius, TFT_WHITE);
-  for (int i = 0; i < 360; i += 15) {
+  for (int i = 0; i < 360; i += 15)
+  {
     float angle = (i - 90) * DEG_TO_RAD;
     int outerX = centerX + radius * cos(angle);
     int outerY = centerY + radius * sin(angle);
     int innerX = centerX + (radius - 5) * cos(angle);
     int innerY = centerY + (radius - 5) * sin(angle);
-    if (i % 90 == 0) {
+    if (i % 90 == 0)
+    {
       innerX = centerX + (radius - 10) * cos(angle);
       innerY = centerY + (radius - 10) * sin(angle);
       tft.drawLine(innerX, innerY, outerX, outerY, TFT_WHITE);
-    } else {
+    }
+    else
+    {
       tft.drawLine(innerX, innerY, outerX, outerY, TFT_WHITE);
     }
-    if (i % 90 == 0) {
+    if (i % 90 == 0)
+    {
       tft.setTextColor(TFT_WHITE);
-      int textX = centerX + (radius - 20) * cos(angle);  // Coordenadas para el texto
+      int textX = centerX + (radius - 20) * cos(angle); // Coordenadas para el texto
       int textY = centerY + (radius - 20) * sin(angle);
-      tft.setCursor(textX - 5, textY - 5);  // Ajustar el texto
+      tft.setCursor(textX - 5, textY - 5); // Ajustar el texto
       if (i == 0)
-        tft.print("360");  // 12 horas -> 360 KH/s
+        tft.print("360"); // 12 horas -> 360 KH/s
       else if (i == 90)
-        tft.print("90");  // 15 minutos -> 90 KH/s
+        tft.print("90"); // 15 minutos -> 90 KH/s
       else if (i == 180)
-        tft.print("180");  // 30 minutos -> 180 KH/s
+        tft.print("180"); // 30 minutos -> 180 KH/s
       else if (i == 270)
-        tft.print("270");  // 45 minutos -> 270 KH/s
+        tft.print("270"); // 45 minutos -> 270 KH/s
     }
   }
 
   // No dibujar la aguja si khs es 0
-  if (khs == 0) {
+  if (khs == 0)
+  {
     return;
   }
 
   // Mapear el valor de KH/s a un ángulo de -90 (0 KH/s) a 90 (360 KH/s)
-  float angle = map(khs, 0, 360, -90, 270);  // Amplitud del reloj ajustada a 360 grados
+  float angle = map(khs, 0, 360, -90, 270); // Amplitud del reloj ajustada a 360 grados
 
   // Convertir el ángulo a radianes
   float radianes = angle * DEG_TO_RAD;
@@ -1185,7 +1647,7 @@ void dibujaAnalogKH(float khs) {
 
   // Dibujar la aguja
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-  tft.drawLine(centerX, centerY, agujaX, agujaY, TFT_GREENYELLOW);  // Dibuja la aguja
+  tft.drawLine(centerX, centerY, agujaX, agujaY, TFT_GREENYELLOW); // Dibuja la aguja
   tft.setCursor(142, 96);
   tft.setTextSize(1);
   tft.setTextColor(colors[colorI]);
@@ -1194,14 +1656,25 @@ void dibujaAnalogKH(float khs) {
   tft.print(" KH/s");
 }
 
-void obtenerNoticias() {
+/**
+ * Obtiene y procesa las noticias desde un feed RSS.
+ *
+ * Realiza una solicitud HTTP GET a una de las URL de noticias seleccionada aleatoriamente, extrae los titulares de noticias y los muestra en el monitor serial.
+ * También muestra los titulares en la pantalla LCD del dispositivo.
+ *
+ * Solo muestra hasta 5 noticias válidas, y omite noticias de canales específicos como "Cointelegraph.com News".
+ */
+
+void obtenerNoticias()
+{
   HTTPClient http;
   int indice = esp_random() % 9;
   String urlnot = urls[indice];
-  http.begin(urlnot);         // URL del feed RSS
-  int httpCode = http.GET();  // Realiza la solicitud GET
+  http.begin(urlnot);        // URL del feed RSS
+  int httpCode = http.GET(); // Realiza la solicitud GET
   cadenanoti = "";
-  if (httpCode == HTTP_CODE_OK) {  // Si la solicitud es exitosa
+  if (httpCode == HTTP_CODE_OK)
+  { // Si la solicitud es exitosa
     String payload = http.getString();
     Serial.println("M8AX - Noticias Obtenidas. Procesando...");
 
@@ -1210,29 +1683,34 @@ void obtenerNoticias() {
     int endIndex = 0;
 
     // Extraer hasta 5 titulares
-    while (itemIndex < 5) {
+    while (itemIndex < 5)
+    {
       // Buscar la etiqueta <item> que marca una nueva noticia
-      startIndex = payload.indexOf("<item>", endIndex);  // Encuentra <item>
-      if (startIndex == -1) break;
+      startIndex = payload.indexOf("<item>", endIndex); // Encuentra <item>
+      if (startIndex == -1)
+        break;
 
-      endIndex = payload.indexOf("</item>", startIndex);  // Encuentra </item>
-      if (endIndex == -1) break;
+      endIndex = payload.indexOf("</item>", startIndex); // Encuentra </item>
+      if (endIndex == -1)
+        break;
 
       // Extraer el título dentro de <title> de cada <item>
       int titleStart = payload.indexOf("<title>", startIndex);
       int titleEnd = payload.indexOf("</title>", titleStart);
-      String title = payload.substring(titleStart + 7, titleEnd);  // Extrae el título
+      String title = payload.substring(titleStart + 7, titleEnd); // Extrae el título
 
       // Eliminar la parte CDATA si está presente
       int cdataStart = title.indexOf("<![CDATA[");
       int cdataEnd = title.indexOf("]]>");
-      if (cdataStart != -1 && cdataEnd != -1) {
-        title = title.substring(cdataStart + 9, cdataEnd);  // Elimina CDATA
+      if (cdataStart != -1 && cdataEnd != -1)
+      {
+        title = title.substring(cdataStart + 9, cdataEnd); // Elimina CDATA
       }
 
       // Si el título es del canal (ej. "Cointelegraph.com News"), busca otra noticia
-      if (title.indexOf("Cointelegraph.com News") != -1) {
-        continue;  // Si el título es del canal, salta a la siguiente noticia
+      if (title.indexOf("Cointelegraph.com News") != -1)
+      {
+        continue; // Si el título es del canal, salta a la siguiente noticia
       }
 
       // Si llegamos aquí, es una noticia válida, la mostramos
@@ -1249,35 +1727,50 @@ void obtenerNoticias() {
     cadenanoti = "";
 
     // Si no se encontraron 5 noticias válidas, avisa al usuario
-    if (itemIndex == 0) {
-      Serial.println("No se encontraron noticias válidas.");
+    if (itemIndex == 0)
+    {
+      Serial.println("M8AX - No Se Encontraron Noticias Válidas.");
     }
-  } else {
-    Serial.println("Error Al Obtener El Feed RSS. Código HTTP: " + String(httpCode));
+  }
+  else
+  {
+    Serial.println("M8AX - Error Al Obtener El Feed RSS. Código HTTP: " + String(httpCode));
   }
 
-  http.end();  // Finaliza la solicitud HTTP
+  http.end(); // Finaliza la solicitud HTTP
 }
 
-float obtenerPrecio(String currency_pair) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi no conectado, intentando reconectar...");
+/**
+ * Obtiene el precio de un par de divisas de la API de Coinbase.
+ *
+ * Realiza una solicitud HTTPS a la API de Coinbase para obtener el precio actual de una criptomoneda o par de divisas especificado.
+ *
+ * @param currency_pair El par de divisas para obtener el precio (ej. "BTC-USD").
+ * @return El precio actual de la criptomoneda en formato flotante, o -1 si hay un error de conexión o de procesamiento.
+ */
+
+float obtenerPrecio(String currency_pair)
+{
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("M8AX - WiFi No Conectado, Intentando Reconectar...");
     WiFi.disconnect();
     WiFi.reconnect();
     delay(500);
   }
 
   WiFiClientSecure client;
-  client.setInsecure();  // Desactiva verificación SSL (Coinbase usa HTTPS)
+  client.setInsecure(); // Desactiva verificación SSL (Coinbase usa HTTPS)
 
-  const char* host = "api.coinbase.com";
-  const int port = 443;  // HTTPS usa el puerto 443
+  const char *host = "api.coinbase.com";
+  const int port = 443; // HTTPS usa el puerto 443
 
-  Serial.print("Conectando a ");
+  Serial.print("M8AX - Conectando A ");
   Serial.println(host);
 
-  if (!client.connect(host, port)) {
-    Serial.println("Error: No se pudo conectar al servidor");
+  if (!client.connect(host, port))
+  {
+    Serial.println("M8AX - Error: No Se Pudo Conectar Al Servidor");
     return -1;
   }
 
@@ -1287,58 +1780,69 @@ float obtenerPrecio(String currency_pair) {
 
   // Esperamos la respuesta del servidor
   unsigned long timeout = millis();
-  while (client.available() == 0) {
-    if (millis() - timeout > 5000) {  // Timeout de 5 segundos
-      Serial.println("Error: Timeout esperando respuesta del servidor");
+  while (client.available() == 0)
+  {
+    if (millis() - timeout > 2000)
+    { // Timeout de 5 segundos
+      Serial.println("M8AX - Error: Se Pasó El Tiempo De Espera");
       client.stop();
       return -1;
     }
   }
 
   // Leemos y descartamos los headers HTTP
-  while (client.available()) {
+  while (client.available())
+  {
     String linea = client.readStringUntil('\n');
-    if (linea == "\r") {
-      break;  // Fin de los headers
+    if (linea == "\r")
+    {
+      break; // Fin de los headers
     }
   }
 
   // Leemos solo el JSON de la respuesta
   String payload = "";
-  while (client.available()) {
+  while (client.available())
+  {
     payload += client.readString();
   }
 
-  Serial.println("Respuesta de la API:");
+  Serial.println("M8AX - Respuesta De La API:");
   Serial.println(payload);
 
-  client.stop();  // Cerramos la conexión
+  client.stop(); // Cerramos la conexión
 
   // Parseamos el JSON con menos consumo de RAM
   DynamicJsonDocument doc(256);
   DeserializationError error = deserializeJson(doc, payload);
 
-  if (error) {
-    Serial.print("Error al parsear JSON: ");
+  if (error)
+  {
+    Serial.print("M8AX - Error Al Parsear JSON: ");
     Serial.println(error.c_str());
     return -1;
   }
 
   // Extraemos el precio si existe
-  if (doc.containsKey("data") && doc["data"].containsKey("amount")) {
+  if (doc.containsKey("data") && doc["data"].containsKey("amount"))
+  {
     float precio = doc["data"]["amount"].as<float>();
     return precio;
-  } else {
-    Serial.println("El JSON no tiene el formato esperado.");
+  }
+  else
+  {
+    Serial.println("M8AX - El JSON No Tiene El Formato Esperado.");
     return -1;
   }
 }
 
-String Amorse(int n) {
+// Función que recibe un número entero y devuelve una cadena con el número en morse
+
+String Amorse(int n)
+{
   // Diccionario de los números y sus representaciones en código morse
   const String morse_dict[] = {
-    "-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."
-  };
+      "-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
 
   // Convertir el número a cadena de caracteres
   String num_str = String(n);
@@ -1347,46 +1851,63 @@ String Amorse(int n) {
   String morse_code = "";
 
   // Convertir cada dígito del número a morse y concatenarlo a la cadena resultante
-  for (unsigned int i = 0; i < num_str.length(); i++) {
+  for (unsigned int i = 0; i < num_str.length(); i++)
+  {
     char digit = num_str.charAt(i);
-    morse_code += morse_dict[digit - '0'] + " ";  // Restamos '0' para convertir el carácter a un índice
+    morse_code += morse_dict[digit - '0'] + " "; // Restamos '0' para convertir el carácter a un índice
   }
 
   return morse_code;
 }
 
-String ABinario(int num) {
+// Función que recibe un número entero y devuelve una cadena con el número en binario
+
+String ABinario(int num)
+{
   String binary = "";
 
-  if (num == 0) {
-    return "0";  // Si el número es 0, devuelve "0"
+  if (num == 0)
+  {
+    return "0"; // Si el número es 0, devuelve "0"
   }
 
-  while (num > 0) {
-    binary = (num % 2 == 0 ? "0" : "1") + binary;  // Agregar el bit al principio
-    num /= 2;                                      // Divide el número entre 2
+  while (num > 0)
+  {
+    binary = (num % 2 == 0 ? "0" : "1") + binary; // Agregar el bit al principio
+    num /= 2;                                     // Divide el número entre 2
   }
 
   return binary;
 }
 
-String getQuote() {
+/**
+ * Obtiene una cita desde un servidor remoto.
+ *
+ * Realiza múltiples intentos para obtener una cita de una API. Si no se puede obtener la cita después de varios intentos, devuelve un mensaje de error.
+ *
+ * @return La cita obtenida o un mensaje de error si no se puede recuperar.
+ */
+
+String getQuote()
+{
   HTTPClient http;
   http.begin(serverName);
   http.addHeader("Content-Type", "application/json");
 
-  String quote = "ERROR AL OBTENER LA CITA... Por Muchas Vueltas Que Demos, Siempre Tendremos El Culo Atras...";  // Valor por defecto en caso de error
+  String quote = "ERROR AL OBTENER LA CITA... Por Muchas Vueltas Que Demos, Siempre Tendremos El Culo Atras..."; // Valor por defecto en caso de error
 
   int httpResponseCode = 0;
   int attempts = 0;
-  const int maxAttempts = 5;  // Número máximo de intentos
+  const int maxAttempts = 5; // Número máximo de intentos
 
-  while (httpResponseCode <= 0 && attempts < maxAttempts) {
+  while (httpResponseCode <= 0 && attempts < maxAttempts)
+  {
     // Realizar la solicitud GET
     httpResponseCode = http.GET();
     attempts++;
     taskYIELD();
-    if (httpResponseCode > 0) {
+    if (httpResponseCode > 0)
+    {
       String payload = http.getString();
 
       // Parsear el JSON
@@ -1399,77 +1920,137 @@ String getQuote() {
 
       quote = "\"" + quoteText + "\"\n- " + author;
       Serial.println("M8AX - Frase Número - " + String(numfrases) + " - " + quote);
-    } else {
-      Serial.println("Error Al Recibir La Cita. Reintentando...");
-      delay(1000);  // Esperar 1 segundos antes de volver a intentar
+    }
+    else
+    {
+      Serial.println("M8AX - Error Al Recibir La Cita. Reintentando...");
+      delay(1000); // Esperar 1 segundos antes de volver a intentar
     }
   }
 
-  if (attempts == maxAttempts) {
-    Serial.println("Se Alcanzó El Número Máximo De Intentos...");
+  if (attempts == maxAttempts)
+  {
+    Serial.println("M8AX - Se Alcanzó El Número Máximo De Intentos...");
   }
   http.end();
   return quote;
 }
 
-void displayQuote(String quote) {
+/**
+ * Muestra una cita en la pantalla TFT.
+ *
+ * Esta función imprime una cita en la pantalla TFT, añadiendo una línea decorativa encima del texto y aplicando un color aleatorio a la cita.
+ *
+ * @param quote La cita a mostrar en la pantalla.
+ */
 
-  tft.setTextColor(TFT_WHITE);  // Establecer color de texto
-
+void displayQuote(String quote)
+{
+  tft.setTextColor(TFT_WHITE); // Establecer color de texto
   // Configuración de la fuente
   tft.setTextSize(2);
   tft.setCursor(0, 28);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
-  tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+  tft.drawLine(0, 20, 320, 20, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
   tft.print(quitarAcentos(quote));
   taskYIELD();
 }
 
-String obtenerNombreMes(int mes) {
-  switch (mes) {
-    case 1: return "Enero";
-    case 2: return "Febrero";
-    case 3: return "Marzo";
-    case 4: return "Abril";
-    case 5: return "Mayo";
-    case 6: return "Junio";
-    case 7: return "Julio";
-    case 8: return "Agosto";
-    case 9: return "Septiembre";
-    case 10: return "Octubre";
-    case 11: return "Noviembre";
-    case 12: return "Diciembre";
-    default: return "Mes inválido";
+// Función para obtener el nombre del mes
+
+String obtenerNombreMes(int mes)
+{
+  switch (mes)
+  {
+  case 1:
+    return "Enero";
+  case 2:
+    return "Febrero";
+  case 3:
+    return "Marzo";
+  case 4:
+    return "Abril";
+  case 5:
+    return "Mayo";
+  case 6:
+    return "Junio";
+  case 7:
+    return "Julio";
+  case 8:
+    return "Agosto";
+  case 9:
+    return "Septiembre";
+  case 10:
+    return "Octubre";
+  case 11:
+    return "Noviembre";
+  case 12:
+    return "Diciembre";
+  default:
+    return "Mes inválido";
   }
 }
 
-void dibujarPorcentajeLunar(int centroX, int centroY, int radio, float porcentaje) {
+/**
+ * Dibuja un porcentaje de un círculo como un arco iluminado.
+ *
+ * Esta función dibuja un círculo completo y luego ilumina un porcentaje del mismo, según el valor de `porcentaje` proporcionado. El área iluminada es proporcional a dicho porcentaje y se pinta de color.
+ *
+ * @param centroX El valor de la coordenada X del centro del círculo.
+ * @param centroY El valor de la coordenada Y del centro del círculo.
+ * @param radio El radio del círculo.
+ * @param porcentaje El porcentaje de iluminación del círculo (0 a 100).
+ */
+
+void dibujarPorcentajeLunar(int centroX, int centroY, int radio, float porcentaje)
+{
   // Aseguramos que el porcentaje esté en un rango válido (0% a 100%)
-  if (porcentaje < 0) porcentaje = 0;
-  if (porcentaje > 100) porcentaje = 100;
-
+  if (porcentaje < 0)
+    porcentaje = 0;
+  if (porcentaje > 100)
+    porcentaje = 100;
   // Calculamos la posición horizontal hasta donde se debe rellenar
-  int limiteX = centroX + (porcentaje / 100.0) * (2 * radio) - radio;  // Punto X del límite
-
+  int limiteX = centroX + (porcentaje / 100.0) * (2 * radio) - radio; // Punto X del límite
   // Dibujar el círculo completo con el color de fondo
   tft.fillCircle(centroX, centroY, radio, TFT_TRANSPARENT);
-
   // Dibujar el porcentaje iluminado horizontalmente
-  for (int x = -radio; x <= radio; x++) {    // Recorrer el ancho del círculo
-    for (int y = -radio; y <= radio; y++) {  // Recorrer la altura del círculo
+  for (int x = -radio; x <= radio; x++)
+  { // Recorrer el ancho del círculo
+    for (int y = -radio; y <= radio; y++)
+    { // Recorrer la altura del círculo
       // Verificar si el punto está dentro del círculo
-      if (x * x + y * y <= radio * radio) {
+      if (x * x + y * y <= radio * radio)
+      {
         // Verificar si el punto está dentro del porcentaje horizontal
-        if (centroX + x <= limiteX) {
-          tft.drawPixel(centroX + x, centroY + y, colors[colorIndex]);  // Color del área iluminada
+        if (centroX + x <= limiteX)
+        {
+          tft.drawPixel(centroX + x, centroY + y, colors[colorIndex]); // Color del área iluminada
         }
       }
     }
   }
 }
 
-void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, String anio, std::string quediase, String HRate, String tempera, int millonario) {
+/**
+ * Dibuja el reloj con las manecillas de horas, minutos y segundos, junto con la fase lunar y otros datos.
+ *
+ * Esta función actualiza la pantalla con la hora actual, las manecillas del reloj, la fase lunar, el estado de la riqueza (millonario/no millonario), la ciudad y la temperatura. Los datos se extraen de varias fuentes y se visualizan de manera interactiva en la pantalla TFT.
+ *
+ * @param horas La hora actual.
+ * @param minutos Los minutos actuales.
+ * @param segundos Los segundos actuales.
+ * @param dia El día actual en formato de cadena.
+ * @param mes El mes actual en formato de cadena.
+ * @param anio El año actual en formato de cadena.
+ * @param quediase El texto adicional que se mostrará en el reloj.
+ * @param HRate La tasa de hash actual (en KH/s).
+ * @param tempera La temperatura actual.
+ * @param millonario Indica si el usuario es millonario (1) o no (0).
+ */
+
+void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, String anio, std::string quediase, String HRate, String tempera, int millonario)
+{
   moonData_t moon;
   int diaa = dia.toInt();
   int mess = mes.toInt();
@@ -1479,16 +2060,16 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   String mesecillo = obtenerNombreMes(mess).substring(0, 3);
   // Inicializar la estructura tm
   struct tm timeinfo;
-  timeinfo.tm_year = anioo - 1900;  // Año desde 1900
-  timeinfo.tm_mon = mess - 1;       // Mes (0 = enero)
-  timeinfo.tm_mday = diaa;          // Día del mes
-  timeinfo.tm_hour = horaa;         // Hora
-  timeinfo.tm_min = minutoo;        // Minutos
-  timeinfo.tm_sec = 0;              // Segundos
-  timeinfo.tm_isdst = -1;           // Determina si es horario de verano (automático)
+  timeinfo.tm_year = anioo - 1900; // Año desde 1900
+  timeinfo.tm_mon = mess - 1;      // Mes (0 = enero)
+  timeinfo.tm_mday = diaa;         // Día del mes
+  timeinfo.tm_hour = horaa;        // Hora
+  timeinfo.tm_min = minutoo;       // Minutos
+  timeinfo.tm_sec = 0;             // Segundos
+  timeinfo.tm_isdst = -1;          // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
-  moon = moonPhase.getPhase(cadenaDeTiempo);
+  moon = mymoonPhase.getPhase(cadenaDeTiempo);
   double porcentajeIluminado = moon.percentLit * 100;
   char porcentajeTexto[10];
   snprintf(porcentajeTexto, sizeof(porcentajeTexto), "%.2f%%", porcentajeIluminado);
@@ -1497,36 +2078,31 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
   background.pushSprite(0, 0);
   // Centro del reloj
-  int centroX = 160;      // Centro horizontal
-  int centroY = 170 / 2;  // Centro vertical
-  int radio = 80;         // Aumenta el radio para hacer el reloj más grande
-
+  int centroX = 160;     // Centro horizontal
+  int centroY = 170 / 2; // Centro vertical
+  int radio = 80;        // Aumenta el radio para hacer el reloj más grande
   // Dibuja el círculo del reloj
   tft.drawCircle(centroX, centroY, radio, colors[colorIndex]);
-
   // Calcula los ángulos para las manecillas
-  float anguloSegundos = (segundos * 6) - 90;                          // 360° / 60 = 6° por segundo
-  float anguloMinutos = (minutos * 6) - 90;                            // 360° / 60 = 6° por minuto
-  float anguloHoras = (horas % 12) * 30 - 90 + (minutos / 60.0) * 30;  // 360° / 12 = 30° por hora
-
+  float anguloSegundos = (segundos * 6) - 90;                         // 360° / 60 = 6° por segundo
+  float anguloMinutos = (minutos * 6) - 90;                           // 360° / 60 = 6° por minuto
+  float anguloHoras = (horas % 12) * 30 - 90 + (minutos / 60.0) * 30; // 360° / 12 = 30° por hora
   // Dibuja la manecilla de los segundos
-  int xSegundos = centroX + radio * 0.85 * cos(radians(anguloSegundos));  // Ajusta la longitud de la manecilla
+  int xSegundos = centroX + radio * 0.85 * cos(radians(anguloSegundos)); // Ajusta la longitud de la manecilla
   int ySegundos = centroY + radio * 0.85 * sin(radians(anguloSegundos));
   tft.drawLine(centroX, centroY, xSegundos, ySegundos, TFT_RED);
-
   // Dibuja la manecilla de los minutos
-  int xMinutos = centroX + radio * 0.75 * cos(radians(anguloMinutos));  // Manecilla de minutos más larga
+  int xMinutos = centroX + radio * 0.75 * cos(radians(anguloMinutos)); // Manecilla de minutos más larga
   int yMinutos = centroY + radio * 0.75 * sin(radians(anguloMinutos));
   tft.drawLine(centroX, centroY, xMinutos, yMinutos, TFT_WHITE);
-
   // Dibuja la manecilla de las horas
-  int xHoras = centroX + radio * 0.60 * cos(radians(anguloHoras));  // Manecilla de horas más corta
+  int xHoras = centroX + radio * 0.60 * cos(radians(anguloHoras)); // Manecilla de horas más corta
   int yHoras = centroY + radio * 0.60 * sin(radians(anguloHoras));
   tft.drawLine(centroX, centroY, xHoras, yHoras, TFT_WHITE);
-
   // Dibuja las marcas de las horas
-  for (int i = 0; i < 12; i++) {
-    float anguloMarca = i * 30 - 90;  // 360° / 12 = 30° por hora
+  for (int i = 0; i < 12; i++)
+  {
+    float anguloMarca = i * 30 - 90; // 360° / 12 = 30° por hora
     int xExterior = centroX + radio * 0.95 * cos(radians(anguloMarca));
     int yExterior = centroY + radio * 0.95 * sin(radians(anguloMarca));
     int xInterior = centroX + radio * 0.8 * cos(radians(anguloMarca));
@@ -1557,7 +2133,7 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   tft.setCursor(254, 35);
   tft.setTextSize(2);
   tft.print("LUNA");
-  tft.setCursor(241, 121);
+  tft.setCursor(236, 121);
   tft.setTextSize(2);
   tft.print(datoslunarelogrande);
   tft.setTextSize(1);
@@ -1573,159 +2149,192 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   tft.setTextSize(2);
   tft.print("NoRICO");
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-  if (millonario == 0) {
+  if (millonario == 0)
+  {
     tft.setTextColor(colors[colorI]);
     tft.setCursor(230, 150);
     tft.setTextSize(2);
     tft.print("NoRICO");
-  } else {
+  }
+  else
+  {
     tft.setTextColor(colors[colorI]);
     tft.setCursor(254, 5);
     tft.setTextSize(2);
     tft.print("RICO");
   }
   dibujarPorcentajeLunar(281, 84, 25, porcentajeIluminado);
-  if (mirarTiempo == 0 || ciudad == "ERROR" || (minutos % 10 == 0 && segundos == 0)) {
+  if (mirarTiempo == 0 || ciudad == "ERROR" || (minutos % 10 == 0 && segundos == 0))
+  {
     mirarTiempo = 1;
-    // Aquí pones lo que deseas hacer cuando se cumple la condición
     std::pair<String, String> resultado = obtenerCiudadYTemperatura(getPublicIP());
     // Verificar si los valores fueron obtenidos correctamente
-    if (resultado.first != "" && resultado.second != "") {
+    if (resultado.first != "" && resultado.second != "")
+    {
       // Imprimir los resultados en el Monitor Serie
-      Serial.println("Ciudad: " + resultado.first);
-      Serial.println("Temperatura: " + resultado.second);
+      Serial.println("M8AX - Ciudad: " + resultado.first);
+      Serial.println("M8AX - Temperatura: " + resultado.second);
       ciudad = resultado.first;
       tempciudad = resultado.second;
-
-    } else {
-      Serial.println("No se pudo obtener la ciudad o la temperatura.");
+    }
+    else
+    {
+      Serial.println("M8AX - No Se Pudo Obtener La Ciudad O La Temperatura.");
       ciudad = "ERROR";
       tempciudad = "ERROR";
     }
   }
-
   actualizarc = 0;
 }
 
-int aleaESP32(int min, int max) {
-  return (esp_random() % (max - min + 1)) + min;
-}
-
 // Función para generar 6 números únicos y devolverlos como String
-String generarNumerosPrimitiva() {
+
+String generarNumerosPrimitiva()
+{
   const int MIN = 1;
   const int MAX = 49;
   const int NUM_COUNT = 6;
-
   int numeros[NUM_COUNT];
   int contador = 0;
 
-  while (contador < NUM_COUNT) {
-    int num = aleaESP32(MIN, MAX);  // Generar número aleatorio
+  while (contador < NUM_COUNT)
+  {
+    int num = (esp_random() % 49) + 1; // Generar número aleatorio
     bool repetido = false;
-
     // Comprobar si el número ya existe en el array
-    for (int i = 0; i < contador; i++) {
-      if (numeros[i] == num) {
+    for (int i = 0; i < contador; i++)
+    {
+      if (numeros[i] == num)
+      {
         repetido = true;
         break;
       }
     }
-
     // Si no está repetido, lo añadimos al array
-    if (!repetido) {
+    if (!repetido)
+    {
       numeros[contador++] = num;
     }
   }
-
   // Convertir los números a un String
   String resultado = "";
-  for (int i = 0; i < NUM_COUNT; i++) {
+  for (int i = 0; i < NUM_COUNT; i++)
+  {
     resultado += String(numeros[i]);
-    if (i < NUM_COUNT - 1) {
-      resultado += ", ";  // Separador entre números
+    if (i < NUM_COUNT - 1)
+    {
+      resultado += ", "; // Separador entre números
     }
   }
-
-  return resultado;  // Retornar como String
+  return resultado; // Retornar como String
 }
 
 // Función para calcular el primer día del mes
-int calcularPrimerDia(int dia, int mes, int anio) {
+
+int calcularPrimerDia(int dia, int mes, int anio)
+{
   // Si el mes es enero o febrero, se ajusta como en el algoritmo de Zeller
-  if (mes == 1) {
+  if (mes == 1)
+  {
     mes = 13;
     anio--;
   }
-  if (mes == 2) {
+  if (mes == 2)
+  {
     mes = 14;
     anio--;
   }
-
   // Cálculo según la fórmula de Zeller
   int q = dia;
   int m = mes;
   int k = anio % 100;
   int j = anio / 100;
   int h = (q + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
-
   // Ajuste del valor de h para alinear correctamente los días de la semana
   // La fórmula de Zeller devuelve 0 = sábado, 1 = domingo, ..., 6 = viernes
   // Queremos que 0 sea domingo, 1 sea lunes, ..., 6 sea sábado
   h = (h + 5) % 7;
-
   return h;
 }
 
-void mostrarCalendario(int dia, int mes, int anio, int h1, int h2, int m1, int m2) {
+/*
+  Función: mostrarCalendario
+  Propósito: Esta función dibuja un calendario en una pantalla TFT con el mes y año especificados,
+  mostrando los días de la semana y resaltando el día actual. Además, muestra la hora en formato
+  de 24 horas y el mes y año en la parte inferior del calendario.
+
+  Parámetros:
+    - dia: El día actual del mes (1 a 31).
+    - mes: El mes del calendario (1 a 12).
+    - anio: El año del calendario (por ejemplo, 2025).
+    - h1, h2: Las dos partes de la hora actual (por ejemplo, 14 para las 2 PM).
+    - m1, m2: Las dos partes de los minutos actuales (por ejemplo, 30 para los 30 minutos).
+
+  La función calcula el primer día del mes y muestra los días de la semana en la parte superior.
+  Luego, llena el calendario con los días correspondientes, comenzando desde el día correcto.
+  Resalta el día actual y marca los fines de semana con un color distinto.
+  También muestra la hora actual y el mes/año en la parte inferior del calendario.
+*/
+
+void mostrarCalendario(int dia, int mes, int anio, int h1, int h2, int m1, int m2)
+{
   // Calcular el primer día del mes usando la función calcularPrimerDia
-  int primerDia = calcularPrimerDia(1, mes, anio);  // El día 1 del mes
+  int primerDia = calcularPrimerDia(1, mes, anio); // El día 1 del mes
   // Días de la semana
-  String diasSemana[7] = { "LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM" };
+  String diasSemana[7] = {"LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"};
   // Número de días en el mes (esto debe tenerse en cuenta para cada mes)
-  int diasDelMes = 31;                                                 // Por defecto, asumir 31 días
-  if (mes == 4 || mes == 6 || mes == 9 || mes == 11) diasDelMes = 30;  // Meses con 30 días
-  if (mes == 2) {                                                      // Febrero, comprobar si es bisiesto
-    if ((anio % 4 == 0 && anio % 100 != 0) || (anio % 400 == 0)) {
-      diasDelMes = 29;  // Año bisiesto
-    } else {
-      diasDelMes = 28;  // Año no bisiesto
+  int diasDelMes = 31; // Por defecto, asumir 31 días
+  if (mes == 4 || mes == 6 || mes == 9 || mes == 11)
+    diasDelMes = 30; // Meses con 30 días
+  if (mes == 2)
+  { // Febrero, comprobar si es bisiesto
+    if ((anio % 4 == 0 && anio % 100 != 0) || (anio % 400 == 0))
+    {
+      diasDelMes = 29; // Año bisiesto
+    }
+    else
+    {
+      diasDelMes = 28; // Año no bisiesto
     }
   }
-
-
   // Mostrar los días de la semana
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 7; i++)
+  {
     tft.setCursor(20 + (i * 40), 10);
     tft.setTextColor(colors[colorIndex]);
     tft.setTextSize(1);
     tft.print(diasSemana[i]);
   }
-
   // Mostrar los días del mes
   int x = primerDia * 40;
   int y = 30;
-  for (int i = 1; i <= diasDelMes; i++) {
+  for (int i = 1; i <= diasDelMes; i++)
+  {
     // Si es el primer día, comenzamos en la posición correcta según el primer día del mes
     int diaDeLaSemana = (primerDia + i - 1) % 7;
     // Imprimir el día
     tft.setCursor(20 + x, y);
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
-    if (i == dia) {
+    if (i == dia)
+    {
       tft.setTextColor(TFT_YELLOW);
       tft.setTextSize(2);
-    } else if (diaDeLaSemana == 5 || diaDeLaSemana == 6) {
+    }
+    else if (diaDeLaSemana == 5 || diaDeLaSemana == 6)
+    {
       tft.setTextColor(TFT_ORANGE);
-    } else {  // Días regulares
+    }
+    else
+    { // Días regulares
       tft.setTextColor(TFT_WHITE);
     }
     tft.print(i);
     // Mover a la siguiente columna
     x += 40;
-
     // Si hemos llegado al final de la fila (7 días), pasamos a la siguiente fila
-    if (x >= 7 * 40) {
+    if (x >= 7 * 40)
+    {
       x = 0;
       y += 20;
     }
@@ -1746,41 +2355,120 @@ void mostrarCalendario(int dia, int mes, int anio, int h1, int h2, int m1, int m
     tft.print(String(m2));
   }
 }
-bool esPrimo(uint32_t n) {
+
+/*
+  Función: esPrimo
+  Propósito: Determina si un número entero positivo es primo. Un número es primo si es mayor que 1 
+  y no tiene divisores positivos distintos de 1 y él mismo.
+
+  Parámetros:
+    - n: Número entero positivo (de tipo uint32_t) a verificar si es primo.
+
+  Retorno:
+    - Devuelve 'true' si el número n es primo.
+    - Devuelve 'false' si el número n no es primo.
+
+  Descripción:
+    La función comienza verificando si el número es menor que 2, en cuyo caso devuelve 'false' ya que los números menores a 2 no son primos.
+    Luego, maneja los casos especiales para los números 2 y 3, que son primos.
+    Si el número es par, lo descarta de inmediato, ya que todos los números pares mayores que 2 no son primos.
+    Para números impares mayores que 3, la función comprueba si existen divisores hasta la raíz cuadrada de n, incrementando de 2 en 2 (verificando solo números impares). 
+    Si se encuentra un divisor, devuelve 'false', y si no se encuentran divisores, devuelve 'true'.
+*/
+
+bool esPrimo(uint32_t n)
+{
   // Si el número es menor que 2, no es primo
-  if (n <= 1) return false;
-
+  if (n <= 1)
+    return false;
   // Caso base para 2 y 3
-  if (n == 2 || n == 3) return true;
-
+  if (n == 2 || n == 3)
+    return true;
   // Eliminar los números pares
-  if (n % 2 == 0) return false;
-
+  if (n % 2 == 0)
+    return false;
   // Solo verificamos hasta la raíz cuadrada de n
-  uint32_t limite = sqrt(n);  // Usar la raíz cuadrada para limitar las verificaciones
-
+  uint32_t limite = sqrt(n); // Usar la raíz cuadrada para limitar las verificaciones
   // Verificar divisibilidad solo con números impares
-  for (uint32_t i = 3; i <= limite; i += 2) {
-    if (n % i == 0) {
-      return false;  // Si encontramos un divisor, el número no es primo
+  for (uint32_t i = 3; i <= limite; i += 2)
+  {
+    if (n % i == 0)
+    {
+      return false; // Si encontramos un divisor, el número no es primo
     }
   }
-
-  return true;  // Si no encontramos divisores, el número es primo
+  return true; // Si no encontramos divisores, el número es primo
 }
 
-double moonPhase::_fhour(const struct tm& timeinfo) {
+/*
+  Función: _fhour
+  Propósito: Calcula la hora en formato decimal, donde la parte entera representa las horas completas y la parte decimal 
+  representa la fracción del minuto y el segundo transcurridos.
+
+  Parámetros:
+    - timeinfo: Una referencia constante a una estructura `tm` que contiene la información de tiempo (hora, minuto, segundo).
+      - timeinfo.tm_hour: Hora (entero de 0 a 23).
+      - timeinfo.tm_min: Minuto (entero de 0 a 59).
+      - timeinfo.tm_sec: Segundo (entero de 0 a 59).
+
+  Retorno:
+    - Devuelve un valor de tipo `double` que representa la hora como un número decimal.
+      - La parte entera de este valor corresponde a las horas (`timeinfo.tm_hour`).
+      - La parte decimal se calcula a partir de los minutos y segundos, mapeándolos a un rango de [0.0, 1.0].
+
+  Descripción:
+    Esta función toma la hora, los minutos y los segundos de la estructura `tm` y los convierte en un valor decimal representando 
+    las horas transcurridas en el día. La función utiliza la función `map` para transformar los segundos del minuto (`timeinfo.tm_min * 60 + timeinfo.tm_sec`)
+    en una fracción entre 0 y 1, que se suma a las horas. 
+    El valor retornado es una representación continua del tiempo, donde la parte entera son las horas y la parte decimal
+    refleja el tiempo adicional transcurrido en fracciones de hora.
+*/
+
+double moonPhase::_fhour(const struct tm &timeinfo)
+{
   return timeinfo.tm_hour + map((timeinfo.tm_min * 60) + timeinfo.tm_sec, 0, 3600, 0.0, 1.0);
 }
 
-static double _Julian(int32_t year, int32_t month, const double& day) {
+/*
+  Función: _Julian
+  Propósito: Calcula la fecha juliana a partir de una fecha gregoriana especificada por el año, mes y día.
+
+  Parámetros:
+    - year: El año de la fecha en formato de 4 dígitos (ejemplo: 2025).
+    - month: El mes de la fecha (1 = enero, 12 = diciembre).
+    - day: El día del mes (valor decimal, por ejemplo, 15.5 representaría el 15 de un mes a la mitad del día).
+
+  Retorno:
+    - Devuelve un valor de tipo `double` que representa la fecha juliana correspondiente a la fecha proporcionada.
+      La fecha juliana es el número de días (y fracción de días) desde el mediodía del 1 de enero de 4713 a.C.
+
+  Descripción:
+    Esta función convierte una fecha en el calendario gregoriano (proporcionada en términos de año, mes y día) a una fecha juliana,
+    que es utilizada comúnmente en astronomía para cálculos de tiempos largos y para evitar los problemas con los calendarios.
+    La función implementa la corrección del calendario gregoriano, que fue introducida después del 15 de octubre de 1582, momento en el cual
+    el calendario juliano fue reemplazado. El ajuste es hecho a través del valor de `b`, que depende del año, mes y día. 
+    La fórmula utilizada es:
+    - Si la fecha es posterior al 15 de octubre de 1582, se aplica el ajuste en `b`.
+    - Se calcula el número de días del año (365.25 * year), y se ajusta con el factor `30.6001 * (month + 1)` para el mes y día.
+    - Se suman todos los componentes, incluyendo el valor base de 1720994.5, que corresponde a la fecha juliana del 1 de enero de 4713 a.C.
+
+    El valor retornado es un número decimal que representa el número de días transcurridos desde la fecha de inicio de la fecha juliana.
+
+  Ejemplo:
+    Para la fecha 15 de octubre de 2025, la función calcularía el número correspondiente en el calendario juliano.
+*/
+
+static double _Julian(int32_t year, int32_t month, const double &day)
+{
   int32_t b, c, e;
   b = 0;
-  if (month < 3) {
+  if (month < 3)
+  {
     year--;
     month += 12;
   }
-  if (year > 1582 || (year == 1582 && month > 10) || (year == 1582 && month == 10 && day > 15)) {
+  if (year > 1582 || (year == 1582 && month > 10) || (year == 1582 && month == 10 && day > 15))
+  {
     int32_t a;
     a = year / 100;
     b = 2 - a + a / 4;
@@ -1790,7 +2478,41 @@ static double _Julian(int32_t year, int32_t month, const double& day) {
   return b + c + e + day + 1720994.5;
 }
 
-static double _sun_position(const double& j) {
+/*
+  Función: _sun_position
+  Propósito: Calcula la posición del sol en el eclíptico, dado un valor de fecha juliana (j).
+
+  Parámetros:
+    - j: El valor de la fecha juliana (un número decimal que representa la fecha en el calendario juliano).
+
+  Retorno:
+    - Devuelve un valor de tipo `double` que representa la longitud del sol en grados eclípticos (0-360°), 
+      es decir, la posición del sol a lo largo de su órbita en el plano de la eclíptica en un momento específico.
+
+  Descripción:
+    Esta función calcula la posición del sol a lo largo de su órbita elíptica en el sistema solar, basándose en la fecha juliana proporcionada.
+    El cálculo se realiza utilizando la fórmula estándar de la astronomía para la longitud del sol, que incluye varios parámetros y correcciones 
+    para obtener una mayor precisión.
+
+    El proceso incluye los siguientes pasos:
+    1. Se calcula el ángulo de la órbita del sol (n) con la fórmula `360 / 365.2422 * j`, donde `j` es la fecha juliana.
+    2. Se ajusta el valor de `n` para asegurarse de que esté dentro del rango de 0 a 360 grados.
+    3. Se obtiene el ángulo eclíptico inicial (x), y se ajusta para asegurarse de que esté dentro del rango adecuado.
+    4. Luego, se resuelve una ecuación iterativa (Newton-Raphson) para obtener una corrección precisa a la longitud del sol (`dl`).
+    5. Finalmente, la longitud del sol `l` se calcula sumando un término constante a `v`, el valor obtenido de la función trigonométrica `atan`, 
+       que depende del ángulo corregido `e`.
+    6. El valor final de `l` es normalizado para que esté entre 0 y 360 grados, y este es el valor retornado, que representa la longitud del sol.
+
+    La longitud del sol es importante en astronomía para determinar diversas variables, como la posición del sol respecto a las estrellas fijas, 
+    y se utiliza en el cálculo de fenómenos astronómicos como los equinoccios y los solsticios.
+
+  Ejemplo:
+    Si se pasa un valor de `j = 2451545.0` (la fecha juliana correspondiente al 1 de enero de 2000), la función calcularía la posición del sol
+    en esa fecha, devolviendo un valor entre 0 y 360 grados.
+*/
+
+static double _sun_position(const double &j)
+{
   double n, x, e, l, dl, v;
   int32_t i;
   n = 360 / 365.2422 * j;
@@ -1800,7 +2522,8 @@ static double _sun_position(const double& j) {
   x += (x < 0) ? 360 : 0;
   x *= DEG_TO_RAD;
   e = x;
-  do {
+  do
+  {
     dl = e - .016718 * sin(e) - x;
     e = e - dl / (1 - .016718 * cos(e));
   } while (fabs(dl) >= 1e-12);
@@ -1811,7 +2534,44 @@ static double _sun_position(const double& j) {
   return l;
 }
 
-static double _moon_position(const double& j, const double& ls) {
+/*
+  Función: _moon_position
+  Propósito: Calcula la posición de la Luna en el eclíptico, dado un valor de fecha juliana (j) y la longitud del sol (ls).
+
+  Parámetros:
+    - j: El valor de la fecha juliana (un número decimal que representa la fecha en el calendario juliano).
+    - ls: La longitud del sol en grados eclípticos, calculada previamente. Representa la posición del sol en su órbita.
+
+  Retorno:
+    - Devuelve un valor de tipo `double` que representa la longitud de la Luna en grados eclípticos (0-360°), es decir, la posición de la Luna 
+      a lo largo de su órbita en el plano de la eclíptica en un momento específico.
+
+  Descripción:
+    Esta función calcula la posición de la Luna a lo largo de su órbita en el sistema solar, basándose en la fecha juliana proporcionada y 
+    la longitud del sol. El cálculo se realiza utilizando una serie de correcciones empíricas que se utilizan comúnmente en astronomía para 
+    modelar el movimiento lunar.
+
+    El proceso incluye los siguientes pasos:
+    1. Se calcula el ángulo del movimiento medio de la Luna (`ms`), que depende de la fecha juliana.
+    2. Se calcula la longitud media del sol (`l`), ajustada para asegurarse de que esté dentro del rango adecuado.
+    3. Se calcula la longitud media de la Luna (`mm`), ajustada también para estar dentro de un rango adecuado.
+    4. Se calcula el valor de la variación lunar (`ev`), que es una corrección basada en la diferencia de las longitudes entre la Luna y el sol.
+    5. Se calcula la excentricidad (`ae`), que es una corrección adicional que depende del ángulo `ms`.
+    6. Se ajusta la longitud de la Luna (`mm`) mediante la corrección de variación y excentricidad.
+    7. Se calcula la corrección de la Luna debido a la excentricidad (`ec`), que se basa en el ángulo `mm`.
+    8. Finalmente, se ajusta la longitud de la Luna (`l`) utilizando la corrección de variación, la corrección de excentricidad y una corrección adicional 
+       que involucra un término de segundo orden.
+
+    El resultado final de `l` es la posición de la Luna en el plano eclíptico, y es utilizado para cálculos de la fase lunar, eclipses y otros 
+    fenómenos relacionados con el movimiento de la Luna.
+
+  Ejemplo:
+    Si se pasa un valor de `j = 2451545.0` (la fecha juliana correspondiente al 1 de enero de 2000) y `ls = 280.0` (la longitud del sol en esa fecha),
+    la función calcularía la posición de la Luna en esa fecha, devolviendo un valor entre 0 y 360 grados.
+*/
+
+static double _moon_position(const double &j, const double &ls)
+{
   double ms, l, mm, ev, sms, ae, ec;
   int32_t i;
   ms = 0.985647332099 * j - 3.762863;
@@ -1833,39 +2593,167 @@ static double _moon_position(const double& j, const double& ls) {
   return l;
 }
 
-moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const int32_t day, const double& hour) {
-  /*
-  Calculates the phase of the moon at the given epoch.
-  returns the moon phase angle as an int (0-360)
-  returns the moon percentage that is lit as a real number (0-1)
+/*
+  Función: _getPhase
+  Propósito: Calcula la fase de la Luna en un momento específico, dada una fecha y una hora.
+
+  Parámetros:
+    - year: El año en formato entero (ej. 2025).
+    - month: El mes en formato entero (1-12).
+    - day: El día del mes en formato entero (1-31).
+    - hour: La hora del día en formato decimal (por ejemplo, 2.5 para 2 horas y 30 minutos).
+
+  Retorno:
+    - Devuelve un objeto de tipo `moonData_t` que contiene dos valores:
+      1. El ángulo de la fase lunar en grados (0-360), representando la posición angular de la Luna en su órbita respecto al Sol.
+      2. El porcentaje de la Luna iluminada (un valor entre 0 y 1).
+
+  Descripción:
+    Esta función calcula la fase de la Luna en un momento específico utilizando la fecha (año, mes, día) y la hora proporcionada. Se basa en dos cálculos 
+    astronómicos fundamentales:
+    1. La posición del Sol en la órbita de la Tierra (utilizando la función `_sun_position`).
+    2. La posición de la Luna en su órbita (utilizando la función `_moon_position`).
+
+    El proceso general es el siguiente:
+    1. Se calcula el valor de la fecha juliana con la función `_Julian` ajustando la hora proporcionada para obtener la fracción del día.
+    2. Se calcula la posición del Sol (`ls`) usando la fecha juliana.
+    3. Se calcula la posición de la Luna (`lm`) usando la fecha juliana y la posición del Sol.
+    4. Se calcula el ángulo de la fase lunar (`angle`) como la diferencia entre la posición de la Luna y la del Sol.
+       - Si el ángulo es negativo, se ajusta para que esté en el rango de 0-360 grados.
+    5. El ángulo calculado (`angle`) representa la fase lunar, indicando la posición de la Luna en su órbita.
+    6. Se calcula el porcentaje de la Luna iluminada, utilizando la fórmula `(1 - cos(angle)) / 2`. Esta fórmula se basa en el ángulo de la fase y describe la proporción de la superficie lunar iluminada por el Sol.
+    
+    El objeto `moonData_t` que se retorna contiene:
+    - `angle`: El ángulo de fase de la Luna (0-360 grados), que indica en qué fase se encuentra la Luna en relación con el Sol (nueva, creciente, llena, menguante, etc.).
+    - El porcentaje de la Luna iluminada, que varía de 0 (Luna nueva) a 1 (Luna llena).
+
+  Ejemplo:
+    Si se pasa `year = 2025`, `month = 2`, `day = 10`, y `hour = 12.0` (mediodía), la función calculará la fase lunar y el porcentaje de iluminación para ese momento específico, devolviendo un objeto `moonData_t` con los resultados.
+
+  Notas:
+    - El valor de `angle` se encuentra en el rango [0, 360], donde:
+      - 0 grados = Luna nueva
+      - 180 grados = Luna llena
+    - El valor de la fracción iluminada es un número real entre 0 y 1, donde:
+      - 0 = Luna nueva
+      - 1 = Luna llena
 */
-  const double j{ _Julian(year, month, (double)day + hour / 24.0) - 2444238.5 };
-  const double ls{ _sun_position(j) };
-  const double lm{ _moon_position(j, ls) };
+
+moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const int32_t day, const double &hour)
+{
+  const double j{_Julian(year, month, (double)day + hour / 24.0) - 2444238.5};
+  const double ls{_sun_position(j)};
+  const double lm{_moon_position(j, ls)};
   double angle = lm - ls;
   angle += (angle < 0) ? 360 : 0;
   const moonData_t returnValue{
-    (int32_t)angle,
-    (1.0 - cos((lm - ls) * DEG_TO_RAD)) / 2
-  };
+      (int32_t)angle,
+      (1.0 - cos((lm - ls) * DEG_TO_RAD)) / 2};
   return returnValue;
 }
 
-void incrementCounter() {
+/*
+  Función: incrementCounter
+  Propósito: Incrementa un contador de segundos y actualiza el índice de color y el nombre mostrado según el valor del contador.
+
+  Descripción:
+    Esta función incrementa un contador de segundos (`secondCounter`) y, cuando alcanza el valor de 59, se reinicia a 0 y se selecciona un nuevo índice de color aleatorio. 
+    Además, actualiza una variable de texto (`nombrecillo`) dependiendo del valor de `colorIndex`, el cual se ajusta cada vez que el contador llega a 59.
+
+  Proceso:
+    1. Se incrementa el valor de `secondCounter` en cada llamada a la función.
+    2. Si el valor de `secondCounter` alcanza 59 (lo que indica que un minuto ha pasado), se realiza lo siguiente:
+       - Se selecciona aleatoriamente un nuevo valor para `colorIndex` usando `esp_random()`, el cual es un número aleatorio entre 0 y el número total de colores disponibles en el array `colors`.
+       - El contador `secondCounter` se reinicia a 0.
+    3. Si el valor de `secondCounter` es menor que 59, se comprueba si `colorIndex` es par o impar:
+       - Si `colorIndex` es par, se asigna el texto `" - M 8 A X -"`.
+       - Si `colorIndex` es impar, se asigna el texto `"- MvIiIaX -"`.
+       
+  Efectos secundarios:
+    - Se actualiza `colorIndex` con un valor aleatorio cuando el contador llega a 59.
+    - Se cambia el valor de `nombrecillo` dependiendo del valor de `colorIndex`.
+    
+  Ejemplo:
+    Si `secondCounter` es 59, el valor de `colorIndex` será actualizado a un nuevo valor aleatorio, y `nombrecillo` podría cambiar a `" - M 8 A X -"`, dependiendo si el valor de `colorIndex` es par o impar.
+
+  Notas:
+    - La función `esp_random()` genera un número aleatorio entre 0 y el tamaño del array `colors` para seleccionar un índice aleatorio de color.
+    - El valor de `secondCounter` se mantiene entre 0 y 59, representando los segundos de un minuto.
+*/
+
+void incrementCounter()
+{
   secondCounter++;
-  if (secondCounter >= 59) {
+  if (secondCounter >= 59)
+  {
     colorIndex = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     secondCounter = 0;
-  } else {
-    if (colorIndex % 2 == 0) {
+  }
+  else
+  {
+    if (colorIndex % 2 == 0)
+    {
       nombrecillo = " - M 8 A X -";
-    } else {
+    }
+    else
+    {
       nombrecillo = "- MvIiIaX -";
     }
   }
 }
 
-void tDisplay_MinerScreen(unsigned long mElapsed) {
+/*
+  Función: tDisplay_MinerScreen
+  Propósito: Muestra la pantalla de minería con datos en tiempo real como hashrate, shares, temperatura, entre otros.
+
+  Descripción:
+    Esta función se encarga de mostrar la pantalla principal de la minería, que incluye datos como el hashrate actual, el total de hashes, los bloques validados, la temperatura y más.
+    La información mostrada se actualiza cada vez que se llama a esta función, utilizando datos proporcionados por otras funciones auxiliares como `getMiningData`, `getClockData`, y `getCoinData`.
+    Además, el fondo de la pantalla se actualiza según ciertos parámetros, como la hora del día o el estado de ciertos contadores.
+
+  Proceso:
+    1. **Obtención de datos**: 
+       Se obtienen varios datos relacionados con la minería, la hora, y la criptomoneda actual utilizando funciones como `getMiningData`, `getClockData`, y `getCoinData`.
+    
+    2. **Renderización del fondo**: 
+       Se dibuja un fondo de pantalla utilizando `background.pushImage()` con la imagen de la pantalla de minería (`MinerScreen`).
+
+    3. **Hashrate de día y noche**: 
+       Dependiendo de la hora actual (`horiac`), se elige un color de texto diferente para el hashrate (negro para la noche y blanco para el día). Esto se renderiza en la pantalla con `render.rdrawString()`.
+
+    4. **Mostrar datos de minería**:
+       Se dibujan otros datos de la minería como el total de hashes, las plantillas de bloques, la mejor dificultad, el número de shares completados y la hora de minería. Estos datos se renderizan utilizando `render.drawString()` y `render.rdrawString()` con diferentes tamaños y colores de texto.
+
+    5. **Mostrar texto de nombre**:
+       Se muestra un texto personalizado basado en la variable `nombrecillo` que cambia dependiendo del índice de color (`colorIndex`).
+
+    6. **Mostrar bloques válidos**:
+       Se verifica si el número de bloques válidos (`valids`) es 0, y si es así, se muestra en color rojo, de lo contrario, se muestra en color verde/amarillo.
+
+    7. **Mostrar temperatura**:
+       Se imprime la temperatura de la minería utilizando `render.rdrawString()`.
+
+    8. **Mostrar hora**:
+       Se muestra la hora de minería (`currentTime`) con un tamaño de fuente pequeño.
+
+    9. **Efecto visual con "..." o ". ."**:
+       Basado en la hora de minería (últimos dos dígitos), se decide si mostrar "..." o ". ." de manera intermitente. Esto se hace dependiendo de si el valor es par o impar.
+
+    10. **Empujar imagen final**:
+        Finalmente, se actualiza la pantalla con `background.pushSprite()` para reflejar todos los cambios realizados en la interfaz.
+
+  Efectos secundarios:
+    - La pantalla se actualiza con la nueva información de minería y hora.
+    - Se modifican los elementos visuales basados en condiciones como la hora del día o la paridad de los segundos.
+
+  Notas:
+    - Se utiliza un fondo estático que se actualiza con la imagen de la minería.
+    - El uso de `esp_random()` para la intermitencia de los puntos (". .", "...") agrega un efecto visual aleatorio que hace que la pantalla sea más dinámica.
+    - Los datos de minería y de reloj se obtienen de otras funciones, lo que implica que las funciones como `getMiningData`, `getClockData` y `getCoinData` deben estar implementadas correctamente para obtener la información correcta.
+*/
+
+void tDisplay_MinerScreen(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -1881,14 +2769,16 @@ void tDisplay_MinerScreen(unsigned long mElapsed) {
   background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-
   // Hashrate Day And Night
   render.setFontSize(30);
   render.setCursor(11, 128);
-  if (horiac >= 22 || horiac < 8) {
+  if (horiac >= 22 || horiac < 8)
+  {
     render.setFontColor(TFT_BLACK);
     render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_BLACK);
-  } else {
+  }
+  else
+  {
     render.setFontColor(TFT_WHITE);
     render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_WHITE);
   }
@@ -1914,10 +2804,13 @@ void tDisplay_MinerScreen(unsigned long mElapsed) {
   background.drawString(nombrecillo, 25, 101, GFXFF);
   // Valid Blocks
   int validInt = atoi(data.valids.c_str());
-  if (validInt == 0) {
+  if (validInt == 0)
+  {
     render.setFontSize(24);
     render.drawString(data.valids.c_str(), 281, 56, TFT_RED);
-  } else {
+  }
+  else
+  {
     render.setFontSize(24);
     render.drawString(data.valids.c_str(), 281, 56, TFT_GREENYELLOW);
   }
@@ -1934,33 +2827,92 @@ void tDisplay_MinerScreen(unsigned long mElapsed) {
   String lastTwo = lastTwoDigits.substring(lastTwoDigits.length() - 2);
   int lastTwoInt = lastTwo.toInt();
   int randomTick = (esp_random() % 10) + 1;
-  if (lastTwoInt % 2 == 0) {
+  if (lastTwoInt % 2 == 0)
+  {
     // Es par
     background.setFreeFont(FSSBO9);
     background.setTextSize(2);
     background.setTextDatum(TL_DATUM);
     background.setTextColor(colors[colorIndex]);
-    if (randomTick % 2 == 0) {
+    if (randomTick % 2 == 0)
+    {
       background.drawString("...", 275, 68, GFXFF);
-    } else {
+    }
+    else
+    {
       background.drawString(". .", 275, 68, GFXFF);
     }
-  } else {
+  }
+  else
+  {
     // Es impar
     background.setFreeFont(FSSBO9);
     background.setTextSize(2);
     background.setTextDatum(TL_DATUM);
     background.setTextColor(colors[colorIndex]);
-    if (randomTick % 2 == 0) {
+    if (randomTick % 2 == 0)
+    {
       background.drawString(".  ", 275, 68, GFXFF);
-    } else {
+    }
+    else
+    {
       background.drawString("   ", 275, 68, GFXFF);
     }
   }
   background.pushSprite(0, 0);
 }
 
-void tDisplay_ClockScreen(unsigned long mElapsed) {
+/*
+  Función: tDisplay_ClockScreen
+  Propósito: Mostrar la pantalla del reloj con datos en tiempo real, incluyendo la hora, fecha, precio del BTC, hashrate y fase lunar.
+
+  Descripción:
+    Esta función actualiza la pantalla con información relevante del reloj y la minería, incluyendo la hora actual, la fecha con el día de la semana, el hashrate, el precio del BTC y la fase de la luna.
+    La pantalla de fondo se actualiza antes de dibujar los textos, asegurando una visualización clara de la información.
+
+  Proceso:
+    1. **Obtención de datos**: 
+       Se recuperan los datos de la minería, el reloj y la moneda usando `getClockData()`, `getMiningData()` y `getCoinData()`.
+
+    2. **Renderización del fondo**: 
+       Se dibuja la imagen de fondo de la pantalla de reloj con `background.pushImage()`.
+
+    3. **Muestra de hashrate**: 
+       Se imprime el hashrate en negro en la pantalla utilizando `render.rdrawString()`.
+
+    4. **Muestra del precio del BTC**:
+       Se imprime el precio actual del BTC en la parte superior derecha de la pantalla.
+
+    5. **Muestra de la altura del bloque**:
+       Se imprime la altura actual del bloque minado usando `render.rdrawString()`.
+
+    6. **Muestra de la hora y la fecha**:
+       - La hora actual se imprime con una fuente grande y en color blanco.
+       - La fecha incluye el día de la semana obtenido con `obtenerDiaSemana()` y se imprime en color basado en `colors[colorIndex]`.
+
+    7. **Cálculo de la fase de la luna**:
+       - Se extrae la fecha y la hora actual en variables separadas.
+       - Se usa la estructura `tm` y `mktime()` para convertir la fecha a formato `time_t`.
+       - Se obtiene la fase de la luna con `myMoonPhase.getPhase()`.
+       - Se calcula el porcentaje iluminado de la luna y se imprime en la pantalla.
+
+    8. **Actualización final**:
+       Se actualiza la pantalla con `background.pushSprite()` para mostrar todos los datos en tiempo real.
+
+  Efectos secundarios:
+    - Se modifica el fondo de pantalla con la imagen de `minerClockScreen`.
+    - Se cambian los valores mostrados según la fecha, la hora y los datos obtenidos en tiempo real.
+    - Se usa un color dinámico para algunos textos según el `colorIndex`.
+
+  Notas:
+    - La función `obtenerDiaSemana()` convierte una fecha en string en el nombre del día de la semana correspondiente.
+    - Se usa `mktime()` para calcular la fecha en `time_t`, lo que permite obtener la fase lunar correctamente.
+    - `esp_random()` no se usa aquí, pero podría añadirse para variar la visualización de ciertos elementos dinámicos.
+
+*/
+
+void tDisplay_ClockScreen(unsigned long mElapsed)
+{
   clock_data data = getClockData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -1973,30 +2925,24 @@ void tDisplay_ClockScreen(unsigned long mElapsed) {
   actuanot = 0;
   correccion = 0;
   incrementCounter();
-
   // Print background screen
   background.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen);
-
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), dataa.temp.c_str());
-
   // Hashrate
   render.setFontSize(21);
   render.setCursor(19, 126);
   render.setFontColor(TFT_BLACK);
   render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
-
   // Print BTC Price
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
   background.setTextDatum(TL_DATUM);
   background.setTextColor(TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 198, 3, GFXFF);
-
   // Print BlockHeight
   render.setFontSize(18);
   render.rdrawString(data.blockHeight.c_str(), 254, 139, TFT_BLACK);
-
   // Print Hour And Date
   background.setFreeFont(FF23);
   background.setTextSize(2);
@@ -2016,17 +2962,16 @@ void tDisplay_ClockScreen(unsigned long mElapsed) {
   int minuto = data.currentTime.substring(3, 5).toInt();
   // Inicializar la estructura tm
   struct tm timeinfo;
-  timeinfo.tm_year = anio - 1900;  // Año desde 1900
-  timeinfo.tm_mon = mes - 1;       // Mes (0 = enero)
-  timeinfo.tm_mday = dia;          // Día del mes
-  timeinfo.tm_hour = hora;         // Hora
-  timeinfo.tm_min = minuto;        // Minutos
-  timeinfo.tm_sec = 0;             // Segundos
-  timeinfo.tm_isdst = -1;          // Determina si es horario de verano (automático)
-
+  timeinfo.tm_year = anio - 1900; // Año desde 1900
+  timeinfo.tm_mon = mes - 1;      // Mes (0 = enero)
+  timeinfo.tm_mday = dia;         // Día del mes
+  timeinfo.tm_hour = hora;        // Hora
+  timeinfo.tm_min = minuto;       // Minutos
+  timeinfo.tm_sec = 0;            // Segundos
+  timeinfo.tm_isdst = -1;         // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
-  moon = moonPhase.getPhase(cadenaDeTiempo);
+  moon = mymoonPhase.getPhase(cadenaDeTiempo);
   double porcentajeIluminado = moon.percentLit * 100;
   char porcentajeTexto[10];
   snprintf(porcentajeTexto, sizeof(porcentajeTexto), "%.2f%%", porcentajeIluminado);
@@ -2036,12 +2981,58 @@ void tDisplay_ClockScreen(unsigned long mElapsed) {
   background.setTextColor(colors[colorIndex]);
   String textoFinal = "Luna.Ilu - " + String(porcentajeTexto);
   background.drawString(textoFinal, 156, 106, GFXFF);
-
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
 
-void tDisplay_GlobalHashScreen(unsigned long mElapsed) {
+/*
+  Función: tDisplay_GlobalHashScreen
+  Propósito: Mostrar información global de minería, incluyendo el precio del BTC, hashrate global, dificultad de red y progreso del bloque.
+
+  Descripción:
+    Esta función actualiza la pantalla con información en tiempo real relacionada con el estado de la red de minería.
+    Muestra el precio del BTC, el hashrate global, la altura del bloque, la dificultad de la red y el porcentaje de progreso hacia el siguiente bloque.
+
+  Proceso:
+    1. **Obtención de datos**:
+       Se recuperan los datos de la moneda (`getCoinData()`), minería (`getMiningData()`) y reloj (`getClockData()`).
+    
+    2. **Renderización del fondo**:
+       Se dibuja la imagen de fondo de la pantalla con `background.pushImage()`.
+    
+    3. **Impresión de datos clave**:
+       - **Precio del BTC**: Se imprime en la parte superior derecha.
+       - **Hora actual**: Se imprime en la parte superior izquierda en color blanco.
+       - **Hashrate actual**: Se muestra en un color dinámico basado en `colorIndex`.
+       - **Último bloque de la pool**: Se imprime con color `0x9C92` en la parte derecha de la pantalla.
+       - **Dificultad de la red**: Se imprime en la parte derecha con el mismo color `0x9C92`.
+       - **Hashrate global**: Se imprime en la parte inferior en negro.
+       - **Altura del bloque**: Se muestra en grande en el centro de la pantalla.
+
+    4. **Dibujo del rectángulo de progreso**:
+       - Se calcula la longitud del rectángulo en función del porcentaje de progreso del bloque (`progressPercent`).
+       - Se usa `fillRect()` para representar gráficamente el progreso hacia el siguiente bloque.
+    
+    5. **Impresión de bloques restantes**:
+       - Se imprime el número de bloques restantes hasta el próximo ajuste de dificultad.
+    
+    6. **Actualización final**:
+       - Se actualiza la pantalla con `background.pushSprite()` para mostrar todos los datos en tiempo real.
+
+  Efectos secundarios:
+    - Se modifica el fondo de pantalla con `globalHashScreen`.
+    - Se cambia dinámicamente el color del hashrate en función de `colorIndex`.
+    - Se actualiza el progreso del bloque de forma visual con una barra de progreso.
+
+  Notas:
+    - `data.progressPercent` determina el avance visual del bloque.
+    - `colorIndex` se actualiza con `incrementCounter()`, lo que puede modificar los colores en cada actualización.
+    - `data.globalHashRate` representa la potencia total de cómputo de la red en KH/s.
+
+*/
+
+void tDisplay_GlobalHashScreen(unsigned long mElapsed)
+{
   coin_data data = getCoinData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2051,68 +3042,104 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed) {
   actualizarcalen = 0;
   // Print background screen
   background.pushImage(0, 0, globalHashWidth, globalHashHeight, globalHashScreen);
-
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), dataa.temp.c_str());
-
   // Print BTC Price
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
   background.setTextDatum(TL_DATUM);
   background.setTextColor(TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 198, 3, GFXFF);
-
   // Print Hour
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
   background.setTextDatum(TL_DATUM);
   background.setTextColor(TFT_WHITE);
   background.drawString(data.currentTime.c_str(), 46, 0, GFXFF);
-
   // Print HR
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
   background.setTextDatum(TL_DATUM);
   background.setTextColor(colors[colorIndex]);
   background.drawString(String(data.currentHashRate) + " KH/s", 1, 64, GFXFF);
-
   // Print Last Pool Block
   background.setFreeFont(FSS9);
   background.setTextDatum(TR_DATUM);
   background.setTextColor(0x9C92);
   background.drawString(data.halfHourFee.c_str(), 302, 52, GFXFF);
-
   // Print Difficulty
   background.setFreeFont(FSS9);
   background.setTextDatum(TR_DATUM);
   background.setTextColor(0x9C92);
   background.drawString(data.netwrokDifficulty.c_str(), 302, 88, GFXFF);
-
   // Print Global Hashrate
   render.setFontSize(17);
   render.rdrawString(data.globalHashRate.c_str(), 274, 142, TFT_BLACK);
-
   // Print BlockHeight
   render.setFontSize(28);
   render.rdrawString(data.blockHeight.c_str(), 140, 104, 0xDEDB);
-
   // Draw percentage rectangle
   int x2 = 2 + (138 * data.progressPercent / 100);
   background.fillRect(2, 149, x2, 168, 0xDEDB);
-
   // Print Remaining BLocks
   background.setTextFont(FONT2);
   background.setTextSize(1);
   background.setTextDatum(MC_DATUM);
   background.setTextColor(TFT_BLACK);
   background.drawString(data.remainingBlocks.c_str(), 72, 159, FONT2);
-
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
 
+/*
+  Función: tDisplay_BTCprice
+  Propósito: Mostrar información relacionada con el precio del Bitcoin, incluyendo la hora actual, hashrate, altura del bloque y una cita alternante.
 
-void tDisplay_BTCprice(unsigned long mElapsed) {
+  Descripción:
+    Esta función actualiza la pantalla con información en tiempo real sobre el precio del BTC, la altura del bloque y otros datos relevantes.
+    También muestra un mensaje motivacional o humorístico que cambia en cada actualización.
+
+  Proceso:
+    1. **Obtención de datos**:
+       Se recuperan los datos de reloj (`getClockData()`), minería (`getMiningData()`) y moneda (`getCoinData()`).
+       Se obtiene el segundo actual a partir de `timeClient.getSeconds()`.
+
+    2. **Inicialización y reinicio de variables**:
+       Se reinician variables como `actualizarcalen`, `actualizarc`, `actual`, `actuanot` y `correccion` para evitar acumulaciones de estado.
+
+    3. **Renderización del fondo**:
+       Se dibuja la imagen de fondo de la pantalla con `background.pushImage()`.
+
+    4. **Impresión de datos clave**:
+       - **Hashrate**: Se imprime en negro en la pantalla.
+       - **Altura del bloque**: Se muestra en la parte inferior en color blanco.
+       - **Hora actual**: Se imprime junto con los segundos extraídos de `timeClient`.
+       - **Temperatura**: Se muestra junto a la hora.
+       - **Precio del BTC**: Se imprime en grande en la parte superior derecha.
+
+    5. **Cambio de frase motivacional/humorística**:
+       - Se usa una variable `rndnumero2` que se incrementa con cada llamada a la función.
+       - Dependiendo de si `rndnumero2` es par o impar, se muestra una de dos frases.
+       - La frase se imprime en cuatro líneas en la parte derecha de la pantalla.
+
+    6. **Actualización final**:
+       - Se actualiza la pantalla con `background.pushSprite()` para reflejar los cambios.
+
+  Efectos secundarios:
+    - Se cambia dinámicamente la frase en pantalla alternando entre dos mensajes.
+    - Se actualiza la hora con precisión de segundos.
+    - `rndnumero2` se incrementa en cada ejecución, asegurando variabilidad en los mensajes.
+
+  Notas:
+    - `data.btcPrice` muestra el precio actual de Bitcoin.
+    - `data.blockHeight` indica la altura del bloque más reciente.
+    - `data.currentHashRate` representa el hashrate actual en KH/s.
+    - La frase en pantalla alterna con cada actualización para evitar una interfaz estática.
+
+*/
+
+void tDisplay_BTCprice(unsigned long mElapsed)
+{
   clock_data data = getClockData(mElapsed);
   mining_data dataa = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2129,20 +3156,16 @@ void tDisplay_BTCprice(unsigned long mElapsed) {
   correccion = 0;
   // Print background screen
   background.pushImage(0, 0, priceScreenWidth, priceScreenHeight, priceScreen);
-
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), dataa.temp.c_str());
-
   // Hashrate
   render.setFontSize(22);
   render.setCursor(19, 126);
   render.setFontColor(TFT_BLACK);
   render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
-
   // Print BlockHeight
   render.setFontSize(18);
   render.rdrawString(data.blockHeight.c_str(), 254, 138, TFT_WHITE);
-
   // Print Hour
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
@@ -2154,7 +3177,6 @@ void tDisplay_BTCprice(unsigned long mElapsed) {
   background.drawString(dataa.temp.c_str(), 256, 3, GFXFF);
   render.setFontSize(4);
   render.rdrawString(String(0).c_str(), 281, 5, TFT_BLACK);
-
   // Print BTC Price
   background.setFreeFont(FSSB9);
   background.setTextDatum(TR_DATUM);
@@ -2164,12 +3186,15 @@ void tDisplay_BTCprice(unsigned long mElapsed) {
   background.setTextSize(1);
   background.setTextColor(colors[colorIndex]);
   rndnumero2++;
-  if (rndnumero2 % 2 == 0) {
+  if (rndnumero2 % 2 == 0)
+  {
     textoFinalm8ax1 = "El Futuro No Esta";
     textoFinalm8ax2 = "Establecido, Solo";
     textoFinalm8ax3 = "Existe El Que";
     textoFinalm8ax4 = "Nosotros Hacemos.";
-  } else {
+  }
+  else
+  {
     textoFinalm8ax1 = "Por Muchas Vueltas";
     textoFinalm8ax2 = "Que Demos, Siempre";
     textoFinalm8ax3 = "Tendremos El";
@@ -2179,12 +3204,59 @@ void tDisplay_BTCprice(unsigned long mElapsed) {
   background.drawString(textoFinalm8ax2.c_str(), 310, 76, GFXFF);
   background.drawString(textoFinalm8ax3.c_str(), 310, 95, GFXFF);
   background.drawString(textoFinalm8ax4.c_str(), 310, 111, GFXFF);
-
-  // Push prepared background to screen
   background.pushSprite(0, 0);
 }
 
-void tDisplay_m8axScreen1(unsigned long mElapsed) {
+/*
+  Función: tDisplay_m8axScreen1
+  Propósito: Mostrar información sobre la fecha, hora, estado de la minería y fase de la luna en la pantalla.
+
+  Descripción:
+    Esta función obtiene los datos actuales de minería, hora y fecha, calcula la fase de la luna, y los muestra en la pantalla junto con una imagen de fondo.
+
+  Proceso:
+    1. **Obtención de datos**:
+       - Se recuperan datos de minería (`getMiningData()`), reloj (`getClockData()`) y moneda (`getCoinData()`).
+       - Se obtiene el día de la semana con `obtenerDiaSemana()` basado en la fecha actual.
+
+    2. **Construcción de cadenas de texto**:
+       - Se genera la fecha completa con el día de la semana (`fechacondiasemana`).
+       - Se muestra la fecha en la pantalla con `background.drawString()`.
+
+    3. **Conversión de fecha y hora a estructura `tm`**:
+       - Se extraen día, mes, año, hora y minutos desde las cadenas `dataa.currentDate` y `dataa.currentTime`.
+       - Se llena la estructura `tm` con estos valores y se convierte a `time_t` con `mktime()`.
+
+    4. **Cálculo de la fase lunar**:
+       - Se obtiene la fase de la luna con `mymoonPhase.getPhase(cadenaDeTiempo)`.
+       - Se calcula el porcentaje de iluminación de la luna y se convierte a texto (`porcentajeTexto`).
+       - Se construye la cadena `datoslunarelogrande` con la información lunar.
+
+    5. **Renderización de la interfaz**:
+       - Se imprime la imagen de fondo `ImagenM8AX` en la pantalla.
+       - Se muestra el estado de minería en el puerto serie con `Serial.printf()`.
+       - Se imprimen en la pantalla:
+         - **Hora actual** (con fuente grande).
+         - **Fecha completa** con el día de la semana.
+         - **Estado de iluminación lunar**.
+
+    6. **Actualización final**:
+       - Se usa `background.pushSprite(0, 0);` para refrescar la pantalla con los nuevos datos.
+
+  Notas:
+    - `data.currentTime` muestra la hora actual en formato HH:MM.
+    - `dataa.currentDate` es la fecha en formato DD/MM/YYYY.
+    - `mymoonPhase.getPhase()` calcula la fase lunar basada en `time_t`.
+    - `percentLit` indica el porcentaje de iluminación de la luna.
+
+  Efectos secundarios:
+    - Se actualizan dinámicamente la hora, fecha y fase lunar en pantalla.
+    - Se imprime información de minería en el puerto serie.
+
+*/
+
+void tDisplay_m8axScreen1(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2206,16 +3278,16 @@ void tDisplay_m8axScreen1(unsigned long mElapsed) {
   int minuto = dataa.currentTime.substring(3, 5).toInt();
   // Inicializar la estructura tm
   struct tm timeinfo;
-  timeinfo.tm_year = anio - 1900;  // Año desde 1900
-  timeinfo.tm_mon = mes - 1;       // Mes (0 = enero)
-  timeinfo.tm_mday = dia;          // Día del mes
-  timeinfo.tm_hour = hora;         // Hora
-  timeinfo.tm_min = minuto;        // Minutos
-  timeinfo.tm_sec = 0;             // Segundos
-  timeinfo.tm_isdst = -1;          // Determina si es horario de verano (automático)
+  timeinfo.tm_year = anio - 1900; // Año desde 1900
+  timeinfo.tm_mon = mes - 1;      // Mes (0 = enero)
+  timeinfo.tm_mday = dia;         // Día del mes
+  timeinfo.tm_hour = hora;        // Hora
+  timeinfo.tm_min = minuto;       // Minutos
+  timeinfo.tm_sec = 0;            // Segundos
+  timeinfo.tm_isdst = -1;         // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
-  moon = moonPhase.getPhase(cadenaDeTiempo);
+  moon = mymoonPhase.getPhase(cadenaDeTiempo);
   double porcentajeIluminado = moon.percentLit * 100;
   char porcentajeTexto[10];
   snprintf(porcentajeTexto, sizeof(porcentajeTexto), "%.2f%%", porcentajeIluminado);
@@ -2223,18 +3295,18 @@ void tDisplay_m8axScreen1(unsigned long mElapsed) {
   background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-
   background.setFreeFont(FSSB9);
   background.setTextSize(7);
   background.setTextColor(colors[colorIndex]);
   background.drawString(data.currentTime.c_str(), 0, 33, GFXFF);
   background.setTextSize(2);
   background.drawString(fechita, 34, 0, GFXFF);
-  background.drawString(datoslunarelogrande, 15, 140, GFXFF);
+  background.drawString(datoslunarelogrande, 12, 140, GFXFF);
   background.pushSprite(0, 0);
 }
 
-void tDisplay_m8axScreen2(unsigned long mElapsed) {
+void tDisplay_m8axScreen2(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
   relojete = getClockData(mElapsed);
@@ -2251,10 +3323,13 @@ void tDisplay_m8axScreen2(unsigned long mElapsed) {
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
 
   int millonario = atoi(data.valids.c_str());
-  const char* mensajericono;
-  if (millonario == 0) {
+  const char *mensajericono;
+  if (millonario == 0)
+  {
     mensajericono = "--- AUN NO ERES RICO ---";
-  } else {
+  }
+  else
+  {
     mensajericono = "--- ERES MILLONARIO ---";
   }
   background.setFreeFont(FSSB9);
@@ -2276,32 +3351,36 @@ void tDisplay_m8axScreen2(unsigned long mElapsed) {
   String direccion_btc;
   String identificador;
   String nueva_wallet;
-  if (puntoIndex != -1) {
+  if (puntoIndex != -1)
+  {
     // Si hay punto, separar dirección e identificador
     direccion_btc = wallet.substring(0, puntoIndex);
     identificador = wallet.substring(puntoIndex + 1);
     // Generar la nueva wallet con identificador + últimos 6 caracteres
     nueva_wallet = identificador + direccion_btc.substring(direccion_btc.length() - 6);
-  } else {
+  }
+  else
+  {
     // Si no hay punto, toda la cadena es la dirección BTC
     direccion_btc = wallet;
     // Generar la nueva wallet con los últimos 12 caracteres
-    nueva_wallet = "xxxxxxxxxxxx"+direccion_btc.substring(direccion_btc.length() - 12);
+    nueva_wallet = "xxxxxxxxxxxx" + direccion_btc.substring(direccion_btc.length() - 12);
   }
-  tft.setCursor(82,117);
-  tft.print("WBTC "+nueva_wallet);
+  tft.setCursor(82, 117);
+  tft.print("WBTC " + nueva_wallet);
   background.drawString(Settings.PoolAddress + ":" + String(Settings.PoolPort), 80, 127, GFXFF);
   background.drawString("c", 62, 107, GFXFF);
   background.setTextColor(colors[colorIndex]);
   background.drawString("d", 125, 92, GFXFF);
   background.drawString("KH/s", 275, 87, GFXFF);
-  background.drawString(relojete.currentTime, 12,150, GFXFF);
+  background.drawString(relojete.currentTime, 12, 150, GFXFF);
   render.setCursor(11, 128);
   render.setFontSize(14);
   render.rdrawString(data.timeMining.c_str(), 232, 92, colors[colorIndex]);
 }
 
-void tDisplay_m8axScreen3(unsigned long mElapsed) {
+void tDisplay_m8axScreen3(unsigned long mElapsed)
+{
   clock_data dataa = getClockData(mElapsed);
   mining_data data = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2314,11 +3393,12 @@ void tDisplay_m8axScreen3(unsigned long mElapsed) {
   int dia = dataa.currentDate.substring(0, 2).toInt();
   int mes = dataa.currentDate.substring(3, 5).toInt();
   int anio = dataa.currentDate.substring(6, 10).toInt();
-  int num1 = dataa.currentTime.charAt(0) - '0';  // Primer dígito de la hora
-  int num2 = dataa.currentTime.charAt(1) - '0';  // Segundo dígito de la hora
-  int num3 = dataa.currentTime.charAt(3) - '0';  // Primer dígito de los minutos
-  int num4 = dataa.currentTime.charAt(4) - '0';  // Segundo dígito de los minutos
-  if (actualizarcalen % 30 == 0 || actual == 0) {
+  int num1 = dataa.currentTime.charAt(0) - '0'; // Primer dígito de la hora
+  int num2 = dataa.currentTime.charAt(1) - '0'; // Segundo dígito de la hora
+  int num3 = dataa.currentTime.charAt(3) - '0'; // Primer dígito de los minutos
+  int num4 = dataa.currentTime.charAt(4) - '0'; // Segundo dígito de los minutos
+  if (actualizarcalen % 30 == 0 || actual == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     mostrarCalendario(dia, mes, anio, num1, num2, num3, num4);
@@ -2328,7 +3408,8 @@ void tDisplay_m8axScreen3(unsigned long mElapsed) {
   actualizarc = 0;
 }
 
-void tDisplay_m8axScreen4(unsigned long mElapsed) {
+void tDisplay_m8axScreen4(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
   relojete = getClockData(mElapsed);
@@ -2340,7 +3421,8 @@ void tDisplay_m8axScreen4(unsigned long mElapsed) {
   rndnumero = esp_random();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (esPrimo(rndnumero)) {
+  if (esPrimo(rndnumero))
+  {
     background.pushImage(0, 0, CreditosScreenWidth, CreditosScreenHeight, CreditosScreen);
     String rndnumeroStr = String(rndnumero);
     tft.fillRect(167, 137, 123, 19, TFT_BLACK);
@@ -2348,7 +3430,8 @@ void tDisplay_m8axScreen4(unsigned long mElapsed) {
     tft.setTextSize(2);
     tft.print(rndnumeroStr.c_str());
   }
-  if (actualizarc % 30 == 0) {
+  if (actualizarc % 30 == 0)
+  {
     background.pushImage(0, 0, CreditosScreenWidth, CreditosScreenHeight, CreditosScreen);
     background.pushSprite(0, 0);
     String numerosp = generarNumerosPrimitiva();
@@ -2358,19 +3441,19 @@ void tDisplay_m8axScreen4(unsigned long mElapsed) {
     String ultimos_tres = "";
     int comaIndex = numerosp.indexOf(',');
     // Primeros tres números
-    primeros_tres = numerosp.substring(0, comaIndex);  // Extrae los tres primeros números
-    numerosp.remove(0, comaIndex + 1);                 // Elimina lo que ya hemos extraído (primeros tres)
+    primeros_tres = numerosp.substring(0, comaIndex); // Extrae los tres primeros números
+    numerosp.remove(0, comaIndex + 1);                // Elimina lo que ya hemos extraído (primeros tres)
 
     comaIndex = numerosp.indexOf(',');
-    primeros_tres += "," + numerosp.substring(0, comaIndex);  // Agregar el segundo número
-    numerosp.remove(0, comaIndex + 1);                        // Elimina el segundo número
+    primeros_tres += "," + numerosp.substring(0, comaIndex); // Agregar el segundo número
+    numerosp.remove(0, comaIndex + 1);                       // Elimina el segundo número
 
     comaIndex = numerosp.indexOf(',');
-    primeros_tres += "," + numerosp.substring(0, comaIndex);  // Agregar el tercer número
-    numerosp.remove(0, comaIndex + 1);                        // Elimina el tercer número
+    primeros_tres += "," + numerosp.substring(0, comaIndex); // Agregar el tercer número
+    numerosp.remove(0, comaIndex + 1);                       // Elimina el tercer número
 
     // Últimos tres números
-    ultimos_tres = numerosp.substring(0);  // Lo que queda es la parte de los últimos tres números
+    ultimos_tres = numerosp.substring(0); // Lo que queda es la parte de los últimos tres números
     tft.setCursor(27, 123);
     tft.print(primeros_tres);
     tft.setCursor(27, 134);
@@ -2395,7 +3478,7 @@ void tDisplay_m8axScreen4(unsigned long mElapsed) {
     tft.setCursor(225, 94);
     tft.print("RAM TOTAL");
     unsigned long ramTotal = ESP.getHeapSize();
-    unsigned long psramTotal = ESP.getPsramSize();  // Método directo para PSRAM
+    unsigned long psramTotal = ESP.getPsramSize(); // Método directo para PSRAM
     tft.setCursor(225, 105);
     tft.print(ramTotal + psramTotal);
     tft.setCursor(225, 116);
@@ -2408,7 +3491,8 @@ void tDisplay_m8axScreen4(unsigned long mElapsed) {
   actualizarc++;
 }
 
-void tDisplay_m8axScreen5(unsigned long mElapsed) {
+void tDisplay_m8axScreen5(unsigned long mElapsed)
+{
   incrementCounter();
   actualizarcalen = 0;
   mining_data data = getMiningData(mElapsed);
@@ -2421,16 +3505,24 @@ void tDisplay_m8axScreen5(unsigned long mElapsed) {
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   String lineaa = bbuffer;
-  if (columna == 0) {
+  if (columna == 0)
+  {
     random_number = 1 + (esp_random() % 4);
   }
-  if (random_number == 1) {
+  if (random_number == 1)
+  {
     tft.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
-  } else if (random_number == 2) {
+  }
+  else if (random_number == 2)
+  {
     tft.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
-  } else if (random_number == 3) {
+  }
+  else if (random_number == 3)
+  {
     tft.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
-  } else if (random_number == 4) {
+  }
+  else if (random_number == 4)
+  {
     tft.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
   }
   tft.setTextColor(colors[colorIndex]);
@@ -2438,12 +3530,14 @@ void tDisplay_m8axScreen5(unsigned long mElapsed) {
   tft.setCursor(2, columna);
   tft.print(lineaa);
   columna += 1;
-  if (columna >= 166) {
-    columna = 0;  // Reinicia la columna
+  if (columna >= 166)
+  {
+    columna = 0; // Reinicia la columna
   }
 }
 
-void tDisplay_m8axScreen6(unsigned long mElapsed) {
+void tDisplay_m8axScreen6(unsigned long mElapsed)
+{
   incrementCounter();
   actualizarcalen = 0;
   actualizarc = 0;
@@ -2456,13 +3550,19 @@ void tDisplay_m8axScreen6(unsigned long mElapsed) {
   mineria = getMiningData(mElapsed);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  tft.pushImage(0, 0, ImagenFinalPWidth, ImagenFinalPHeight, ImagenFinalPM8AX);  // Muestra la imagen
+  tft.pushImage(0, 0, ImagenFinalPWidth, ImagenFinalPHeight, ImagenFinalPM8AX); // Muestra la imagen
   tft.setTextColor(colors[colorIndex]);
   tft.setTextSize(1);
-  tft.drawString(data.currentTime + "             " + data.currentHashRate + "KH/s " + data.temp + "g", 65, 160);
+  tft.setCursor(64, 160);
+  tft.print(data.currentTime);
+  tft.setCursor(137, 160);
+  tft.print(data.currentHashRate + "KH/s ");
+  tft.setCursor(236, 160);
+  tft.print(data.temp + "g");
 }
 
-void tDisplay_m8axScreen7(unsigned long mElapsed) {
+void tDisplay_m8axScreen7(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2471,10 +3571,12 @@ void tDisplay_m8axScreen7(unsigned long mElapsed) {
   int millonario = atoi(data.valids.c_str());
   actualizarc = 0;
   incrementCounter();
-  if (actualizarcalen == 0) {
+  if (actualizarcalen == 0)
+  {
     timeClient.begin();
   }
-  if (actualizarcalen % 1800 == 0) {
+  if (actualizarcalen % 1800 == 0)
+  {
     timeClient.update();
     ;
   }
@@ -2491,7 +3593,8 @@ void tDisplay_m8axScreen7(unsigned long mElapsed) {
   String anio = dataa.currentDate.substring(6, 10);
 
   // Ajusta al formato de 12 horas
-  if (horas >= 12) {
+  if (horas >= 12)
+  {
     horas -= 12;
   }
 
@@ -2501,7 +3604,8 @@ void tDisplay_m8axScreen7(unsigned long mElapsed) {
   actual = 0;
 }
 
-void tDisplay_m8axScreen8(unsigned long mElapsed) {
+void tDisplay_m8axScreen8(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2510,19 +3614,27 @@ void tDisplay_m8axScreen8(unsigned long mElapsed) {
   incrementCounter();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (actualizarcalen % 15 == 0 || correccion == 0) {
+  if (actualizarcalen % 15 == 0 || correccion == 0)
+  {
     numfrases++;
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -2539,9 +3651,12 @@ void tDisplay_m8axScreen8(unsigned long mElapsed) {
     tft.setTextSize(1);
     correccion = 1;
     int millonario = atoi(data.valids.c_str());
-    if (millonario == 0) {
+    if (millonario == 0)
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " NO RICO");
-    } else {
+    }
+    else
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " SI RICO");
     }
   }
@@ -2550,7 +3665,8 @@ void tDisplay_m8axScreen8(unsigned long mElapsed) {
   actuanot = 0;
 }
 
-void tDisplay_m8axScreen9(unsigned long mElapsed) {
+void tDisplay_m8axScreen9(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2562,7 +3678,8 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  if (segundos % 59 == 0) {
+  if (segundos % 59 == 0)
+  {
     actualizarc = 0;
   }
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
@@ -2576,19 +3693,27 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
   String RMes = convertirARomanos(mes);
   String RAnio = convertirARomanos(anio);
   String TempCPU = convertirARomanos(std::stoi(data.temp.c_str()));
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     random_number = 1 + (esp_random() % 4);
   }
-  if (random_number == 1) {
+  if (random_number == 1)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
-  } else if (random_number == 2) {
+  }
+  else if (random_number == 2)
+  {
     background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
     background.pushSprite(0, 0);
-  } else if (random_number == 3) {
+  }
+  else if (random_number == 3)
+  {
     background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
     background.pushSprite(0, 0);
-  } else if (random_number == 4) {
+  }
+  else if (random_number == 4)
+  {
     background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
     background.pushSprite(0, 0);
   }
@@ -2630,12 +3755,15 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
-  if (millonario == 1) {
+  if (millonario == 1)
+  {
     tft.setCursor(250, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
-  } else {
+  }
+  else
+  {
     tft.setCursor(250, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
@@ -2657,7 +3785,8 @@ void tDisplay_m8axScreen9(unsigned long mElapsed) {
   tft.print("T " + TempCPU + "g");
 }
 
-void tDisplay_m8axScreen10(unsigned long mElapsed) {
+void tDisplay_m8axScreen10(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2669,7 +3798,8 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  if (segundos % 59 == 0) {
+  if (segundos % 59 == 0)
+  {
     actualizarc = 0;
   }
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
@@ -2683,19 +3813,27 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
   String RMes = ABinario(mes);
   String RAnio = ABinario(anio);
   String TempCPU = ABinario(std::stoi(data.temp.c_str()));
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     random_number = 1 + (esp_random() % 4);
   }
-  if (random_number == 1) {
+  if (random_number == 1)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
-  } else if (random_number == 2) {
+  }
+  else if (random_number == 2)
+  {
     background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
     background.pushSprite(0, 0);
-  } else if (random_number == 3) {
+  }
+  else if (random_number == 3)
+  {
     background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
     background.pushSprite(0, 0);
-  } else if (random_number == 4) {
+  }
+  else if (random_number == 4)
+  {
     background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
     background.pushSprite(0, 0);
   }
@@ -2737,12 +3875,15 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
-  if (millonario == 1) {
+  if (millonario == 1)
+  {
     tft.setCursor(240, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
-  } else {
+  }
+  else
+  {
     tft.setCursor(240, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
@@ -2764,27 +3905,31 @@ void tDisplay_m8axScreen10(unsigned long mElapsed) {
   tft.print("T " + TempCPU + "g");
 }
 
-void tDisplay_m8axScreen11(unsigned long mElapsed) {
+void tDisplay_m8axScreen11(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
   relojete = getClockData(mElapsed);
   mineria = getMiningData(mElapsed);
-  int millonario = atoi(data.valids.c_str());
-  incrementCounter();
   unsigned long segundo = timeClient.getSeconds();
+  int millonario = atoi(data.valids.c_str());
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  if (segundos % 59 == 0) {
+  incrementCounter();
+
+  if (segundos % 59 == 0)
+  {
     actualizarc = 0;
   }
+
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
   int dia = dataa.currentDate.substring(0, 2).toInt();
   int mes = dataa.currentDate.substring(3, 5).toInt();
   String anio = dataa.currentDate.substring(6, 10);
-  int anio2d = anio.substring(0, 2).toInt();   // Extraer los primeros dos dígitos
-  int aniol2d = anio.substring(2, 4).toInt();  // Extraer los últimos dos dígitos
+  int anio2d = anio.substring(0, 2).toInt();  // Extraer los primeros dos dígitos
+  int aniol2d = anio.substring(2, 4).toInt(); // Extraer los últimos dos dígitos
   String TempCPU = Amorse(std::stoi(data.temp.c_str()));
   String hRoman = Amorse(horas);
   String mRoman = Amorse(minutos);
@@ -2793,19 +3938,27 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
   String RMes = Amorse(mes);
   String RAnio = Amorse(anio2d);
   String RAnio2 = Amorse(aniol2d);
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     random_number = 1 + (esp_random() % 4);
   }
-  if (random_number == 1) {
+  if (random_number == 1)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
-  } else if (random_number == 2) {
+  }
+  else if (random_number == 2)
+  {
     background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
     background.pushSprite(0, 0);
-  } else if (random_number == 3) {
+  }
+  else if (random_number == 3)
+  {
     background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
     background.pushSprite(0, 0);
-  } else if (random_number == 4) {
+  }
+  else if (random_number == 4)
+  {
     background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
     background.pushSprite(0, 0);
   }
@@ -2839,7 +3992,7 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print("a " + RAnio);
-  tft.setCursor(253, 38);
+  tft.setCursor(252, 38);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(RAnio2);
@@ -2851,12 +4004,15 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
-  if (millonario == 1) {
+  if (millonario == 1)
+  {
     tft.setCursor(240, 80);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
-  } else {
+  }
+  else
+  {
     tft.setCursor(240, 80);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
@@ -2878,7 +4034,8 @@ void tDisplay_m8axScreen11(unsigned long mElapsed) {
   tft.print("T " + TempCPU + "g");
 }
 
-void tDisplay_m8axScreen12(unsigned long mElapsed) {
+void tDisplay_m8axScreen12(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2888,32 +4045,36 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   int random_number = 1 + (esp_random() % 4);
-  switch (random_number) {
-    case 1:
-      background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
-      background.pushSprite(0, 0);
-      break;
-    case 2:
-      background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
-      background.pushSprite(0, 0);
-      break;
-    case 3:
-      background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
-      background.pushSprite(0, 0);
-      break;
-    case 4:
-      background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
-      background.pushSprite(0, 0);
-      break;
-    default:
-      // En caso de que el número esté fuera de rango, puedes poner una imagen predeterminada o hacer algo más.
-      break;
+  switch (random_number)
+  {
+  case 1:
+    background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
+    background.pushSprite(0, 0);
+    break;
+  case 2:
+    background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
+    background.pushSprite(0, 0);
+    break;
+  case 3:
+    background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
+    background.pushSprite(0, 0);
+    break;
+  case 4:
+    background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
+    background.pushSprite(0, 0);
+    break;
+  default:
+    // En caso de que el número esté fuera de rango, puedes poner una imagen predeterminada o hacer algo más.
+    break;
   }
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-  if (colorI % 2 == 0) {
-    limite = esp_random() % 15000;  // Rango: 0 a 54400
-  } else {
-    limite = esp_random() % 5000;  // Rango: 0 a 54400
+  if (colorI % 2 == 0)
+  {
+    limite = esp_random() % 15000; // Rango: 0 a 54400
+  }
+  else
+  {
+    limite = esp_random() % 5000; // Rango: 0 a 54400
   }
   tft.setCursor(30, 60);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
@@ -2926,10 +4087,11 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
   tft.setCursor(16, 132);
   tft.setTextSize(2);
   tft.print("https://youtube.com/m8ax");
-  for (int i = 0; i < limite; i++) {
+  for (int i = 0; i < limite; i++)
+  {
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    int ancho = esp_random() % 341;  // Rango: 0 a 340
-    int alto = esp_random() % 171;   // Rango: 0 a 170
+    int ancho = esp_random() % 341; // Rango: 0 a 340
+    int alto = esp_random() % 171;  // Rango: 0 a 170
     tft.drawPixel(ancho, alto, colors[colorI]);
   }
   tft.setTextSize(1);
@@ -2940,7 +4102,8 @@ void tDisplay_m8axScreen12(unsigned long mElapsed) {
   correccion = 0;
 }
 
-void tDisplay_m8axScreen13(unsigned long mElapsed) {
+void tDisplay_m8axScreen13(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -2952,96 +4115,126 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  if (minutos % 2 == 0 && segundos <= 1) {
+  abortar = 0;
+  if (minutos % 2 == 0 && segundos <= 1)
+  {
     actualizarc = 0;
   }
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
   }
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (actualizarc == 0) {
-    for (int i = 0; i < 20; i++) {
-      float precio = obtenerPrecio(criptomonedas[i]);
-      taskYIELD();
-      if (precio != -1) {
-        if (i < 5) {
+  if (actualizarc == 0)
+  {
+    for (int iii = 0; iii < 20; iii++)
+    {
+      if (abortar == 1)
+        iii = 19;
+      float precio = obtenerPrecio(criptomonedas[iii]);
+      if (precio != -1)
+      {
+        if (iii < 5)
+        {
           // Primera columna
           x = 5;
-          y = 20 + i * 30;
-        } else if (i < 10) {
+          y = 20 + iii * 30;
+        }
+        else if (iii < 10)
+        {
           // Segunda columna
           x = tft.width() / 4 + 10;
-          y = 20 + (i - 5) * 30;
-        } else if (i < 15) {
+          y = 20 + (iii - 5) * 30;
+        }
+        else if (iii < 15)
+        {
           // Tercera columna
           x = 2 * (tft.width() / 4) + 15;
-          y = 20 + (i - 10) * 30;
-        } else {
+          y = 20 + (iii - 10) * 30;
+        }
+        else
+        {
           // Cuarta columna
           x = 3 * (tft.width() / 4) + 20;
-          y = 20 + (i - 15) * 30;
+          y = 20 + (iii - 15) * 30;
         }
         colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.setTextSize(1);
-        tft.drawLine(0, 13, 320, 13, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+        tft.drawLine(0, 13, 320, 13, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
         String Textito = "M8AX - CryptoChrono 2Min - " + String(horas) + ":" + String(minutos) + ":" + String(minutos) + " - " + data.currentHashRate + " KH/s";
         tft.setCursor(16, 2);
         tft.print(Textito);
         tft.setCursor(x, y);
         colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
-        tft.print(criptomonedas[i]);
+        tft.print(criptomonedas[iii]);
         tft.setCursor(x, y + 15);
         tft.print("$");
         tft.print(precio);
-      } else {
-        if (i < 5) {
+      }
+      else
+      {
+        if (iii < 5)
+        {
           // Primera columna
           x = 5;
-          y = 20 + i * 30;
-        } else if (i < 10) {
+          y = 20 + iii * 30;
+        }
+        else if (iii < 10)
+        {
           // Segunda columna
           x = tft.width() / 4 + 10;
-          y = 20 + (i - 5) * 30;
-        } else if (i < 15) {
+          y = 20 + (iii - 5) * 30;
+        }
+        else if (iii < 15)
+        {
           // Tercera columna
           x = 2 * (tft.width() / 4) + 15;
-          y = 20 + (i - 10) * 30;
-        } else {
+          y = 20 + (iii - 10) * 30;
+        }
+        else
+        {
           // Cuarta columna
           x = 3 * (tft.width() / 4) + 20;
-          y = 20 + (i - 15) * 30;
+          y = 20 + (iii - 15) * 30;
         }
         colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
         tft.setTextSize(1);
-        tft.drawLine(0, 13, 320, 13, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+        tft.drawLine(0, 13, 320, 13, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
         String Textito = "M8AX - CryptoChrono 2Min - " + String(horas) + ":" + String(minutos) + ":" + String(minutos) + " - " + data.currentHashRate + " KH/s";
         tft.setCursor(16, 2);
         tft.print(Textito);
         tft.setCursor(x, y);
         colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
         tft.setTextColor(colors[colorI]);
-        tft.print(criptomonedas[i]);
+        tft.print(criptomonedas[iii]);
         tft.setCursor(x, y + 15);
         tft.print("$-ERROR-$");
         Serial.print("Error al obtener el precio de ");
-        Serial.println(criptomonedas[i]);
+        Serial.println(criptomonedas[iii]);
       }
     }
     actualizarc++;
@@ -3052,7 +4245,8 @@ void tDisplay_m8axScreen13(unsigned long mElapsed) {
   }
 }
 
-void tDisplay_m8axScreen14(unsigned long mElapsed) {
+void tDisplay_m8axScreen14(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3061,19 +4255,27 @@ void tDisplay_m8axScreen14(unsigned long mElapsed) {
   incrementCounter();
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (actuanot % 59 == 0 || correccion == 0) {
+  if (actuanot % 59 == 0 || correccion == 0)
+  {
     numnotis++;
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -3084,14 +4286,17 @@ void tDisplay_m8axScreen14(unsigned long mElapsed) {
     tft.setTextSize(1);
     tft.print("M8AX-Noticias Num-" + String(numnotis));
     tft.setTextColor(TFT_WHITE);
-    tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+    tft.drawLine(0, 20, 320, 20, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
     tft.setCursor(1, 6);
     tft.setTextSize(1);
     correccion = 1;
     int millonario = atoi(data.valids.c_str());
-    if (millonario == 0) {
+    if (millonario == 0)
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " NO RICO");
-    } else {
+    }
+    else
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " SI RICO");
     }
   }
@@ -3101,7 +4306,8 @@ void tDisplay_m8axScreen14(unsigned long mElapsed) {
   actual = 0;
 }
 
-void tDisplay_m8axScreen15(unsigned long mElapsed) {
+void tDisplay_m8axScreen15(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3112,7 +4318,8 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   incrementCounter();
-  if (actualizarcalen == 0) {
+  if (actualizarcalen == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarcalen++;
@@ -3121,29 +4328,37 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
   }
-  const char* hashRateStr = dataa.currentHashRate.c_str();  // Obtener la cadena
-  float hashRa = atof(hashRateStr);                         // Convertirla a flotante (float)
+  const char *hashRateStr = dataa.currentHashRate.c_str(); // Obtener la cadena
+  float hashRa = atof(hashRateStr);                        // Convertirla a flotante (float)
   dibujaAnalogKH(hashRa);
   tft.setTextColor(TFT_WHITE);
   tft.setTextSize(1);
   rndnumero3 = esp_random();
-  const char* factorizacion = factorize(rndnumero3);
+  const char *factorizacion = factorize(rndnumero3);
   tft.setCursor(4, 154);
   tft.print(String(rndnumero3) + " - " + (factorizacion));
   Serial.println("M8AX - Factorizando Número - " + String(rndnumero3) + " - " + (factorizacion));
@@ -3155,9 +4370,12 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   tft.setCursor(2, 6);
   tft.setTextSize(1);
   int millonario = atoi(data.valids.c_str());
-  if (millonario == 0) {
+  if (millonario == 0)
+  {
     tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " NO RICO");
-  } else {
+  }
+  else
+  {
     tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " SI RICO");
   }
   tft.setCursor(4, 23);
@@ -3185,8 +4403,8 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   tft.setTextColor(TFT_WHITE);
   float tflops = ((hashRa * 1000) * 2560) / 1000000000000;
   tft.setCursor(4, 100);
-  char buffer[10];                // Buffer para almacenar el número formateado
-  dtostrf(tflops, 8, 6, buffer);  // (valor, ancho mínimo, decimales, buffer)
+  char buffer[10];               // Buffer para almacenar el número formateado
+  dtostrf(tflops, 8, 6, buffer); // (valor, ancho mínimo, decimales, buffer)
   tft.print(buffer);
   tft.setCursor(4, 115);
   tft.setTextColor(colors[colorI]);
@@ -3212,8 +4430,8 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   tft.setTextColor(TFT_WHITE);
   float Mops = ((hashRa * 1000) * 2560) / 1000000;
   tft.setCursor(230, 50);
-  char bufferrr[10];              // Buffer para almacenar el número formateado
-  dtostrf(Mops, 8, 6, bufferrr);  // (valor, ancho mínimo, decimales, buffer)
+  char bufferrr[10];             // Buffer para almacenar el número formateado
+  dtostrf(Mops, 8, 6, bufferrr); // (valor, ancho mínimo, decimales, buffer)
   tft.print(bufferrr);
   tft.setCursor(230, 65);
   tft.setTextColor(colors[colorI]);
@@ -3242,19 +4460,19 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   tft.setTextColor(colors[colorI]);
   tft.print(quediase.c_str());
   tft.setTextColor(TFT_WHITE);
-  int X_INICIO = 230;                                       // Columna fija
-  int X_FINAL = 310;                                        // Base de la barra
-  int Y_POS = 147;                                          // Punto más alto
-  int longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
-  int longitud_pintada = (longitud_total * segundos) / 59;  // Porcentaje de la barra según los segundos
+  int X_INICIO = 230;                                      // Columna fija
+  int X_FINAL = 310;                                       // Base de la barra
+  int Y_POS = 147;                                         // Punto más alto
+  int longitud_total = X_FINAL - X_INICIO;                 // Longitud total de la barra (80 píxeles)
+  int longitud_pintada = (longitud_total * segundos) / 59; // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - 1, longitud_total + 1, 3, TFT_BLACK);
   tft.drawLine(X_INICIO, Y_POS, X_INICIO + longitud_pintada, Y_POS, TFT_WHITE);
   Y_POS = 135;
-  longitud_pintada = (longitud_total * horas) / 23;  // Porcentaje de la barra según las horas
+  longitud_pintada = (longitud_total * horas) / 23; // Porcentaje de la barra según las horas
   tft.fillRect(X_INICIO, Y_POS - 1, longitud_total + 1, 3, TFT_BLACK);
   tft.drawLine(X_INICIO, Y_POS, X_INICIO + longitud_pintada, Y_POS, TFT_WHITE);
   Y_POS = 141;
-  longitud_pintada = (longitud_total * minutos) / 59;  // Porcentaje de la barra según los minutos
+  longitud_pintada = (longitud_total * minutos) / 59; // Porcentaje de la barra según los minutos
   tft.fillRect(X_INICIO, Y_POS - 1, longitud_total + 1, 3, TFT_BLACK);
   tft.drawLine(X_INICIO, Y_POS, X_INICIO + longitud_pintada, Y_POS, TFT_WHITE);
   actualizarcalen = 0;
@@ -3262,7 +4480,8 @@ void tDisplay_m8axScreen15(unsigned long mElapsed) {
   actuanot = 0;
 }
 
-void tDisplay_m8axScreen16(unsigned long mElapsed) {
+void tDisplay_m8axScreen16(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3275,7 +4494,8 @@ void tDisplay_m8axScreen16(unsigned long mElapsed) {
   int currentDay = dataa.currentDate.substring(0, 2).toInt();
   int currentMonth = dataa.currentDate.substring(3, 5).toInt();
   incrementCounter();
-  if (actualizarcalen == 0) {
+  if (actualizarcalen == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarcalen++;
@@ -3283,33 +4503,44 @@ void tDisplay_m8axScreen16(unsigned long mElapsed) {
   background.pushSprite(0, 0);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
   }
-  int y = 30;  // Coordenada Y inicial
+  int y = 30; // Coordenada Y inicial
   int horitaUTC = horita - (esHorarioDeVerano(currentMonth, currentDay) ? 2 : 1);
-  for (int i = 0; i < 20; i++) {
+  for (int i = 0; i < 20; i++)
+  {
     // Calcula la hora local para cada ciudad, ajustando con la zona horaria de cada ciudad
-    int ciudadHora = horitaUTC + zonasHorarias[i];  // Ajusta la hora sumando la zona horaria de cada ciudad
+    int ciudadHora = horitaUTC + zonasHorarias[i]; // Ajusta la hora sumando la zona horaria de cada ciudad
 
     // Ajusta la hora si excede 24 horas o es menor a 0
-    if (ciudadHora < 0) {
+    if (ciudadHora < 0)
+    {
       ciudadHora += 24;
     }
-    if (ciudadHora >= 24) {
+    if (ciudadHora >= 24)
+    {
       ciudadHora -= 24;
     }
 
@@ -3318,37 +4549,42 @@ void tDisplay_m8axScreen16(unsigned long mElapsed) {
     sprintf(timeStr, "%02d:%02d:%02d", ciudadHora, minutitos, segundos);
 
     // Calcula la posición X en base a la columna (4 columnas)
-    int x = (i % 4) * 80;  // Las ciudades se distribuyen en 4 columnas
+    int x = (i % 4) * 80; // Las ciudades se distribuyen en 4 columnas
 
     // Muestra la ciudad y la hora
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.drawLine(0, 20, 320, 20, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+    tft.drawLine(0, 20, 320, 20, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
     tft.setTextColor(colors[colorI]);
     tft.setTextSize(1);
     tft.setCursor(x + 5, y);
     tft.print(ciudades[i]);
-    tft.setCursor(x + 5, y + 10);  // Posición de la hora
+    tft.setCursor(x + 5, y + 10); // Posición de la hora
     tft.print(timeStr);
     tft.setTextColor(TFT_WHITE);
     tft.setCursor(1, 6);
     tft.setTextSize(1);
     int millonario = atoi(data.valids.c_str());
-    if (millonario == 0) {
+    if (millonario == 0)
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " NO RICO");
-    } else {
+    }
+    else
+    {
       tft.print(data.currentTime + " - " + dataa.currentDate + " - " + data.currentHashRate + " KH/s - " + data.temp + " Grados." + " SI RICO");
     }
 
     // Cambia la posición Y para la siguiente fila (5 filas)
-    if ((i + 1) % 4 == 0) {  // Se cambia después de cada 4 columnas
-      y += 30;               // Aumenta la posición Y después de cada 4 ciudades
+    if ((i + 1) % 4 == 0)
+    {          // Se cambia después de cada 4 columnas
+      y += 30; // Aumenta la posición Y después de cada 4 ciudades
     }
   }
   actualizarc = 0;
   actuanot = 0;
 }
 
-void tDisplay_m8axScreen17(unsigned long mElapsed) {
+void tDisplay_m8axScreen17(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
   relojete = getClockData(mElapsed);
@@ -3356,7 +4592,8 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
   String btcm8 = "bitcoin:bc1qljq00pm2plq2l9jxzdzt0xc8t79j9wcmu7r8em";
   unsigned long segundo = timeClient.getSeconds();
   incrementCounter();
-  if (actualizarcalen == 0) {
+  if (actualizarcalen == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarcalen++;
@@ -3364,18 +4601,26 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
   background.pushSprite(0, 0);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -3449,15 +4694,16 @@ void tDisplay_m8axScreen17(unsigned long mElapsed) {
   tft.print("J");
   tft.setCursor(300, 151);
   tft.print("O");
-  tft.setCursor(128, 159);
+  tft.setCursor(128, 162);
   tft.setTextSize(1);
   tft.print(data.currentHashRate + " KH/s");
-  uint16_t colorss[] = { TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW };  // Array de colores
+  uint16_t colorss[] = {TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW}; // Array de colores
   int colorrr = esp_random() % 4;
-  dibujaQR(btcm8, (320 - 150) / 2, (170 - 150) / 2, 150, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
+  dibujaQR(btcm8, (320 - 150) / 2, (170 - 150) / 2, 150, colorss[colorrr]); // Dibuja el QR centrado en la pantalla 320x170
 }
 
-void tDisplay_m8axScreen18(unsigned long mElapsed) {
+void tDisplay_m8axScreen18(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3468,7 +4714,8 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
   incrementCounter();
-  if (actualizarcalen == 0) {
+  if (actualizarcalen == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarcalen++;
@@ -3476,18 +4723,26 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   background.pushSprite(0, 0);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -3501,9 +4756,9 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   tft.setTextSize(1);
   tft.setCursor(1, 90);
   tft.print("'Las Cifras' Num - " + String(totalci) + ". AC - " + String(aciertos) + " FA - " + String(fallos));
-  tft.drawLine(0, 100, 320, 100, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+  tft.drawLine(0, 100, 320, 100, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
   int numeritos[6];
-  int destino = 1 + (esp_random() % 1000);  // Usa esp_random() en lugar de rand()
+  int destino = 1 + (esp_random() % 1000); // Usa esp_random() en lugar de rand()
   generate_random_numbers(numeritos, 6, 1, 100);
   // Imprime los números generados
   tft.setCursor(2, 104);
@@ -3523,36 +4778,40 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   tft.print("Numero Objetivo - " + String(destino));
   tft.setCursor(160, 114);
   int millonario = atoi(data.valids.c_str());
-  if (millonario == 0) {
+  if (millonario == 0)
+  {
     tft.print("NoRICO - ");
     tft.print(data.currentHashRate);
     tft.print(" KH/s. ");
     tft.print(data.temp);
     tft.print(" g");
-  } else {
+  }
+  else
+  {
     tft.print("SiRICO - ");
     tft.print(data.currentHashRate);
     tft.print(" KH/s. ");
     tft.print(data.temp);
     tft.print(" g");
   }
-  tft.drawLine(0, 124, 320, 124, colors[colorI]);  // Dibujar línea de (0, y) a (320, y)
+  tft.drawLine(0, 124, 320, 124, colors[colorI]); // Dibujar línea de (0, y) a (320, y)
   tft.setCursor(2, 128);
   Serial.print("M8AX - Números: ");
-  for (int i = 0; i < 6; i++) {
-    Serial.print(numeritos[i]);  // Imprime el número
-    Serial.print(" ");           // Imprime un espacio
+  for (int i = 0; i < 6; i++)
+  {
+    Serial.print(numeritos[i]); // Imprime el número
+    Serial.print(" ");          // Imprime un espacio
   }
   Serial.println();
   // Imprime el objetivo
   Serial.print("M8AX - Objetivo: ");
   Serial.println("M8AX . " + String(destino));
 
-  int X_INICIO = 173;                                       // Columna fija
-  int X_FINAL = 315;                                        // Base de la barra
-  int Y_POS = 107;                                          // Punto más alto
-  int longitud_total = X_FINAL - X_INICIO;                  // Longitud total de la barra (80 píxeles)
-  int longitud_pintada = (longitud_total * segundos) / 59;  // Porcentaje de la barra según los segundos
+  int X_INICIO = 173;                                      // Columna fija
+  int X_FINAL = 315;                                       // Base de la barra
+  int Y_POS = 107;                                         // Punto más alto
+  int longitud_total = X_FINAL - X_INICIO;                 // Longitud total de la barra (80 píxeles)
+  int longitud_pintada = (longitud_total * segundos) / 59; // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - 1, longitud_total + 1, 3, TFT_BLACK);
   tft.drawLine(X_INICIO, Y_POS, X_INICIO + longitud_pintada, Y_POS, TFT_WHITE);
 
@@ -3560,13 +4819,13 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
 
   calculate_operations(numeritos, destino, result);
   tft.print(result);
-  uint16_t colorss[] = { TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW, TFT_LIGHTGREY, TFT_SILVER };  // Array de colores
+  uint16_t colorss[] = {TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW, TFT_LIGHTGREY, TFT_SILVER}; // Array de colores
   int colorrr = esp_random() % 6;
-  dibujaQR(String(horita), 0, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
+  dibujaQR(String(horita), 0, 0, 98, colorss[colorrr]); // Dibuja el QR centrado en la pantalla 320x170
   colorrr = esp_random() % 6;
-  dibujaQR(String(minutitos), 115, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
+  dibujaQR(String(minutitos), 115, 0, 98, colorss[colorrr]); // Dibuja el QR centrado en la pantalla 320x170
   colorrr = esp_random() % 6;
-  dibujaQR(String(segundos), 228, 0, 98, colorss[colorrr]);  // Dibuja el QR centrado en la pantalla 320x170
+  dibujaQR(String(segundos), 228, 0, 98, colorss[colorrr]); // Dibuja el QR centrado en la pantalla 320x170
   tft.setTextSize(5);
   tft.setCursor(87, 30);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
@@ -3581,7 +4840,8 @@ void tDisplay_m8axScreen18(unsigned long mElapsed) {
   tft.setTextSize(1);
 }
 
-void monedaYdado(unsigned long mElapsed) {
+void monedaYdado(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3591,10 +4851,11 @@ void monedaYdado(unsigned long mElapsed) {
   int minutitos = dataa.currentTime.substring(3, 5).toInt();
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
-  char horaStr[9];  // Buffer para almacenar la hora en formato HH:MM:SS
+  char horaStr[9]; // Buffer para almacenar la hora en formato HH:MM:SS
   sprintf(horaStr, "%02d:%02d:%02d", horita, minutitos, segundos);
   incrementCounter();
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarc++;
@@ -3602,18 +4863,26 @@ void monedaYdado(unsigned long mElapsed) {
   background.pushSprite(0, 0);
   Serial.printf("M8AX ->>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -3622,8 +4891,8 @@ void monedaYdado(unsigned long mElapsed) {
   correccion = 0;
   actuanot = 0;
   actualizarcalen = 0;
-  int dado = esp_random() % 6 + 1;  // Números del 1 al 6
-  int moneda = esp_random() % 2;    // 0 (cara), 1 (cruz)
+  int dado = esp_random() % 6 + 1; // Números del 1 al 6
+  int moneda = esp_random() % 2;   // 0 (cara), 1 (cruz)
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(108, 88);
   tft.setTextSize(1);
@@ -3643,8 +4912,8 @@ void monedaYdado(unsigned long mElapsed) {
   tft.print("EL DADO Y LA MONEDA");
   tft.setCursor(46, 27);
   tft.print("DE LA SUERTE");
-  String cadena = data.currentHashRate.c_str();  // O "234,65" si necesitas reemplazar la coma
-  cadena.replace(',', '.');                      // Si es necesario
+  String cadena = data.currentHashRate.c_str(); // O "234,65" si necesitas reemplazar la coma
+  cadena.replace(',', '.');                     // Si es necesario
   float valor = cadena.toFloat();
   int parteEntera = (int)valor;
   int parteDecimal = (int)((valor - parteEntera) * 100 + 0.5);
@@ -3653,7 +4922,7 @@ void monedaYdado(unsigned long mElapsed) {
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(0, 132);
   tft.setTextSize(2);
-  tft.setTextDatum(MC_DATUM);  // Centra el texto
+  tft.setTextDatum(MC_DATUM); // Centra el texto
   tft.print(numeroAEscrito(parteEntera, false) + " Con ");
   tft.print(numeroAEscrito(parteDecimal, true) + " KH/s.");
   tft.setCursor(115, 50);
@@ -3664,7 +4933,8 @@ void monedaYdado(unsigned long mElapsed) {
   tft.setTextSize(1);
 }
 
-void tDisplay_m8axvida(unsigned long mElapsed) {
+void tDisplay_m8axvida(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   monedilla = getCoinData(mElapsed);
   relojete = getClockData(mElapsed);
@@ -3672,18 +4942,26 @@ void tDisplay_m8axvida(unsigned long mElapsed) {
   incrementCounter();
   Serial.printf("M8AX ->>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (actuanot % 10 == 0 || correccion == 0) {
+  if (actuanot % 10 == 0 || correccion == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
@@ -3699,12 +4977,15 @@ void tDisplay_m8axvida(unsigned long mElapsed) {
     genCount = MAX_GEN_COUNT;
     drawGrid();
     // Computar Generaciones
-    for (int gen = 0; gen < genCount; gen++) {
+    for (int gen = 0; gen < genCount; gen++)
+    {
       computeCA();
       drawGrid();
       delay(GEN_DELAY);
-      for (int16_t x = 1; x < GRIDX - 1; x++) {
-        for (int16_t y = 1; y < GRIDY - 1; y++) {
+      for (int16_t x = 1; x < GRIDX - 1; x++)
+      {
+        for (int16_t y = 1; y < GRIDY - 1; y++)
+        {
           grid[x][y] = newgrid[x][y];
         }
       }
@@ -3715,7 +4996,8 @@ void tDisplay_m8axvida(unsigned long mElapsed) {
   actual = 0;
 }
 
-void RelojDeNumeros(unsigned long mElapsed) {
+void RelojDeNumeros(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3728,14 +5010,15 @@ void RelojDeNumeros(unsigned long mElapsed) {
   int horas = dataa.currentTime.substring(0, 2).toInt();
   int minutos = dataa.currentTime.substring(3, 5).toInt();
   int segundos = segundo % 60;
-  int horis1 = horas / 10;        // Primer dígito de las horas
-  int horis2 = horas % 10;        // Segundo dígito de las horas
-  int minutis1 = minutos / 10;    // Primer dígito de los minutos
-  int minutis2 = minutos % 10;    // Segundo dígito de los minutos
-  int segundis1 = segundos / 10;  // Primer dígito de los segundos
-  int segundis2 = segundos % 10;  // Segundo dígito de los segundos
+  int horis1 = horas / 10;       // Primer dígito de las horas
+  int horis2 = horas % 10;       // Segundo dígito de las horas
+  int minutis1 = minutos / 10;   // Primer dígito de los minutos
+  int minutis2 = minutos % 10;   // Segundo dígito de los minutos
+  int segundis1 = segundos / 10; // Primer dígito de los segundos
+  int segundis2 = segundos % 10; // Segundo dígito de los segundos
 
-  if (segundos % 59 == 0) {
+  if (segundos % 59 == 0)
+  {
     actualizarc = 0;
   }
   std::string quediase = obtenerDiaSemana(std::string(dataa.currentDate.c_str()));
@@ -3746,28 +5029,42 @@ void RelojDeNumeros(unsigned long mElapsed) {
   int mins = dataa.currentTime.substring(3, 5).toInt();
   int segundosDelDia = (horis * 3600) + (mins * 60) + segundos;
   String hRoman1 = numeroAEscrito(horis1);
+  hRoman1.toUpperCase();
   String hRoman2 = numeroAEscrito(horis2);
+  hRoman2.toUpperCase();
   String mRoman1 = numeroAEscrito(minutis1);
+  mRoman1.toUpperCase();
   String mRoman2 = numeroAEscrito(minutis2);
+  mRoman2.toUpperCase();
   String sRoman1 = numeroAEscrito(segundis1);
+  sRoman1.toUpperCase();
   String sRoman2 = numeroAEscrito(segundis2);
-  String RDia = numeroAEscrito(dia);
-  String RMes = numeroAEscrito(mes);
+  sRoman2.toUpperCase();
+  String RDia = String(dia);
+  String RMes = String(mes);
   String RAnio = String(anio);
   String TempCPU = String(data.temp.c_str());
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     random_number = 1 + (esp_random() % 4);
   }
-  if (random_number == 1) {
+  if (random_number == 1)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
-  } else if (random_number == 2) {
+  }
+  else if (random_number == 2)
+  {
     background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
     background.pushSprite(0, 0);
-  } else if (random_number == 3) {
+  }
+  else if (random_number == 3)
+  {
     background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
     background.pushSprite(0, 0);
-  } else if (random_number == 4) {
+  }
+  else if (random_number == 4)
+  {
     background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
     background.pushSprite(0, 0);
   }
@@ -3820,12 +5117,15 @@ void RelojDeNumeros(unsigned long mElapsed) {
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(String(data.currentHashRate.c_str()) + " KH/s");
-  if (millonario == 1) {
+  if (millonario == 1)
+  {
     tft.setCursor(250, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
     tft.print("ERES RICO");
-  } else {
+  }
+  else
+  {
     tft.setCursor(250, 72);
     colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
     tft.setTextColor(colors[colorI]);
@@ -3855,11 +5155,11 @@ void RelojDeNumeros(unsigned long mElapsed) {
   tft.setTextColor(colors[colorI]);
   tft.print("360 KH/s");
   int grosor = 5;
-  int X_INICIO = 5;                                                              // Columna fija
-  int X_FINAL = 242;                                                             // Base de la barra
-  int Y_POS = 43;                                                                // Punto más alto
-  int longitud_total = X_FINAL - X_INICIO;                                       // Longitud total de la barra (80 píxeles)
-  int longitud_pintada = (longitud_total * data.currentHashRate.toInt()) / 360;  // Porcentaje de la barra según los segundos
+  int X_INICIO = 5;                                                             // Columna fija
+  int X_FINAL = 242;                                                            // Base de la barra
+  int Y_POS = 43;                                                               // Punto más alto
+  int longitud_total = X_FINAL - X_INICIO;                                      // Longitud total de la barra (80 píxeles)
+  int longitud_pintada = (longitud_total * data.currentHashRate.toInt()) / 360; // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
   tft.setCursor(5, 124);
@@ -3871,16 +5171,17 @@ void RelojDeNumeros(unsigned long mElapsed) {
   tft.setTextColor(colors[colorI]);
   tft.print("24 Horas");
   grosor = 5;
-  X_INICIO = 4;                                                  // Columna fija
-  X_FINAL = 242;                                                 // Base de la barra
-  Y_POS = 117;                                                   // Punto más alto
-  longitud_total = X_FINAL - X_INICIO;                           // Longitud total de la barra (80 píxeles)
-  longitud_pintada = (longitud_total * segundosDelDia) / 86400;  // Porcentaje de la barra según los segundos
+  X_INICIO = 4;                                                 // Columna fija
+  X_FINAL = 242;                                                // Base de la barra
+  Y_POS = 117;                                                  // Punto más alto
+  longitud_total = X_FINAL - X_INICIO;                          // Longitud total de la barra (80 píxeles)
+  longitud_pintada = (longitud_total * segundosDelDia) / 86400; // Porcentaje de la barra según los segundos
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_total + 1, grosor, TFT_BLACK);
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
 }
 
-void datoTextPlano(unsigned long mElapsed) {
+void datoTextPlano(unsigned long mElapsed)
+{
   mining_data data = getMiningData(mElapsed);
   clock_data dataa = getClockData(mElapsed);
   monedilla = getCoinData(mElapsed);
@@ -3888,34 +5189,44 @@ void datoTextPlano(unsigned long mElapsed) {
   mineria = getMiningData(mElapsed);
   unsigned long segundo = timeClient.getSeconds();
   incrementCounter();
-  if (actualizarc == 0) {
+  if (actualizarc == 0)
+  {
     background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
     background.pushSprite(0, 0);
     actualizarc++;
     background.pushSprite(0, 0);
-    recopilaTelegram2();
+    datosPantallaTextoPlano();
   }
   Serial.printf("M8AX ->>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  if (segundo % 30 == 0) {
+  if (segundo % 30 == 0)
+  {
     int random_number = 1 + (esp_random() % 4);
-    if (random_number == 1) {
+    if (random_number == 1)
+    {
       background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
       background.pushSprite(0, 0);
-    } else if (random_number == 2) {
+    }
+    else if (random_number == 2)
+    {
       background.pushImage(0, 0, M8AXRelojLunarWidth, M8AXRelojLunarHeight, M8AXRelojLunar);
       background.pushSprite(0, 0);
-    } else if (random_number == 3) {
+    }
+    else if (random_number == 3)
+    {
       background.pushImage(0, 0, M8AXQuote1Width, M8AXQuote1Height, M8AXQuote1);
       background.pushSprite(0, 0);
-    } else if (random_number == 4) {
+    }
+    else if (random_number == 4)
+    {
       background.pushImage(0, 0, M8AXQuote2Width, M8AXQuote2Height, M8AXQuote2);
       background.pushSprite(0, 0);
     }
   }
-  if (segundo % 5 == 0) {
+  if (segundo % 5 == 0)
+  {
     background.pushSprite(0, 0);
-    recopilaTelegram2();
+    datosPantallaTextoPlano();
   }
   actual = 0;
   correccion = 0;
@@ -3923,27 +5234,29 @@ void datoTextPlano(unsigned long mElapsed) {
   actualizarcalen = 0;
 }
 
-void tDisplay_LoadingScreen(void) {
+void tDisplay_LoadingScreen(void)
+{
   int effect = esp_random() % 6;
-  switch (effect) {
-    case 0:
-      cortinas();
-      break;
-    case 1:
-      M8AXTicker2();
-      break;
-    case 2:
-      M8AXTicker();
-      break;
-    case 3:
-      M8AXTicker3();
-      break;
-    case 4:
-      M8AXTicker4();
-      break;
-    case 5:
-      nevar3();
-      break;
+  switch (effect)
+  {
+  case 0:
+    cortinas();
+    break;
+  case 1:
+    M8AXTicker2();
+    break;
+  case 2:
+    M8AXTicker();
+    break;
+  case 3:
+    M8AXTicker3();
+    break;
+  case 4:
+    M8AXTicker4();
+    break;
+  case 5:
+    nevar3();
+    break;
   }
   tft.fillScreen(TFT_BLACK);
   tft.pushImage(0, 0, initWidth, initHeight, initScreen);
@@ -3952,34 +5265,42 @@ void tDisplay_LoadingScreen(void) {
   tft.drawString(CURRENT_VERSION, 25, 148, FONT2);
 }
 
-void tDisplay_SetupScreen(void) {
+void tDisplay_SetupScreen(void)
+{
   tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
 }
 
-void analiCadaSegundo(unsigned long frame) {
-  unsigned long epochTime = timeClient.getEpochTime();  // Obtener segundos desde 1970
-  time_t epoch = (time_t)epochTime;                     // Convertir a time_t
-  struct tm* timeinfo = localtime(&epoch);              // Convertir a una estructura de tiempo local
-  int dia = timeinfo->tm_mday;                          // Día del mes (1 a 31)
-  int mes = timeinfo->tm_mon + 1;                       // Mes (1 a 12)
-  int anio = timeinfo->tm_year + 1900;                  // Año (por defecto es desde 1900)
-  int horita = timeinfo->tm_hour;                       // Hora
-  int minutitos = timeinfo->tm_min;                     // Minutos
-  int segundos = timeinfo->tm_sec;                      // Segundos
+void analiCadaSegundo(unsigned long frame)
+{
+  unsigned long epochTime = timeClient.getEpochTime(); // Obtener segundos desde 1970
+  time_t epoch = (time_t)epochTime;                    // Convertir a time_t
+  struct tm *timeinfo = localtime(&epoch);             // Convertir a una estructura de tiempo local
+  int dia = timeinfo->tm_mday;                         // Día del mes (1 a 31)
+  int mes = timeinfo->tm_mon + 1;                      // Mes (1 a 12)
+  int anio = timeinfo->tm_year + 1900;                 // Año (por defecto es desde 1900)
+  int horita = timeinfo->tm_hour;                      // Hora
+  int minutitos = timeinfo->tm_min;                    // Minutos
+  int segundos = timeinfo->tm_sec;                     // Segundos
 
   BOT_TOKEN = Settings.botTelegram;
   CHAT_ID = Settings.ChanelIDTelegram;
 
   // Felicitar La Navidad O El Año Nuevo
 
-  if (((mes == 12 && dia >= 20) || (mes == 1 && dia <= 6)) && anio != 1970) {
-    if (minutitos == 30 && ((horita >= 8 && horita <= 15) || (horita >= 19 && horita <= 23) || (horita >= 0 && horita <= 2)) && (horita % 2 == 0)) {
-      if (segundos == 0 && dia % 2 == 0) {
-        if (mes == 12) {
+  if (((mes == 12 && dia >= 20) || (mes == 1 && dia <= 6)) && anio != 1970)
+  {
+    if (minutitos == 30 && ((horita >= 8 && horita <= 15) || (horita >= 19 && horita <= 23) || (horita >= 0 && horita <= 2)) && (horita % 2 == 0))
+    {
+      if (segundos == 0 && dia % 2 == 0)
+      {
+        if (mes == 12)
+        {
           nevar();
           Serial.println("M8AX - Felicitando La Navidad...");
           ContadorEspecial = 0;
-        } else if (mes == 1) {
+        }
+        else if (mes == 1)
+        {
           nevar2();
           Serial.println("M8AX - Felicitando El Año Nuevo...");
           ContadorEspecial = 0;
@@ -3990,7 +5311,8 @@ void analiCadaSegundo(unsigned long frame) {
   }
 
   rndnumero = esp_random();
-  if (rndnumero <= 10031977 && segundos <= 10 && segundos % 2 == 0 && dia % 2 == 0) {
+  if (rndnumero <= 10031977 && segundos <= 16 && segundos % 2 == 0 && dia % 2 != 0)
+  {
     Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
     actualizarcalen = 0;
     actualizarc = 0;
@@ -4000,27 +5322,30 @@ void analiCadaSegundo(unsigned long frame) {
     correccion = 0;
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(colors[colorIndex]);
-    tft.setTextSize(3);   // Tamaño del texto
-    tft.setCursor(0, 0);  // Posición del cursor
-    if (rndnumero % 2 == 0) {
+    tft.setTextSize(3);  // Tamaño del texto
+    tft.setCursor(0, 0); // Posición del cursor
+    if (rndnumero % 2 == 0)
+    {
       tft.println("La Esperanza Es");
       tft.println("Lo Ultimo Que");
       tft.println("Se Pierde...");
       tft.println("Lo Conseguiremos!");
       tft.println("");
       tft.println("     VAMOS !");
-      tft.setTextSize(1);  // Tamaño del texto
+      tft.setTextSize(1); // Tamaño del texto
       tft.println("");
-      tft.setTextSize(2);  // Tamaño del texto
+      tft.setTextSize(2); // Tamaño del texto
       tft.setTextColor(TFT_WHITE);
       tft.println("     ... By M8AX ...");
-    } else {
+    }
+    else
+    {
       tft.println("Hope Is The Last");
       tft.println("Thing To Lose, We");
       tft.println("Will Archieve It!");
       tft.println("");
       tft.println("    COME ON !");
-      tft.setTextSize(2);  // Tamaño del texto
+      tft.setTextSize(2); // Tamaño del texto
       tft.setTextColor(TFT_WHITE);
       tft.println("");
       tft.println("");
@@ -4028,39 +5353,43 @@ void analiCadaSegundo(unsigned long frame) {
     }
     delay(3000);
   }
-  
-  if (horita % 2 == 0) {
-    if (minutitos == 0 && segundos == 25 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO") {
-      sumatele+=1;
+
+  if (horita % 2 == 0)
+  {
+    if (minutitos == 0 && segundos == 25 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
+    {
+      sumatele += 1;
       recopilaTelegram();
-    }  
+    }
   }
 }
 
-void tDisplay_AnimateCurrentScreen(unsigned long frame) {
+void tDisplay_AnimateCurrentScreen(unsigned long frame)
+{
   ContadorEspecial++;
-  if (ContadorEspecial % 5 == 0) {
+  if (ContadorEspecial % 5 == 0)
+  {
     analiCadaSegundo(frame);
   }
 }
 
-void tDisplay_DoLedStuff(unsigned long frame) {
+void tDisplay_DoLedStuff(unsigned long frame)
+{
 }
 
-CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, datoTextPlano, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida };
+CyclicScreenFunction tDisplayCyclicScreens[] = {tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, datoTextPlano, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida};
 
 DisplayDriver tDisplayDriver = {
-  tDisplay_Init,
-  tDisplay_AlternateScreenState,
-  tDisplay_AlternateRotation,
-  tDisplay_LoadingScreen,
-  tDisplay_SetupScreen,
-  tDisplayCyclicScreens,
-  tDisplay_AnimateCurrentScreen,
-  tDisplay_DoLedStuff,
-  SCREENS_ARRAY_SIZE(tDisplayCyclicScreens),
-  0,
-  WIDTH,
-  HEIGHT
-};
+    tDisplay_Init,
+    tDisplay_AlternateScreenState,
+    tDisplay_AlternateRotation,
+    tDisplay_LoadingScreen,
+    tDisplay_SetupScreen,
+    tDisplayCyclicScreens,
+    tDisplay_AnimateCurrentScreen,
+    tDisplay_DoLedStuff,
+    SCREENS_ARRAY_SIZE(tDisplayCyclicScreens),
+    0,
+    WIDTH,
+    HEIGHT};
 #endif
