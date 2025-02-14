@@ -5,6 +5,6 @@
 #include <NTPClient.h>
 
 // Declaración externa de timeClient (no definición)
-extern NTPClient timeClient;  
+extern NTPClient timeClient;
 
 #endif

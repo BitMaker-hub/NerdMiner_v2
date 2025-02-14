@@ -46,7 +46,7 @@ void tDisplay_AlternateScreenState(void)
 
 void tDisplay_AlternateRotation(void)
 {
-  tft.setRotation( flipRotation(tft.getRotation()) );
+  tft.setRotation(flipRotation(tft.getRotation()));
 }
 
 void tDisplay_MinerScreen(unsigned long mElapsed)
@@ -197,7 +197,7 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed)
 void tDisplay_BTCprice(unsigned long mElapsed)
 {
   clock_data data = getClockData(mElapsed);
-  
+
   // Print background screen
   background.pushImage(0, 0, priceScreenWidth, priceScreenHeight, priceScreen);
 
@@ -221,7 +221,7 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   background.setTextColor(TFT_BLACK);
   background.drawString(data.currentTime.c_str(), 148, 1, GFXFF);
 
-  // Print BTC Price 
+  // Print BTC Price
   background.setFreeFont(FF24);
   background.setTextDatum(TR_DATUM);
   background.setTextSize(1);

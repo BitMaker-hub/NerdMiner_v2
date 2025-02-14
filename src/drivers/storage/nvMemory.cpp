@@ -9,7 +9,7 @@
 #include "../devices/device.h"
 #include "storage.h"
 
-nvMemory::nvMemory() : Initialized_(false){};
+nvMemory::nvMemory() : Initialized_(false) {};
 
 nvMemory::~nvMemory()
 {
@@ -20,12 +20,12 @@ nvMemory::~nvMemory()
 /// @brief Save settings to config file on SPIFFS
 /// @param TSettings* Settings to be saved.
 /// @return true on success
-bool nvMemory::saveConfig(TSettings* Settings)
+bool nvMemory::saveConfig(TSettings *Settings)
 {
     if (init())
     {
         // Save Config in JSON format
-        Serial.println(F("SPIFS: Saving configuration."));
+        Serial.println(F("SPIFS: Grabando Configuración"));
 
         // Create a JSON document
         StaticJsonDocument<512> json;
@@ -45,7 +45,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         if (!configFile)
         {
             // Error, file did not open
-            Serial.println("SPIFS: Failed to open config file for writing");
+            Serial.println("SPIFS: Error Al Abrir El Fichero De Configuración Para Escritura");
             return false;
         }
 
@@ -55,7 +55,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         if (serializeJson(json, configFile) == 0)
         {
             // Error writing file
-            Serial.println(F("SPIFS: Failed to write to file"));
+            Serial.println(F("SPIFS: Fallo Al Grabar Al Fichero De Configuración"));
             return false;
         }
         // Close file
@@ -68,7 +68,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
 /// @brief Load settings from config file located in SPIFFS.
 /// @param TSettings* Struct to update with new settings.
 /// @return true on success
-bool nvMemory::loadConfig(TSettings* Settings)
+bool nvMemory::loadConfig(TSettings *Settings)
 {
     // Uncomment if we need to format filesystem
     // SPIFFS.format();
@@ -84,7 +84,7 @@ bool nvMemory::loadConfig(TSettings* Settings)
             File configFile = SPIFFS.open(JSON_CONFIG_FILE, "r");
             if (configFile)
             {
-                Serial.println("SPIFS: Loading config file");
+                Serial.println("SPIFS: Cargando Fichero De Configuración");
                 StaticJsonDocument<512> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
@@ -103,14 +103,20 @@ bool nvMemory::loadConfig(TSettings* Settings)
                         Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
-                    if (json.containsKey(JSON_SPIFFS_KEY_INVCOLOR)) {
+                    if (json.containsKey(JSON_SPIFFS_KEY_INVCOLOR))
+                    {
                         Settings->invertColors = json[JSON_SPIFFS_KEY_INVCOLOR].as<bool>();
-                    } else {
+                    }
+                    else
+                    {
                         Settings->invertColors = false;
                     }
-                    if (json.containsKey(JSON_SPIFFS_KEY_BRIGHTNESS)) {
+                    if (json.containsKey(JSON_SPIFFS_KEY_BRIGHTNESS))
+                    {
                         Settings->Brightness = json[JSON_SPIFFS_KEY_BRIGHTNESS].as<int>();
-                    } else {
+                    }
+                    else
+                    {
                         Settings->Brightness = 250;
                     }
                     return true;
@@ -118,17 +124,17 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 else
                 {
                     // Error loading JSON data
-                    Serial.println("SPIFS: Error parsing config file!");
+                    Serial.println("SPIFS: Error Analizando Fichero De Configuración!");
                 }
             }
             else
             {
-                Serial.println("SPIFS: Error opening config file!");
+                Serial.println("SPIFS: Error Abriendo Fichero De Configuración!");
             }
         }
         else
         {
-            Serial.println("SPIFS: No config file available!");
+            Serial.println("SPIFS: No Hay Ficheror De Configuración Disponible!");
         }
     }
     return false;
@@ -138,8 +144,8 @@ bool nvMemory::loadConfig(TSettings* Settings)
 /// @return true on successs
 bool nvMemory::deleteConfig()
 {
-    Serial.println("SPIFS: Erasing config file..");
-    return SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
+    Serial.println("SPIFS: Borrando Fichero De Configuración");
+    return SPIFFS.remove(JSON_CONFIG_FILE); // Borramos fichero
 }
 
 /// @brief Prepare and mount SPIFFS
@@ -148,14 +154,14 @@ bool nvMemory::init()
 {
     if (!Initialized_)
     {
-        Serial.println("SPIFS: Mounting File System...");
+        Serial.println("SPIFS: Montando Sistema De Ficheros...");
         // May need to make it begin(true) first time you are using SPIFFS
         Initialized_ = SPIFFS.begin(false) || SPIFFS.begin(true);
-        Initialized_ ? Serial.println("SPIFS: Mounted") : Serial.println("SPIFS: Mounting failed.");
+        Initialized_ ? Serial.println("SPIFS: Montado") : Serial.println("SPIFS: Montado De Sistema Fallido...");
     }
     else
     {
-        Serial.println("SPIFS: Already Mounted");
+        Serial.println("SPIFS: Ya Está Montado...");
     }
     return Initialized_;
 };
@@ -164,10 +170,9 @@ bool nvMemory::init()
 
 nvMemory::nvMemory() {}
 nvMemory::~nvMemory() {}
-bool nvMemory::saveConfig(TSettings* Settings) { return false; }
-bool nvMemory::loadConfig(TSettings* Settings) { return false; }
+bool nvMemory::saveConfig(TSettings *Settings) { return false; }
+bool nvMemory::loadConfig(TSettings *Settings) { return false; }
 bool nvMemory::deleteConfig() { return false; }
 bool nvMemory::init() { return false; }
 
-
-#endif //NVMEM_TYPE
+#endif // NVMEM_TYPE

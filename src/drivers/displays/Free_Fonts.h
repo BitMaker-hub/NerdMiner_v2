@@ -45,7 +45,7 @@
 
 // Use these when printing or drawing text in GLCD and high rendering speed fonts
 #define GFXFF 1
-#define GLCD  0
+#define GLCD 0
 #define FONT2 2
 #define FONT4 4
 #define FONT6 6
@@ -119,7 +119,7 @@
 #define FSBI18 &FreeSerifBoldItalic18pt7b
 #define FSBI24 &FreeSerifBoldItalic24pt7b
 
-#define FF0 NULL //ff0 reserved for GLCD
+#define FF0 NULL // ff0 reserved for GLCD
 #define FF1 &FreeMono9pt7b
 #define FF2 &FreeMono12pt7b
 #define FF3 &FreeMono18pt7b
@@ -257,7 +257,7 @@
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #define GFXFF 1
-#define GLCD  1
+#define GLCD 1
 #define FONT2 2
 #define FONT4 4
 #define FONT6 6
@@ -314,62 +314,62 @@
 #define FF47 1
 #define FF48 1
 
-#define FM9  1
+#define FM9 1
 #define FM12 1
 #define FM18 1
 #define FM24 1
 
-#define FMB9  1
+#define FMB9 1
 #define FMB12 1
 #define FMB18 1
 #define FMB24 1
 
-#define FMO9  1
+#define FMO9 1
 #define FMO12 1
 #define FMO18 1
 #define FMO24 1
 
-#define FMBO9  1
+#define FMBO9 1
 #define FMBO12 1
 #define FMBO18 1
 #define FMBO24 1
 
-#define FSS9  1
+#define FSS9 1
 #define FSS12 1
 #define FSS18 1
 #define FSS24 1
 
-#define FSSB9  1
+#define FSSB9 1
 #define FSSB12 1
 #define FSSB18 1
 #define FSSB24 1
 
-#define FSSO9  1
+#define FSSO9 1
 #define FSSO12 1
 #define FSSO18 1
 #define FSSO24 1
 
-#define FSSBO9  1
+#define FSSBO9 1
 #define FSSBO12 1
 #define FSSBO18 1
 #define FSSBO24 1
 
-#define FS9  1
+#define FS9 1
 #define FS12 1
 #define FS18 1
 #define FS24 1
 
-#define FSI9  1
+#define FSI9 1
 #define FSI12 1
 #define FSI19 1
 #define FSI24 1
 
-#define FSB9  1
+#define FSB9 1
 #define FSB12 1
 #define FSB18 1
 #define FSB24 1
 
-#define FSBI9  1
+#define FSBI9 1
 #define FSBI12 1
 #define FSBI18 1
 #define FSBI24 1

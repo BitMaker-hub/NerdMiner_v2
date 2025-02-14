@@ -105,7 +105,6 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 
 #### Wifi Accesspoint
 
-
 1. Connect to NerdMinerAP
    - AP: NerdMinerAP
    - PASS: MineYourCoins
@@ -115,21 +114,21 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 
    - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
 
-
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
-1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:
+
 ```
-{  
-  "SSID": "myWifiSSID",  
-  "WifiPW": "myWifiPassword",  
-  "PoolUrl": "public-pool.io",  
+{
+  "SSID": "myWifiSSID",
+  "WifiPW": "myWifiPassword",
+  "PoolUrl": "public-pool.io",
   "PoolPort": 21496,
   "PoolPassword": "x",
-  "BtcWallet": "walletID",  
-  "Timezone": 2,  
-  "SaveStats": false  
+  "BtcWallet": "walletID",
+  "Timezone": 2,
+  "SaveStats": false
 }
 ```
 
@@ -141,13 +140,13 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 
 Recommended low difficulty share pools:
 
-| Pool URL          | Port  | Web URL                    | Status                                                             |
-| ----------------- | ----- | -------------------------- | ------------------------------------------------------------------ |
-| public-pool.io    | 21496 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
-| pool.nerdminers.org    | 3333  | https://nerdminers.org     | The official Nerdminer pool site - Mantained by @golden-guy |
-| pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
-| pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |
-| pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
+| Pool URL                | Port  | Web URL                          | Status                                                             |
+| ----------------------- | ----- | -------------------------------- | ------------------------------------------------------------------ |
+| public-pool.io          | 21496 | https://web.public-pool.io       | Open Source Solo Bitcoin Mining Pool supporting open source miners |
+| pool.nerdminers.org     | 3333  | https://nerdminers.org           | The official Nerdminer pool site - Mantained by @golden-guy        |
+| pool.nerdminer.io       | 3333  | https://nerdminer.io             | Mantained by CHMEX                                                 |
+| pool.pyblock.xyz        | 3333  | https://pool.pyblock.xyz/        | Mantained by curly60e                                              |
+| pool.sethforprivacy.com | 3333  | https://pool.sethforprivacy.com/ | Mantained by @sethforprivacy - public-pool fork                    |
 
 Other standard pools not compatible with low difficulty share:
 

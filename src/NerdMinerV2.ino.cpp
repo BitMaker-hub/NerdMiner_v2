@@ -1,12 +1,9 @@
-
 #include <Wire.h>
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <esp_task_wdt.h>
 #include <OneButton.h>
-
 #include "mbedtls/md.h"
 #include "wManager.h"
 #include "mining.h"
@@ -20,19 +17,19 @@
 #endif
 
 #include <soc/soc_caps.h>
-//#define HW_SHA256_TEST
+// #define HW_SHA256_TEST
 
-//3 seconds WDT
+// 3 seconds WDT
 #define WDT_TIMEOUT 3
-//15 minutes WDT for miner task
+// 15 minutes WDT for miner task
 #define WDT_MINER_TIMEOUT 900
 
 #ifdef PIN_BUTTON_1
-  OneButton button1(PIN_BUTTON_1);
+OneButton button1(PIN_BUTTON_1);
 #endif
 
 #ifdef PIN_BUTTON_2
-  OneButton button2(PIN_BUTTON_2);
+OneButton button2(PIN_BUTTON_2);
 #endif
 
 #ifdef TOUCH_ENABLE
@@ -42,17 +39,17 @@ extern TouchHandler touchHandler;
 extern monitor_data mMonitor;
 
 #ifdef SD_ID
-  SDCard SDCrd = SDCard(SD_ID);
-#else  
-  SDCard SDCrd = SDCard();
+SDCard SDCrd = SDCard(SD_ID);
+#else
+SDCard SDCrd = SDCard();
 #endif
 
 /**********************⚡ GLOBAL Vars *******************************/
 
 unsigned long start = millis();
-const char* ntpServer = "pool.ntp.org";
+const char *ntpServer = "pool.ntp.org";
 
-//void runMonitor(void *name);
+// void runMonitor(void *name);
 
 #ifdef HW_SHA256_TEST
 
@@ -68,31 +65,29 @@ const char* ntpServer = "pool.ntp.org";
 #include <esp_crypto_shared_gdma.h>
 #include <driver/periph_ctrl.h>
 
-static const uint8_t s_test_buffer[128] = 
-{
-  0x00, 0x00, 0x00, 0x22, 0x99, 0x44, 0xbb, 0xff, 0xbb, 0x00, 0x00, 0x77, 0x44, 0xcc, 0x11, 0x77,
-  0x88, 0x55, 0xbb, 0x44, 0x55, 0x00, 0x77, 0x88, 0x99, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0xbb, 0xbb, 0x66, 0x11, 0x88, 0x33, 0x44, 0x99, 0xcc, 0x33, 0xff, 0x22,
-  0x11, 0xaa, 0x77, 0xee, 0xbb, 0x66, 0xee, 0xcc, 0xee, 0x66, 0xee, 0xdd, 0x77, 0x55, 0x22, 0x22,
-  0xcc, 0xcc, 0x66, 0xee, 0x22, 0xdd, 0x99, 0x66, 0x66, 0x88, 0x00, 0x11, 0x2e, 0x33, 0x41, 0x19,
+static const uint8_t s_test_buffer[128] =
+    {
+        0x00, 0x00, 0x00, 0x22, 0x99, 0x44, 0xbb, 0xff, 0xbb, 0x00, 0x00, 0x77, 0x44, 0xcc, 0x11, 0x77,
+        0x88, 0x55, 0xbb, 0x44, 0x55, 0x00, 0x77, 0x88, 0x99, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0xbb, 0xbb, 0x66, 0x11, 0x88, 0x33, 0x44, 0x99, 0xcc, 0x33, 0xff, 0x22,
+        0x11, 0xaa, 0x77, 0xee, 0xbb, 0x66, 0xee, 0xcc, 0xee, 0x66, 0xee, 0xdd, 0x77, 0x55, 0x22, 0x22,
+        0xcc, 0xcc, 0x66, 0xee, 0x22, 0xdd, 0x99, 0x66, 0x66, 0x88, 0x00, 0x11, 0x2e, 0x33, 0x41, 0x19,
 
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x80
-};
+        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x80};
 
-static const uint8_t s_test_buffer_aligned[128] __attribute__((aligned(256))) = 
-{
-  0x00, 0x00, 0x00, 0x22, 0x99, 0x44, 0xbb, 0xff, 0xbb, 0x00, 0x00, 0x77, 0x44, 0xcc, 0x11, 0x77,
-  0x88, 0x55, 0xbb, 0x44, 0x55, 0x00, 0x77, 0x88, 0x99, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0xbb, 0xbb, 0x66, 0x11, 0x88, 0x33, 0x44, 0x99, 0xcc, 0x33, 0xff, 0x22,
-  0x11, 0xaa, 0x77, 0xee, 0xbb, 0x66, 0xee, 0xcc, 0xee, 0x66, 0xee, 0xdd, 0x77, 0x55, 0x22, 0x22,
-  0xcc, 0xcc, 0x66, 0xee, 0x22, 0xdd, 0x99, 0x66, 0x66, 0x88, 0x00, 0x11, 0x2e, 0x33, 0x41, 0x19,
+static const uint8_t s_test_buffer_aligned[128] __attribute__((aligned(256))) =
+    {
+        0x00, 0x00, 0x00, 0x22, 0x99, 0x44, 0xbb, 0xff, 0xbb, 0x00, 0x00, 0x77, 0x44, 0xcc, 0x11, 0x77,
+        0x88, 0x55, 0xbb, 0x44, 0x55, 0x00, 0x77, 0x88, 0x99, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0xbb, 0xbb, 0x66, 0x11, 0x88, 0x33, 0x44, 0x99, 0xcc, 0x33, 0xff, 0x22,
+        0x11, 0xaa, 0x77, 0xee, 0xbb, 0x66, 0xee, 0xcc, 0xee, 0x66, 0xee, 0xdd, 0x77, 0x55, 0x22, 0x22,
+        0xcc, 0xcc, 0x66, 0xee, 0x22, 0xdd, 0x99, 0x66, 0x66, 0x88, 0x00, 0x11, 0x2e, 0x33, 0x41, 0x19,
 
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x80
-};
+        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x80};
 
 static uint8_t interResult_aligned[64] __attribute__((aligned(256)));
 static uint8_t midstate_aligned[32] __attribute__((aligned(256)));
@@ -101,68 +96,69 @@ static uint8_t hash_aligned[64] __attribute__((aligned(256)));
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 static inline void nerd_sha_hal_wait_idle()
 {
-    while (REG_READ(SHA_BUSY_REG))
-    {}
+  while (REG_READ(SHA_BUSY_REG))
+  {
+  }
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 {
-    uint32_t *data_words = (uint32_t *)input_text;
-    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+  uint32_t *data_words = (uint32_t *)input_text;
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
-    REG_WRITE(&reg_addr_buf[0], data_words[0]);
-    REG_WRITE(&reg_addr_buf[1], data_words[1]);
-    REG_WRITE(&reg_addr_buf[2], data_words[2]);
-    REG_WRITE(&reg_addr_buf[3], data_words[3]);
-    REG_WRITE(&reg_addr_buf[4], data_words[4]);
-    REG_WRITE(&reg_addr_buf[5], data_words[5]);
-    REG_WRITE(&reg_addr_buf[6], data_words[6]);
-    REG_WRITE(&reg_addr_buf[7], data_words[7]);
-    REG_WRITE(&reg_addr_buf[8], data_words[8]);
-    REG_WRITE(&reg_addr_buf[9], data_words[9]);
-    REG_WRITE(&reg_addr_buf[10], data_words[10]);
-    REG_WRITE(&reg_addr_buf[11], data_words[11]);
-    REG_WRITE(&reg_addr_buf[12], data_words[12]);
-    REG_WRITE(&reg_addr_buf[13], data_words[13]);
-    REG_WRITE(&reg_addr_buf[14], data_words[14]);
-    REG_WRITE(&reg_addr_buf[15], data_words[15]);
+  REG_WRITE(&reg_addr_buf[0], data_words[0]);
+  REG_WRITE(&reg_addr_buf[1], data_words[1]);
+  REG_WRITE(&reg_addr_buf[2], data_words[2]);
+  REG_WRITE(&reg_addr_buf[3], data_words[3]);
+  REG_WRITE(&reg_addr_buf[4], data_words[4]);
+  REG_WRITE(&reg_addr_buf[5], data_words[5]);
+  REG_WRITE(&reg_addr_buf[6], data_words[6]);
+  REG_WRITE(&reg_addr_buf[7], data_words[7]);
+  REG_WRITE(&reg_addr_buf[8], data_words[8]);
+  REG_WRITE(&reg_addr_buf[9], data_words[9]);
+  REG_WRITE(&reg_addr_buf[10], data_words[10]);
+  REG_WRITE(&reg_addr_buf[11], data_words[11]);
+  REG_WRITE(&reg_addr_buf[12], data_words[12]);
+  REG_WRITE(&reg_addr_buf[13], data_words[13]);
+  REG_WRITE(&reg_addr_buf[14], data_words[14]);
+  REG_WRITE(&reg_addr_buf[15], data_words[15]);
 }
 
 static inline void nerd_sha_ll_write_digest_sha256(void *digest_state)
 {
-    uint32_t *digest_state_words = (uint32_t *)digest_state;
-    uint32_t *reg_addr_buf = (uint32_t *)(SHA_H_BASE);
+  uint32_t *digest_state_words = (uint32_t *)digest_state;
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_H_BASE);
 
-    REG_WRITE(&reg_addr_buf[0], digest_state_words[0]);
-    REG_WRITE(&reg_addr_buf[1], digest_state_words[1]);
-    REG_WRITE(&reg_addr_buf[2], digest_state_words[2]);
-    REG_WRITE(&reg_addr_buf[3], digest_state_words[3]);
-    REG_WRITE(&reg_addr_buf[4], digest_state_words[4]);
-    REG_WRITE(&reg_addr_buf[5], digest_state_words[5]);
-    REG_WRITE(&reg_addr_buf[6], digest_state_words[6]);
-    REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
+  REG_WRITE(&reg_addr_buf[0], digest_state_words[0]);
+  REG_WRITE(&reg_addr_buf[1], digest_state_words[1]);
+  REG_WRITE(&reg_addr_buf[2], digest_state_words[2]);
+  REG_WRITE(&reg_addr_buf[3], digest_state_words[3]);
+  REG_WRITE(&reg_addr_buf[4], digest_state_words[4]);
+  REG_WRITE(&reg_addr_buf[5], digest_state_words[5]);
+  REG_WRITE(&reg_addr_buf[6], digest_state_words[6]);
+  REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
 }
 
-//void IRAM_ATTR esp_dport_access_read_buffer(uint32_t *buff_out, uint32_t address, uint32_t num_words)
-static inline void nerd_sha_ll_read_digest(void* ptr)
+// void IRAM_ATTR esp_dport_access_read_buffer(uint32_t *buff_out, uint32_t address, uint32_t num_words)
+static inline void nerd_sha_ll_read_digest(void *ptr)
 {
-    DPORT_INTERRUPT_DISABLE();
+  DPORT_INTERRUPT_DISABLE();
 #if 0
     for (uint32_t i = 0;  i < 256 / 32; ++i)
     {
         ((uint32_t*)ptr)[i] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + i * 4);
     }
 #else
-  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
-  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
-  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
-  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4);
-  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4);
-  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
-  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);
-  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
+  ((uint32_t *)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
+  ((uint32_t *)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
+  ((uint32_t *)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
+  ((uint32_t *)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 3 * 4);
+  ((uint32_t *)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 4 * 4);
+  ((uint32_t *)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 5 * 4);
+  ((uint32_t *)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 6 * 4);
+  ((uint32_t *)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
 #endif
-    DPORT_INTERRUPT_RESTORE();
+  DPORT_INTERRUPT_RESTORE();
 }
 
 static IRAM_ATTR uint8_t dma_buffer[128] __attribute__((aligned(32)));
@@ -175,90 +171,91 @@ static DRAM_ATTR lldesc_t s_dma_descr_inter;
 #endif
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
-static inline void nerd_sha_ll_read_digest_swap(void* ptr)
+static inline void nerd_sha_ll_read_digest_swap(void *ptr)
 {
   DPORT_INTERRUPT_DISABLE();
-  ((uint32_t*)ptr)[0] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4));
-  ((uint32_t*)ptr)[1] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4));
-  ((uint32_t*)ptr)[2] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4));
-  ((uint32_t*)ptr)[3] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4));
-  ((uint32_t*)ptr)[4] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4));
-  ((uint32_t*)ptr)[5] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4));
-  ((uint32_t*)ptr)[6] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4));
-  ((uint32_t*)ptr)[7] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4));
+  ((uint32_t *)ptr)[0] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4));
+  ((uint32_t *)ptr)[1] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4));
+  ((uint32_t *)ptr)[2] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4));
+  ((uint32_t *)ptr)[3] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4));
+  ((uint32_t *)ptr)[4] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4));
+  ((uint32_t *)ptr)[5] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4));
+  ((uint32_t *)ptr)[6] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4));
+  ((uint32_t *)ptr)[7] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4));
   DPORT_INTERRUPT_RESTORE();
 }
 
-static inline void nerd_sha_ll_read_digest(void* ptr)
+static inline void nerd_sha_ll_read_digest(void *ptr)
 {
   DPORT_INTERRUPT_DISABLE();
-  ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4);
-  ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4);
-  ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4);
-  ((uint32_t*)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4);
-  ((uint32_t*)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4);
-  ((uint32_t*)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4);
-  ((uint32_t*)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4);
-  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
+  ((uint32_t *)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4);
+  ((uint32_t *)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4);
+  ((uint32_t *)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4);
+  ((uint32_t *)ptr)[3] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 3 * 4);
+  ((uint32_t *)ptr)[4] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 4 * 4);
+  ((uint32_t *)ptr)[5] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 5 * 4);
+  ((uint32_t *)ptr)[6] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 6 * 4);
+  ((uint32_t *)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
   DPORT_INTERRUPT_RESTORE();
 }
 
 static inline void nerd_sha_hal_wait_idle()
 {
-    while (DPORT_REG_READ(SHA_256_BUSY_REG))
-    {}
+  while (DPORT_REG_READ(SHA_256_BUSY_REG))
+  {
+  }
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 {
-    uint32_t *data_words = (uint32_t *)input_text;
-    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+  uint32_t *data_words = (uint32_t *)input_text;
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
-    reg_addr_buf[0]  = data_words[0];
-    reg_addr_buf[1]  = data_words[1];
-    reg_addr_buf[2]  = data_words[2];
-    reg_addr_buf[3]  = data_words[3];
-    reg_addr_buf[4]  = data_words[4];
-    reg_addr_buf[5]  = data_words[5];
-    reg_addr_buf[6]  = data_words[6];
-    reg_addr_buf[7]  = data_words[7];
-    reg_addr_buf[8]  = data_words[8];
-    reg_addr_buf[9]  = data_words[9];
-    reg_addr_buf[10] = data_words[10];
-    reg_addr_buf[11] = data_words[11];
-    reg_addr_buf[12] = data_words[12];
-    reg_addr_buf[13] = data_words[13];
-    reg_addr_buf[14] = data_words[14];
-    reg_addr_buf[15] = data_words[15];
+  reg_addr_buf[0] = data_words[0];
+  reg_addr_buf[1] = data_words[1];
+  reg_addr_buf[2] = data_words[2];
+  reg_addr_buf[3] = data_words[3];
+  reg_addr_buf[4] = data_words[4];
+  reg_addr_buf[5] = data_words[5];
+  reg_addr_buf[6] = data_words[6];
+  reg_addr_buf[7] = data_words[7];
+  reg_addr_buf[8] = data_words[8];
+  reg_addr_buf[9] = data_words[9];
+  reg_addr_buf[10] = data_words[10];
+  reg_addr_buf[11] = data_words[11];
+  reg_addr_buf[12] = data_words[12];
+  reg_addr_buf[13] = data_words[13];
+  reg_addr_buf[14] = data_words[14];
+  reg_addr_buf[15] = data_words[15];
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256_swap(const void *input_text)
 {
-    uint32_t *data_words = (uint32_t *)input_text;
-    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+  uint32_t *data_words = (uint32_t *)input_text;
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
-    reg_addr_buf[0]  = __builtin_bswap32(data_words[0]);
-    reg_addr_buf[1]  = __builtin_bswap32(data_words[1]);
-    reg_addr_buf[2]  = __builtin_bswap32(data_words[2]);
-    reg_addr_buf[3]  = __builtin_bswap32(data_words[3]);
-    reg_addr_buf[4]  = __builtin_bswap32(data_words[4]);
-    reg_addr_buf[5]  = __builtin_bswap32(data_words[5]);
-    reg_addr_buf[6]  = __builtin_bswap32(data_words[6]);
-    reg_addr_buf[7]  = __builtin_bswap32(data_words[7]);
-    reg_addr_buf[8]  = __builtin_bswap32(data_words[8]);
-    reg_addr_buf[9]  = __builtin_bswap32(data_words[9]);
-    reg_addr_buf[10] = __builtin_bswap32(data_words[10]);
-    reg_addr_buf[11] = __builtin_bswap32(data_words[11]);
-    reg_addr_buf[12] = __builtin_bswap32(data_words[12]);
-    reg_addr_buf[13] = __builtin_bswap32(data_words[13]);
-    reg_addr_buf[14] = __builtin_bswap32(data_words[14]);
-    reg_addr_buf[15] = __builtin_bswap32(data_words[15]);
+  reg_addr_buf[0] = __builtin_bswap32(data_words[0]);
+  reg_addr_buf[1] = __builtin_bswap32(data_words[1]);
+  reg_addr_buf[2] = __builtin_bswap32(data_words[2]);
+  reg_addr_buf[3] = __builtin_bswap32(data_words[3]);
+  reg_addr_buf[4] = __builtin_bswap32(data_words[4]);
+  reg_addr_buf[5] = __builtin_bswap32(data_words[5]);
+  reg_addr_buf[6] = __builtin_bswap32(data_words[6]);
+  reg_addr_buf[7] = __builtin_bswap32(data_words[7]);
+  reg_addr_buf[8] = __builtin_bswap32(data_words[8]);
+  reg_addr_buf[9] = __builtin_bswap32(data_words[9]);
+  reg_addr_buf[10] = __builtin_bswap32(data_words[10]);
+  reg_addr_buf[11] = __builtin_bswap32(data_words[11]);
+  reg_addr_buf[12] = __builtin_bswap32(data_words[12]);
+  reg_addr_buf[13] = __builtin_bswap32(data_words[13]);
+  reg_addr_buf[14] = __builtin_bswap32(data_words[14]);
+  reg_addr_buf[15] = __builtin_bswap32(data_words[15]);
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256_double(const void *input_text)
 {
-    uint32_t *data_words = (uint32_t *)input_text;
-    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+  uint32_t *data_words = (uint32_t *)input_text;
+  uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
 #if 0
     //No change
@@ -271,14 +268,14 @@ static inline void nerd_sha_ll_fill_text_block_sha256_double(const void *input_t
     reg_addr_buf[6]  = data_words[6];
     reg_addr_buf[7]  = data_words[7];
 #endif
-    reg_addr_buf[8]  = 0x80000000;
-    reg_addr_buf[9]  = 0x00000000;
-    reg_addr_buf[10] = 0x00000000;
-    reg_addr_buf[11] = 0x00000000;
-    reg_addr_buf[12] = 0x00000000;
-    reg_addr_buf[13] = 0x00000000;
-    reg_addr_buf[14] = 0x00000000;
-    reg_addr_buf[15] = 0x00000100;
+  reg_addr_buf[8] = 0x80000000;
+  reg_addr_buf[9] = 0x00000000;
+  reg_addr_buf[10] = 0x00000000;
+  reg_addr_buf[11] = 0x00000000;
+  reg_addr_buf[12] = 0x00000000;
+  reg_addr_buf[13] = 0x00000000;
+  reg_addr_buf[14] = 0x00000000;
+  reg_addr_buf[15] = 0x00000100;
 }
 #endif
 
@@ -296,7 +293,7 @@ IRAM_ATTR void HwShaTest()
   interResult_aligned[32] = 0x80;
   interResult_aligned[62] = 0x01;
   interResult_aligned[63] = 0x00;
-  
+
   uint32_t bake[16];
 
   uint32_t time_start = micros();
@@ -323,15 +320,15 @@ IRAM_ATTR void HwShaTest()
 #endif
 
 #if 1
-  //nerdSha256
-  //ESP32   39KH/s
-  //ESP32S3 39.01KH/s
+  // nerdSha256
+  // ESP32   39KH/s
+  // ESP32S3 39.01KH/s
   test_count = 100000;
   nerdSHA256_context ctx;
   nerd_mids(ctx.digest, s_test_buffer);
   for (int i = 0; i < test_count; ++i)
   {
-    nerd_sha256d(&ctx, s_test_buffer+64, hash);
+    nerd_sha256d(&ctx, s_test_buffer + 64, hash);
   }
 #endif
 
@@ -566,7 +563,7 @@ IRAM_ATTR void HwShaTest()
   uint32_t time_end = micros();
   double hash_rate = ((double)test_count * 1000000) / (double)(time_end - time_start);
   Serial.print("Hashrate=");
-  Serial.print(hash_rate/1000);
+  Serial.print(hash_rate / 1000);
   Serial.println("KH/s");
 
   Serial.print("interResult: ");
@@ -574,14 +571,14 @@ IRAM_ATTR void HwShaTest()
     Serial.printf("%02x", interResult[i]);
   Serial.println("");
 
-    Serial.print("hash: ");
+  Serial.print("hash: ");
   for (size_t i = 0; i < 32; i++)
     Serial.printf("%02x", hash[i]);
   Serial.println("");
-  
-  //should be
-  //54cd9f1ebc3db9a626688e5bb91d808abbd4079b2cba7f43fa08bfced300ef19
-  //6fa464b007f2d577edfa5dfe9dfc3f9209f36d1a6711d314ea68ccdd03000000
+
+  // should be
+  // 54cd9f1ebc3db9a626688e5bb91d808abbd4079b2cba7f43fa08bfced300ef19
+  // 6fa464b007f2d577edfa5dfe9dfc3f9209f36d1a6711d314ea68ccdd03000000
 }
 
 #endif
@@ -589,25 +586,25 @@ IRAM_ATTR void HwShaTest()
 /********* INIT *****/
 void setup()
 {
-      //Init pin 15 to eneble 5V external power (LilyGo bug)
-  #ifdef PIN_ENABLE5V
-      pinMode(PIN_ENABLE5V, OUTPUT);
-      digitalWrite(PIN_ENABLE5V, HIGH);
-  #endif
+  // Init pin 15 to eneble 5V external power (LilyGo bug)
+#ifdef PIN_ENABLE5V
+  pinMode(PIN_ENABLE5V, OUTPUT);
+  digitalWrite(PIN_ENABLE5V, HIGH);
+#endif
 
 #ifdef MONITOR_SPEED
-    Serial.begin(MONITOR_SPEED);
+  Serial.begin(MONITOR_SPEED);
 #else
-    Serial.begin(115200);
-#endif //MONITOR_SPEED
+  Serial.begin(115200);
+#endif // MONITOR_SPEED
 
   Serial.setTimeout(0);
-  delay(SECOND_MS/10);
+  delay(SECOND_MS / 10);
 
   esp_task_wdt_init(WDT_MINER_TIMEOUT, true);
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
-  //disableCore1WDT();
+  // disableCore1WDT();
 
 #ifdef HW_SHA256_TEST
   while (1)
@@ -616,39 +613,39 @@ void setup()
   }
 #endif
 
-  // Setup the buttons
-  #if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) //One button device
-    button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(switchToNextScreen);
-    button1.attachDoubleClick(alternateScreenRotation);
-    button1.attachLongPressStart(reset_configuration);
-    button1.attachMultiClick(alternateScreenState);
-  #endif
+// Setup the buttons
+#if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) // One button device
+  button1.setPressMs(5 * SECOND_MS);
+  button1.attachClick(switchToNextScreen);
+  button1.attachDoubleClick(alternateScreenRotation);
+  button1.attachLongPressStart(reset_configuration);
+  button1.attachMultiClick(alternateScreenState);
+#endif
 
-  #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
-    button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(alternateScreenState);
-    button1.attachDoubleClick(alternateScreenRotation);
-    button1.attachLongPressStart(monedaydado);
-    button1.attachMultiClick(relojnoche);
-  #endif
+#if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) // Button 1 of two button device
+  button1.setPressMs(5 * SECOND_MS);
+  button1.attachClick(alternateScreenState);
+  button1.attachDoubleClick(alternateScreenRotation);
+  button1.attachLongPressStart(monedaydado);
+  button1.attachMultiClick(relojnoche);
+#endif
 
-  #if defined(PIN_BUTTON_2) //Button 2 of two button device
-    button2.setPressMs(5*SECOND_MS);
-    button2.attachClick(switchToNextScreen);
-    button2.attachLongPressStart(reset_configuration);
-    button2.attachDoubleClick(resetToFirstScreen);
-  #endif
+#if defined(PIN_BUTTON_2) // Button 2 of two button device
+  button2.setPressMs(5 * SECOND_MS);
+  button2.attachClick(switchToNextScreen);
+  button2.attachLongPressStart(reset_configuration);
+  button2.attachDoubleClick(resetToFirstScreen);
+#endif
 
   /******** INIT NERDMINER ************/
-  Serial.println("NerdMiner v2 starting......");
+  Serial.println("... M8AX - NerdMiner V2 Arrancando Motores - M8AX ...");
 
   /******** INIT DISPLAY ************/
   initDisplay();
-  
+
   /******** PRINT INIT SCREEN *****/
   drawLoadingScreen();
-  delay(2*SECOND_MS);
+  delay(2 * SECOND_MS);
 
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
@@ -662,40 +659,40 @@ void setup()
   init_WifiManager();
 
   /******** CREATE TASK TO PRINT SCREEN *****/
-  //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
-  // Higher prio monitor task
+  // tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
+  //  Higher prio monitor task
   Serial.println("");
-  Serial.println("Initiating tasks...");
-  char *name = (char*) malloc(32);
+  Serial.println("M8AX - Inicializando Tareas Mineras...");
+  char *name = (char *)malloc(32);
   sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 5, NULL,1);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void *)name, 5, NULL, 1);
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
- #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
- // Free a little bit of the heap to the screen
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 4, NULL,1);
- #else
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 4, NULL,1);
- #endif
+#if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+  // Free a little bit of the heap to the screen
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void *)name, 4, NULL, 1);
+#else
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void *)name, 4, NULL, 1);
+#endif
 
   /******** CREATE MINER TASKS *****/
-  //for (size_t i = 0; i < THREADS; i++) {
-  //  char *name = (char*) malloc(32);
-  //  sprintf(name, "(%d)", i);
+  // for (size_t i = 0; i < THREADS; i++) {
+  //   char *name = (char*) malloc(32);
+  //   sprintf(name, "(%d)", i);
 
   // Start mining tasks
-  //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
+  // BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
-  #ifdef HARDWARE_SHA265
-    xTaskCreate(minerWorkerHw, "MvIiIaX-MinerHW-0", 4096, (void*)0, 3, &minerTask1);
-  #else
-    xTaskCreate(minerWorkerSw, "M8AX-MinerSW-0", 6000, (void*)0, 1, &minerTask1);
-  #endif
+#ifdef HARDWARE_SHA265
+  xTaskCreate(minerWorkerHw, "MvIiIaX-MinerHW-0", 4096, (void *)0, 3, &minerTask1);
+#else
+  xTaskCreate(minerWorkerSw, "M8AX-MinerSW-0", 6000, (void *)0, 1, &minerTask1);
+#endif
   esp_task_wdt_add(minerTask1);
 
 #if (SOC_CPU_CORES_NUM >= 2)
-  xTaskCreate(minerWorkerSw, "M8AX-MinerSW-1", 6000, (void*)1, 1, &minerTask2);
+  xTaskCreate(minerWorkerSw, "M8AX-MinerSW-1", 6000, (void *)1, 1, &minerTask2);
   esp_task_wdt_add(minerTask2);
 #endif
 
@@ -705,7 +702,8 @@ void setup()
   setup_monitor();
 }
 
-void app_error_fault_handler(void *arg) {
+void app_error_fault_handler(void *arg)
+{
   // Get stack errors
   char *stack = (char *)arg;
 
@@ -716,15 +714,16 @@ void app_error_fault_handler(void *arg) {
   esp_restart();
 }
 
-void loop() {
-  // keep watching the push buttons:
-  #ifdef PIN_BUTTON_1
-    button1.tick();
-  #endif
+void loop()
+{
+// keep watching the push buttons:
+#ifdef PIN_BUTTON_1
+  button1.tick();
+#endif
 
-  #ifdef PIN_BUTTON_2
-    button2.tick();
-  #endif
+#ifdef PIN_BUTTON_2
+  button2.tick();
+#endif
 
 #ifdef TOUCH_ENABLE
   touchHandler.isTouched();

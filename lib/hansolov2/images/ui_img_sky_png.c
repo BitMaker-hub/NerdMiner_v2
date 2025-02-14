@@ -2421,4 +2421,3 @@ const lv_img_dsc_t ui_img_sky_png = {
     .header.cf = LV_IMG_CF_TRUE_COLOR,
     .data = ui_img_sky_png_data
 };
-

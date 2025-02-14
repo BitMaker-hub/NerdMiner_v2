@@ -27,10 +27,10 @@ extern monitor_data mMonitor;
 void ledDisplay_Init(void)
 {
   Serial.println("Led display driver initialized");
-  #ifdef USE_LED
+#ifdef USE_LED
   FastLED.addLeds<RGB_LED_CLASS, RGB_LED_PIN, RGB_LED_ORDER>(&leds, 1);
   FastLED.show();
-  #endif // USE_LED
+#endif // USE_LED
 }
 
 void ledDisplay_AlternateScreenState(void)
@@ -78,7 +78,7 @@ void ledDisplay_DoLedStuff(unsigned long frame)
 
 #ifdef USE_LED
 
-    if (!ledOn)
+  if (!ledOn)
   {
     FastLED.clear(true);
     return;

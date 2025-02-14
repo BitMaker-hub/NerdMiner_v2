@@ -96,7 +96,7 @@ void resetToFirstScreen()
   currentDisplayDriver->current_cyclic_screen = 0;
 }
 
-// Lanza El Dado Y Una Moneda 
+// Lanza El Dado Y Una Moneda
 void monedaydado()
 {
   currentDisplayDriver->current_cyclic_screen = 23;

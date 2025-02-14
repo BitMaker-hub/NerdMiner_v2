@@ -14,7 +14,7 @@
 struct moonData_t
 {
   int32_t angle;
-  double  percentLit;
+  double percentLit;
 };
 
 class moonPhase
@@ -31,8 +31,9 @@ public:
   {
     return getPhase(time(NULL));
   }
+
 private:
-  double     _fhour(const struct tm &timeinfo);
+  double _fhour(const struct tm &timeinfo);
   moonData_t _getPhase(const int32_t year, const int32_t month, const int32_t day, const double &hour);
 };
 #endif

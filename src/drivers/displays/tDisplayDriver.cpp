@@ -1,11 +1,13 @@
 /************************************************************************************
- *   Written by: M8AX
+ *   Escrito por: M8AX
  *
- *   Description:
- *   Expansion of NerdMinerV2 Screens with Even More Data and Way Nerdier Than
- *   It Already Was xD
+ *   Descripción:
+ *   Expansión de las pantallas del NerdMinerV2 con aún más datos y mucho más "nerd"
+ *   de lo que ya era xD
  *
- *************************************************************************************/
+ *   Tmp. De Programación 13H
+ *
+ ************************************************************************************/
 
 // Invocando las poderosas librerías que hacen posible esta obra maestra del minado nerd
 
@@ -85,7 +87,7 @@ int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
 int mirarTiempo = 0;
-int sumatele = 0;
+int sumatele = 1;
 int abortar = 0;
 int tempera = 0;
 float porcentaje = 0.00;
@@ -152,7 +154,6 @@ String BOT_TOKEN;
 String CHAT_ID;
 uint32_t rndnumero = 0;
 uint32_t rndnumero2 = 0;
-uint32_t rndnumero3 = 0;
 uint32_t actualizarcalen = 0;
 uint32_t actuanot = 0;
 uint32_t actualizarc = 0;
@@ -167,6 +168,11 @@ mining_data mineria;
 clock_data relojete;
 coin_data monedilla;
 moonPhase mymoonPhase;
+
+unsigned long lastTelegramEpochTime = 0; // Guarda el tiempo de la última ejecución (en segundos desde Epoch)
+unsigned long startTime = 0;
+const unsigned long interval = 2 * 60 * 60;       // 2 horas en segundos (2 horas * 60 minutos * 60 segundos)
+const unsigned long minStartupTime = 2 * 60 * 60; // Segundos para que no envíe telegram si esta configurado, nada más arrancar
 
 typedef struct
 {
@@ -546,7 +552,6 @@ const char *factorize(uint32_t number)
   {
     strcat(result, " ( PRIMO )");
   }
-
   return result;
 }
 
@@ -591,10 +596,11 @@ void enviarMensajeATelegram(String mensaje)
     Serial.println("M8AX - Mensaje Enviado A Telegram...");
     client.flush();
     client.stop();
+    sumatele += 1;
   }
   else
   {
-    Serial.println("\nM8AX - Error De Conexión, Mensaje A Telegram Falló...");
+    Serial.println("M8AX - Error De Conexión, Mensaje A Telegram Falló...");
     client.flush();
     client.stop();
   }
@@ -641,7 +647,7 @@ void recopilaTelegram()
   cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s\n";
   cadenaEnvio += "Temperatura De CPU - " + mineria.temp + "°\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
-  cadenaEnvio += "Shares Completados Y Enviados A La Pool - " + mineria.completedShares + "\n";
+  cadenaEnvio += "Shares Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
   cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
   cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )\n";
@@ -649,14 +655,14 @@ void recopilaTelegram()
   cadenaEnvio += "Precio De BITCOIN - " + monedilla.btcPrice + "\n";
   cadenaEnvio += "Promedio Por Transacción, FEE - " + monedilla.halfHourFee + "\n";
   cadenaEnvio += "Altura De Bloque - " + relojete.blockHeight + "\n";
-  telrb.replace("BLOCKS", "Bloques");
-  cadenaEnvio += "Total De Bloques Entre Halvings - 210000 Bloques\n";
-  cadenaEnvio += "Bloques Restantes Para El Próximo Halving - " + String(telrb) + "\n";
+  telrb.replace("BLOCKS", "");
+  cadenaEnvio += "Bloques Entre Halvings - 210000\n";
+  cadenaEnvio += "Bloques Restantes Para Halving - " + String(telrb) + "\n";
   long int hechos = 210000 - telrb.toInt();
-  cadenaEnvio += "Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques\n";
+  cadenaEnvio += "Bloques Minados Post-Halving - " + String(hechos) + "\n";
   char buffer[10];
   dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer); // Convierte float a string con 3 decimales
-  cadenaEnvio += "Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%\n";
+  cadenaEnvio += "% Completado Desde El Último Halving - " + String(buffer) + "%\n";
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De Bitcoin - " + String(Settings.BtcWallet) + "\n";
@@ -665,11 +671,11 @@ void recopilaTelegram()
   cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------------------\n");
   if (mineria.valids.toInt() == 1)
   {
-    cadenaEnvio += "El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA :) |||\n";
+    cadenaEnvio += "||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA :) |||\n";
   }
   else
   {
-    cadenaEnvio += "El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||\n";
+    cadenaEnvio += "||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||\n";
   }
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += F("----------------------------------------- M8AX - DATOS NERD - M8AX -------------------------------------------\n");
@@ -703,7 +709,7 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += ". HashRate Actual - " + mineria.currentHashRate + " KH/s";
   cadenaEnvio2 += ". Temperatura De CPU - " + mineria.temp + "g";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
-  cadenaEnvio2 += ". Shares Completados Y Enviados A La Pool - " + mineria.completedShares;
+  cadenaEnvio2 += ". Shares Enviados A La Pool - " + mineria.completedShares;
   cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
   cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
   cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )";
@@ -711,22 +717,22 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += ". Precio De BITCOIN - " + monedilla.btcPrice;
   cadenaEnvio2 += ". Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
   cadenaEnvio2 += ". Altura De Bloque - " + relojete.blockHeight;
-  telrb.replace("BLOCKS", "Bloques");
-  cadenaEnvio2 += ". Total De Bloques Entre Halvings - 210000 Bloques";
-  cadenaEnvio2 += ". Bloques Restantes Para El Próximo Halving - " + String(telrb);
+  telrb.replace("BLOCKS", "");
+  cadenaEnvio2 += ". Bloques Entre Halvings - 210000";
+  cadenaEnvio2 += ". Bloques Restantes Para Halving - " + String(telrb);
   long int hechos = 210000 - telrb.toInt();
-  cadenaEnvio2 += ". Bloques Minados Desde El Último Halving - " + String(hechos) + " Bloques";
+  cadenaEnvio2 += ". Bloques Minados Post-Halving - " + String(hechos);
   char buffer[10];
   dtostrf((hechos * 100.0) / 210000.0, 0, 3, buffer); // Convierte float a string con 5 decimales
-  cadenaEnvio2 += ". Porcentaje Completado Desde El Último Halving - " + String(buffer) + "%";
-  cadenaEnvio2 += ". Porcentaje Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3) + "%";
+  cadenaEnvio2 += ". % Completado Desde El Último Halving - " + String(buffer) + "%";
+  cadenaEnvio2 += ". % Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3) + "%";
   if (mineria.valids.toInt() == 1)
   {
-    cadenaEnvio2 += ". El Valor De Bloques Válidos Es 1. ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA |||";
+    cadenaEnvio2 += ". ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA xD |||";
   }
   else
   {
-    cadenaEnvio2 += ". El Valor De Bloques Válidos Es 0. ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
+    cadenaEnvio2 += ". ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
   }
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(1, 1);
@@ -745,11 +751,12 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
 {
   String ciudad = "";
   String temperatura = "";
+  String latitud = "";
+  String longitud = "";
 
-  // Obtener la ciudad usando la API de geolocalización
-
+  // Obtener la ciudad, latitud y longitud usando la API de geolocalización
   HTTPClient http;
-  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city"; // Obtener solo la ciudad
+  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city,lat,lon"; // Obtener ciudad, latitud y longitud
   http.begin(urlGeo);
 
   int httpCode = http.GET();
@@ -757,35 +764,35 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
   {
     String payload = http.getString();
 
-    // Parsear el JSON para obtener la ciudad
-
+    // Parsear el JSON para obtener la ciudad y coordenadas
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload);
     if (error)
     {
-      Serial.println("M8AX - Error Al Parsear JSON De La Ciudad");
+      Serial.println("M8AX - Error Al Parsear JSON De Geolocalización");
       return std::make_pair(ciudad, temperatura); // Devolver vacías en caso de error
     }
-    ciudad = doc["city"].as<String>(); // Ciudad obtenida
+    ciudad = doc["city"].as<String>();           // Ciudad obtenida
+    latitud = String(doc["lat"].as<float>(), 6); // Convertir a string con 6 decimales
+    longitud = String(doc["lon"].as<float>(), 6);
   }
   else
   {
-    Serial.println("M8AX - Error Al Obtener Ciudad");
+    Serial.println("M8AX - Error Al Obtener Datos De Geolocalización");
     return std::make_pair(ciudad, temperatura); // Devolver vacías si hay error
   }
 
   http.end();
 
-  // Obtener la temperatura usando wttr.in con HTTPS
-
-  if (ciudad != "")
+  // Obtener la temperatura usando wttr.in con latitud y longitud
+  if (latitud != "" && longitud != "")
   {
     // Usamos WiFiClientSecure para HTTPS
     WiFiClientSecure client;
-    client.setInsecure(); // Permitimos conexiones HTTPS sin verificar certificado (menos seguro pero usa menos RAM)
+    client.setInsecure(); // Permitir conexiones HTTPS sin verificar certificado
 
-    String urlTemp = "https://wttr.in/" + ciudad + "?format=%t"; // Usar https para obtener temperatura
-    http.begin(client, urlTemp);                                 // Iniciar la solicitud HTTPS
+    String urlTemp = "https://wttr.in/" + latitud + "," + longitud + "?format=%t"; // Solicitar temperatura con coordenadas
+    http.begin(client, urlTemp);                                                   // Iniciar la solicitud HTTPS
     httpCode = http.GET();
 
     if (httpCode > 0)
@@ -800,7 +807,7 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
   }
   else
   {
-    Serial.println("M8AX - Ciudad No Encontrada Para La IP");
+    Serial.println("M8AX - Coordenadas No Encontradas Para La IP");
   }
 
   return std::make_pair(ciudad, temperatura); // Devolver ciudad y temperatura
@@ -1818,7 +1825,7 @@ float obtenerPrecio(String currency_pair)
 
   if (error)
   {
-    Serial.print("M8AX - Error Al Parsear JSON: ");
+    Serial.println("M8AX - Error Al Parsear JSON: ");
     Serial.println(error.c_str());
     return -1;
   }
@@ -2358,7 +2365,7 @@ void mostrarCalendario(int dia, int mes, int anio, int h1, int h2, int m1, int m
 
 /*
   Función: esPrimo
-  Propósito: Determina si un número entero positivo es primo. Un número es primo si es mayor que 1 
+  Propósito: Determina si un número entero positivo es primo. Un número es primo si es mayor que 1
   y no tiene divisores positivos distintos de 1 y él mismo.
 
   Parámetros:
@@ -2372,7 +2379,7 @@ void mostrarCalendario(int dia, int mes, int anio, int h1, int h2, int m1, int m
     La función comienza verificando si el número es menor que 2, en cuyo caso devuelve 'false' ya que los números menores a 2 no son primos.
     Luego, maneja los casos especiales para los números 2 y 3, que son primos.
     Si el número es par, lo descarta de inmediato, ya que todos los números pares mayores que 2 no son primos.
-    Para números impares mayores que 3, la función comprueba si existen divisores hasta la raíz cuadrada de n, incrementando de 2 en 2 (verificando solo números impares). 
+    Para números impares mayores que 3, la función comprueba si existen divisores hasta la raíz cuadrada de n, incrementando de 2 en 2 (verificando solo números impares).
     Si se encuentra un divisor, devuelve 'false', y si no se encuentran divisores, devuelve 'true'.
 */
 
@@ -2402,7 +2409,7 @@ bool esPrimo(uint32_t n)
 
 /*
   Función: _fhour
-  Propósito: Calcula la hora en formato decimal, donde la parte entera representa las horas completas y la parte decimal 
+  Propósito: Calcula la hora en formato decimal, donde la parte entera representa las horas completas y la parte decimal
   representa la fracción del minuto y el segundo transcurridos.
 
   Parámetros:
@@ -2417,9 +2424,9 @@ bool esPrimo(uint32_t n)
       - La parte decimal se calcula a partir de los minutos y segundos, mapeándolos a un rango de [0.0, 1.0].
 
   Descripción:
-    Esta función toma la hora, los minutos y los segundos de la estructura `tm` y los convierte en un valor decimal representando 
+    Esta función toma la hora, los minutos y los segundos de la estructura `tm` y los convierte en un valor decimal representando
     las horas transcurridas en el día. La función utiliza la función `map` para transformar los segundos del minuto (`timeinfo.tm_min * 60 + timeinfo.tm_sec`)
-    en una fracción entre 0 y 1, que se suma a las horas. 
+    en una fracción entre 0 y 1, que se suma a las horas.
     El valor retornado es una representación continua del tiempo, donde la parte entera son las horas y la parte decimal
     refleja el tiempo adicional transcurrido en fracciones de hora.
 */
@@ -2446,7 +2453,7 @@ double moonPhase::_fhour(const struct tm &timeinfo)
     Esta función convierte una fecha en el calendario gregoriano (proporcionada en términos de año, mes y día) a una fecha juliana,
     que es utilizada comúnmente en astronomía para cálculos de tiempos largos y para evitar los problemas con los calendarios.
     La función implementa la corrección del calendario gregoriano, que fue introducida después del 15 de octubre de 1582, momento en el cual
-    el calendario juliano fue reemplazado. El ajuste es hecho a través del valor de `b`, que depende del año, mes y día. 
+    el calendario juliano fue reemplazado. El ajuste es hecho a través del valor de `b`, que depende del año, mes y día.
     La fórmula utilizada es:
     - Si la fecha es posterior al 15 de octubre de 1582, se aplica el ajuste en `b`.
     - Se calcula el número de días del año (365.25 * year), y se ajusta con el factor `30.6001 * (month + 1)` para el mes y día.
@@ -2486,12 +2493,12 @@ static double _Julian(int32_t year, int32_t month, const double &day)
     - j: El valor de la fecha juliana (un número decimal que representa la fecha en el calendario juliano).
 
   Retorno:
-    - Devuelve un valor de tipo `double` que representa la longitud del sol en grados eclípticos (0-360°), 
+    - Devuelve un valor de tipo `double` que representa la longitud del sol en grados eclípticos (0-360°),
       es decir, la posición del sol a lo largo de su órbita en el plano de la eclíptica en un momento específico.
 
   Descripción:
     Esta función calcula la posición del sol a lo largo de su órbita elíptica en el sistema solar, basándose en la fecha juliana proporcionada.
-    El cálculo se realiza utilizando la fórmula estándar de la astronomía para la longitud del sol, que incluye varios parámetros y correcciones 
+    El cálculo se realiza utilizando la fórmula estándar de la astronomía para la longitud del sol, que incluye varios parámetros y correcciones
     para obtener una mayor precisión.
 
     El proceso incluye los siguientes pasos:
@@ -2499,11 +2506,11 @@ static double _Julian(int32_t year, int32_t month, const double &day)
     2. Se ajusta el valor de `n` para asegurarse de que esté dentro del rango de 0 a 360 grados.
     3. Se obtiene el ángulo eclíptico inicial (x), y se ajusta para asegurarse de que esté dentro del rango adecuado.
     4. Luego, se resuelve una ecuación iterativa (Newton-Raphson) para obtener una corrección precisa a la longitud del sol (`dl`).
-    5. Finalmente, la longitud del sol `l` se calcula sumando un término constante a `v`, el valor obtenido de la función trigonométrica `atan`, 
+    5. Finalmente, la longitud del sol `l` se calcula sumando un término constante a `v`, el valor obtenido de la función trigonométrica `atan`,
        que depende del ángulo corregido `e`.
     6. El valor final de `l` es normalizado para que esté entre 0 y 360 grados, y este es el valor retornado, que representa la longitud del sol.
 
-    La longitud del sol es importante en astronomía para determinar diversas variables, como la posición del sol respecto a las estrellas fijas, 
+    La longitud del sol es importante en astronomía para determinar diversas variables, como la posición del sol respecto a las estrellas fijas,
     y se utiliza en el cálculo de fenómenos astronómicos como los equinoccios y los solsticios.
 
   Ejemplo:
@@ -2543,12 +2550,12 @@ static double _sun_position(const double &j)
     - ls: La longitud del sol en grados eclípticos, calculada previamente. Representa la posición del sol en su órbita.
 
   Retorno:
-    - Devuelve un valor de tipo `double` que representa la longitud de la Luna en grados eclípticos (0-360°), es decir, la posición de la Luna 
+    - Devuelve un valor de tipo `double` que representa la longitud de la Luna en grados eclípticos (0-360°), es decir, la posición de la Luna
       a lo largo de su órbita en el plano de la eclíptica en un momento específico.
 
   Descripción:
-    Esta función calcula la posición de la Luna a lo largo de su órbita en el sistema solar, basándose en la fecha juliana proporcionada y 
-    la longitud del sol. El cálculo se realiza utilizando una serie de correcciones empíricas que se utilizan comúnmente en astronomía para 
+    Esta función calcula la posición de la Luna a lo largo de su órbita en el sistema solar, basándose en la fecha juliana proporcionada y
+    la longitud del sol. El cálculo se realiza utilizando una serie de correcciones empíricas que se utilizan comúnmente en astronomía para
     modelar el movimiento lunar.
 
     El proceso incluye los siguientes pasos:
@@ -2559,10 +2566,10 @@ static double _sun_position(const double &j)
     5. Se calcula la excentricidad (`ae`), que es una corrección adicional que depende del ángulo `ms`.
     6. Se ajusta la longitud de la Luna (`mm`) mediante la corrección de variación y excentricidad.
     7. Se calcula la corrección de la Luna debido a la excentricidad (`ec`), que se basa en el ángulo `mm`.
-    8. Finalmente, se ajusta la longitud de la Luna (`l`) utilizando la corrección de variación, la corrección de excentricidad y una corrección adicional 
+    8. Finalmente, se ajusta la longitud de la Luna (`l`) utilizando la corrección de variación, la corrección de excentricidad y una corrección adicional
        que involucra un término de segundo orden.
 
-    El resultado final de `l` es la posición de la Luna en el plano eclíptico, y es utilizado para cálculos de la fase lunar, eclipses y otros 
+    El resultado final de `l` es la posición de la Luna en el plano eclíptico, y es utilizado para cálculos de la fase lunar, eclipses y otros
     fenómenos relacionados con el movimiento de la Luna.
 
   Ejemplo:
@@ -2609,7 +2616,7 @@ static double _moon_position(const double &j, const double &ls)
       2. El porcentaje de la Luna iluminada (un valor entre 0 y 1).
 
   Descripción:
-    Esta función calcula la fase de la Luna en un momento específico utilizando la fecha (año, mes, día) y la hora proporcionada. Se basa en dos cálculos 
+    Esta función calcula la fase de la Luna en un momento específico utilizando la fecha (año, mes, día) y la hora proporcionada. Se basa en dos cálculos
     astronómicos fundamentales:
     1. La posición del Sol en la órbita de la Tierra (utilizando la función `_sun_position`).
     2. La posición de la Luna en su órbita (utilizando la función `_moon_position`).
@@ -2622,7 +2629,7 @@ static double _moon_position(const double &j, const double &ls)
        - Si el ángulo es negativo, se ajusta para que esté en el rango de 0-360 grados.
     5. El ángulo calculado (`angle`) representa la fase lunar, indicando la posición de la Luna en su órbita.
     6. Se calcula el porcentaje de la Luna iluminada, utilizando la fórmula `(1 - cos(angle)) / 2`. Esta fórmula se basa en el ángulo de la fase y describe la proporción de la superficie lunar iluminada por el Sol.
-    
+
     El objeto `moonData_t` que se retorna contiene:
     - `angle`: El ángulo de fase de la Luna (0-360 grados), que indica en qué fase se encuentra la Luna en relación con el Sol (nueva, creciente, llena, menguante, etc.).
     - El porcentaje de la Luna iluminada, que varía de 0 (Luna nueva) a 1 (Luna llena).
@@ -2657,7 +2664,7 @@ moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const i
   Propósito: Incrementa un contador de segundos y actualiza el índice de color y el nombre mostrado según el valor del contador.
 
   Descripción:
-    Esta función incrementa un contador de segundos (`secondCounter`) y, cuando alcanza el valor de 59, se reinicia a 0 y se selecciona un nuevo índice de color aleatorio. 
+    Esta función incrementa un contador de segundos (`secondCounter`) y, cuando alcanza el valor de 59, se reinicia a 0 y se selecciona un nuevo índice de color aleatorio.
     Además, actualiza una variable de texto (`nombrecillo`) dependiendo del valor de `colorIndex`, el cual se ajusta cada vez que el contador llega a 59.
 
   Proceso:
@@ -2668,11 +2675,11 @@ moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const i
     3. Si el valor de `secondCounter` es menor que 59, se comprueba si `colorIndex` es par o impar:
        - Si `colorIndex` es par, se asigna el texto `" - M 8 A X -"`.
        - Si `colorIndex` es impar, se asigna el texto `"- MvIiIaX -"`.
-       
+
   Efectos secundarios:
     - Se actualiza `colorIndex` con un valor aleatorio cuando el contador llega a 59.
     - Se cambia el valor de `nombrecillo` dependiendo del valor de `colorIndex`.
-    
+
   Ejemplo:
     Si `secondCounter` es 59, el valor de `colorIndex` será actualizado a un nuevo valor aleatorio, y `nombrecillo` podría cambiar a `" - M 8 A X -"`, dependiendo si el valor de `colorIndex` es par o impar.
 
@@ -2712,13 +2719,13 @@ void incrementCounter()
     Además, el fondo de la pantalla se actualiza según ciertos parámetros, como la hora del día o el estado de ciertos contadores.
 
   Proceso:
-    1. **Obtención de datos**: 
+    1. **Obtención de datos**:
        Se obtienen varios datos relacionados con la minería, la hora, y la criptomoneda actual utilizando funciones como `getMiningData`, `getClockData`, y `getCoinData`.
-    
-    2. **Renderización del fondo**: 
+
+    2. **Renderización del fondo**:
        Se dibuja un fondo de pantalla utilizando `background.pushImage()` con la imagen de la pantalla de minería (`MinerScreen`).
 
-    3. **Hashrate de día y noche**: 
+    3. **Hashrate de día y noche**:
        Dependiendo de la hora actual (`horiac`), se elige un color de texto diferente para el hashrate (negro para la noche y blanco para el día). Esto se renderiza en la pantalla con `render.rdrawString()`.
 
     4. **Mostrar datos de minería**:
@@ -2871,13 +2878,13 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     La pantalla de fondo se actualiza antes de dibujar los textos, asegurando una visualización clara de la información.
 
   Proceso:
-    1. **Obtención de datos**: 
+    1. **Obtención de datos**:
        Se recuperan los datos de la minería, el reloj y la moneda usando `getClockData()`, `getMiningData()` y `getCoinData()`.
 
-    2. **Renderización del fondo**: 
+    2. **Renderización del fondo**:
        Se dibuja la imagen de fondo de la pantalla de reloj con `background.pushImage()`.
 
-    3. **Muestra de hashrate**: 
+    3. **Muestra de hashrate**:
        Se imprime el hashrate en negro en la pantalla utilizando `render.rdrawString()`.
 
     4. **Muestra del precio del BTC**:
@@ -2996,10 +3003,10 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
   Proceso:
     1. **Obtención de datos**:
        Se recuperan los datos de la moneda (`getCoinData()`), minería (`getMiningData()`) y reloj (`getClockData()`).
-    
+
     2. **Renderización del fondo**:
        Se dibuja la imagen de fondo de la pantalla con `background.pushImage()`.
-    
+
     3. **Impresión de datos clave**:
        - **Precio del BTC**: Se imprime en la parte superior derecha.
        - **Hora actual**: Se imprime en la parte superior izquierda en color blanco.
@@ -3012,10 +3019,10 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
     4. **Dibujo del rectángulo de progreso**:
        - Se calcula la longitud del rectángulo en función del porcentaje de progreso del bloque (`progressPercent`).
        - Se usa `fillRect()` para representar gráficamente el progreso hacia el siguiente bloque.
-    
+
     5. **Impresión de bloques restantes**:
        - Se imprime el número de bloques restantes hasta el próximo ajuste de dificultad.
-    
+
     6. **Actualización final**:
        - Se actualiza la pantalla con `background.pushSprite()` para mostrar todos los datos en tiempo real.
 
@@ -3091,52 +3098,19 @@ void tDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.pushSprite(0, 0);
 }
 
-/*
-  Función: tDisplay_BTCprice
-  Propósito: Mostrar información relacionada con el precio del Bitcoin, incluyendo la hora actual, hashrate, altura del bloque y una cita alternante.
-
-  Descripción:
-    Esta función actualiza la pantalla con información en tiempo real sobre el precio del BTC, la altura del bloque y otros datos relevantes.
-    También muestra un mensaje motivacional o humorístico que cambia en cada actualización.
-
-  Proceso:
-    1. **Obtención de datos**:
-       Se recuperan los datos de reloj (`getClockData()`), minería (`getMiningData()`) y moneda (`getCoinData()`).
-       Se obtiene el segundo actual a partir de `timeClient.getSeconds()`.
-
-    2. **Inicialización y reinicio de variables**:
-       Se reinician variables como `actualizarcalen`, `actualizarc`, `actual`, `actuanot` y `correccion` para evitar acumulaciones de estado.
-
-    3. **Renderización del fondo**:
-       Se dibuja la imagen de fondo de la pantalla con `background.pushImage()`.
-
-    4. **Impresión de datos clave**:
-       - **Hashrate**: Se imprime en negro en la pantalla.
-       - **Altura del bloque**: Se muestra en la parte inferior en color blanco.
-       - **Hora actual**: Se imprime junto con los segundos extraídos de `timeClient`.
-       - **Temperatura**: Se muestra junto a la hora.
-       - **Precio del BTC**: Se imprime en grande en la parte superior derecha.
-
-    5. **Cambio de frase motivacional/humorística**:
-       - Se usa una variable `rndnumero2` que se incrementa con cada llamada a la función.
-       - Dependiendo de si `rndnumero2` es par o impar, se muestra una de dos frases.
-       - La frase se imprime en cuatro líneas en la parte derecha de la pantalla.
-
-    6. **Actualización final**:
-       - Se actualiza la pantalla con `background.pushSprite()` para reflejar los cambios.
-
-  Efectos secundarios:
-    - Se cambia dinámicamente la frase en pantalla alternando entre dos mensajes.
-    - Se actualiza la hora con precisión de segundos.
-    - `rndnumero2` se incrementa en cada ejecución, asegurando variabilidad en los mensajes.
-
-  Notas:
-    - `data.btcPrice` muestra el precio actual de Bitcoin.
-    - `data.blockHeight` indica la altura del bloque más reciente.
-    - `data.currentHashRate` representa el hashrate actual en KH/s.
-    - La frase en pantalla alterna con cada actualización para evitar una interfaz estática.
-
-*/
+/**
+ * Actualiza la pantalla con datos en tiempo real sobre minería de Bitcoin.
+ *
+ * Esta función obtiene y muestra información relevante en la pantalla, incluyendo:
+ * - Hashrate actual del minero.
+ * - Altura del bloque en la blockchain.
+ * - Hora actual con segundos sincronizados.
+ * - Precio de Bitcoin en tiempo real.
+ * - Temperatura del minero.
+ * - Un mensaje que cambia cada 30 segundos.
+ *
+ * @param mElapsed Tiempo transcurrido en milisegundos desde la última actualización.
+ */
 
 void tDisplay_BTCprice(unsigned long mElapsed)
 {
@@ -3185,8 +3159,8 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   background.drawString(data.btcPrice.c_str(), 245, 26, GFXFF);
   background.setTextSize(1);
   background.setTextColor(colors[colorIndex]);
-  rndnumero2++;
-  if (rndnumero2 % 2 == 0)
+
+  if (segundos <= 30)
   {
     textoFinalm8ax1 = "El Futuro No Esta";
     textoFinalm8ax2 = "Establecido, Solo";
@@ -3200,6 +3174,7 @@ void tDisplay_BTCprice(unsigned long mElapsed)
     textoFinalm8ax3 = "Tendremos El";
     textoFinalm8ax4 = "Culo Atras...";
   }
+
   background.drawString(textoFinalm8ax1.c_str(), 310, 60, GFXFF);
   background.drawString(textoFinalm8ax2.c_str(), 310, 76, GFXFF);
   background.drawString(textoFinalm8ax3.c_str(), 310, 95, GFXFF);
@@ -3305,6 +3280,36 @@ void tDisplay_m8axScreen1(unsigned long mElapsed)
   background.pushSprite(0, 0);
 }
 
+/*
+ * Función: tDisplay_m8axScreen2
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con información de minería y reloj.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos de minería, moneda y reloj.
+ *  2. Reinicia varias variables de control usadas en la lógica de actualización.
+ *  3. Dibuja la imagen de fondo de la pantalla.
+ *  4. Muestra en la consola (Serial) la información de minería:
+ *      - Shares completados
+ *      - Total de Khashes minados
+ *      - Hashrate promedio
+ *      - Temperatura
+ *  5. Comprueba si el usuario ha minado alguna recompensa:
+ *      - Si no ha obtenido validaciones, muestra el mensaje "AUN NO ERES RICO".
+ *      - Si ha obtenido al menos una validación, muestra "ERES MILLONARIO".
+ *  6. Configura el estilo del texto en la pantalla.
+ *  7. Muestra en pantalla:
+ *      - Hashrate actual en la parte superior.
+ *      - Mensaje sobre la temperatura.
+ *      - Dirección de BTC parcialmente oculta con un identificador.
+ *      - Dirección y puerto de la pool.
+ *      - Otros valores visuales relacionados con la minería.
+ *  8. Muestra la hora actual y el tiempo total de minería.
+ */
+
 void tDisplay_m8axScreen2(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -3379,6 +3384,34 @@ void tDisplay_m8axScreen2(unsigned long mElapsed)
   render.rdrawString(data.timeMining.c_str(), 232, 92, colors[colorIndex]);
 }
 
+/*
+ * Función: tDisplay_m8axScreen3
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con información del reloj y el calendario.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos de:
+ *      - Reloj (fecha y hora).
+ *      - Minería (estadísticas de hashrate y shares).
+ *      - Moneda y reloj adicionales.
+ *  2. Incrementa el contador de actualización y reinicia la variable de corrección.
+ *  3. Muestra en la consola (Serial) los datos de minería:
+ *      - Shares completados.
+ *      - Total de Khashes minados.
+ *      - Hashrate promedio.
+ *      - Temperatura del dispositivo.
+ *  4. Extrae la fecha actual y la convierte a valores enteros:
+ *      - Día, mes y año.
+ *  5. Extrae los dígitos individuales de la hora y los minutos.
+ *  6. Cada 30 ciclos (o la primera vez que se ejecuta):
+ *      - Dibuja la imagen de fondo.
+ *      - Llama a `mostrarCalendario()` para visualizar la fecha y hora de forma gráfica.
+ *  7. Incrementa los contadores de actualización para controlar la frecuencia de actualización del calendario.
+ */
+
 void tDisplay_m8axScreen3(unsigned long mElapsed)
 {
   clock_data dataa = getClockData(mElapsed);
@@ -3407,6 +3440,42 @@ void tDisplay_m8axScreen3(unsigned long mElapsed)
   actual++;
   actualizarc = 0;
 }
+
+/*
+ * Función: tDisplay_m8axScreen4
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con información de minería, un número aleatorio primo y datos del sistema.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos de:
+ *      - Minería (estadísticas de hashrate y shares).
+ *      - Moneda.
+ *      - Reloj.
+ *  2. Incrementa el contador de actualización y reinicia la variable `actualizarcalen`.
+ *  3. Genera un número aleatorio (`rndnumero`) usando `esp_random()`.
+ *  4. Muestra en la consola (Serial) los datos de minería:
+ *      - Shares completados.
+ *      - Total de Khashes minados.
+ *      - Hashrate promedio.
+ *      - Temperatura del dispositivo.
+ *  5. Si el número aleatorio es primo (`esPrimo(rndnumero)`):
+ *      - Muestra una pantalla de créditos.
+ *      - Dibuja el número primo en la pantalla.
+ *  6. Cada 30 ciclos (`actualizarc % 30 == 0`):
+ *      - Muestra la pantalla de créditos.
+ *      - Genera y muestra números de la lotería "Primitiva".
+ *      - Divide los números en dos grupos de tres para mostrarlos en la pantalla.
+ *      - Muestra datos del sistema, como:
+ *          - Hora actual.
+ *          - Dirección IP pública y local.
+ *          - Espacio libre en la memoria Flash.
+ *          - Memoria RAM total (Heap + PSRAM).
+ *          - Frecuencia de la CPU y número de núcleos.
+ *  7. Incrementa `actualizarc` para controlar la frecuencia de actualización.
+ */
 
 void tDisplay_m8axScreen4(unsigned long mElapsed)
 {
@@ -3491,6 +3560,33 @@ void tDisplay_m8axScreen4(unsigned long mElapsed)
   actualizarc++;
 }
 
+/*
+ * Función: tDisplay_m8axScreen5
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con información de minería, elige una imagen aleatoria y muestra el texto desplazándose.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Incrementa el contador global `incrementCounter()`.
+ *  2. Reinicia `actualizarcalen` a 0.
+ *  3. Obtiene datos de:
+ *      - Minería (shares, hashrate, temperatura).
+ *      - Moneda.
+ *      - Reloj.
+ *  4. Formatea los datos de minería en un buffer (`bbuffer`) y los imprime en la consola (Serial).
+ *  5. Si `columna` es 0, se genera un número aleatorio (`random_number`) entre 1 y 4 para seleccionar una imagen.
+ *  6. Dependiendo del número aleatorio:
+ *      - `1`: Muestra `ImagenM8AX`.
+ *      - `2`: Muestra `M8AXRelojLunar`.
+ *      - `3`: Muestra `M8AXQuote1`.
+ *      - `4`: Muestra `M8AXQuote2`.
+ *  7. Muestra el texto con el color de índice `colorIndex`, ajusta el tamaño del texto y lo imprime en la posición `(2, columna)`.
+ *  8. Incrementa `columna` para el desplazamiento del texto en la pantalla.
+ *  9. Si `columna` alcanza 166, se reinicia a 0 para repetir el ciclo.
+ */
+
 void tDisplay_m8axScreen5(unsigned long mElapsed)
 {
   incrementCounter();
@@ -3536,6 +3632,34 @@ void tDisplay_m8axScreen5(unsigned long mElapsed)
   }
 }
 
+/*
+ * Función: tDisplay_m8axScreen6
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con la imagen final y muestra datos de minería.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Incrementa el contador global de actualización (`incrementCounter()`).
+ *  2. Reinicia múltiples variables de control (`actualizarcalen`, `actualizarc`, `actual`, `actuanot`, `correccion`).
+ *  3. Obtiene los datos de:
+ *      - Minería (shares completados, hashrate, temperatura).
+ *      - Información de moneda.
+ *      - Hora actual del reloj.
+ *  4. Imprime en la consola (Serial) las estadísticas de minería:
+ *      - Shares completados.
+ *      - Total de Khashes minados.
+ *      - Hashrate promedio.
+ *      - Temperatura del dispositivo.
+ *  5. Muestra en pantalla la imagen final (`ImagenFinalPM8AX`).
+ *  6. Establece el color y tamaño del texto para la información superpuesta.
+ *  7. Muestra en pantalla:
+ *      - La hora actual en `(64,160)`.
+ *      - El hashrate en `(137,160)`, seguido de `"KH/s "`.
+ *      - La temperatura en `(236,160)`, seguida de `"g"` (parece un error, posiblemente debería ser `"°C"`).
+ */
+
 void tDisplay_m8axScreen6(unsigned long mElapsed)
 {
   incrementCounter();
@@ -3560,6 +3684,35 @@ void tDisplay_m8axScreen6(unsigned long mElapsed)
   tft.setCursor(236, 160);
   tft.print(data.temp + "g");
 }
+
+/*
+ * Función: tDisplay_m8axScreen7
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con un reloj, la fecha y los datos de minería.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): hora y fecha actual.
+ *      - Moneda (`monedilla`).
+ *  2. Convierte `data.valids` a un entero (`millonario`).
+ *  3. Reinicia `actualizarc` y llama a `incrementCounter()`.
+ *  4. Si `actualizarcalen` es 0, inicia el cliente NTP (`timeClient.begin()`).
+ *  5. Cada 1800 ciclos, actualiza la hora desde el servidor NTP (`timeClient.update()`).
+ *  6. Obtiene los segundos actuales del servidor NTP (`timeClient.getSeconds()`).
+ *  7. Extrae y convierte la hora y los minutos de `dataa.currentTime`.
+ *  8. Calcula los segundos actuales (`segundos = segundo % 60`).
+ *  9. Imprime en consola los datos de minería.
+ * 10. Obtiene el día de la semana con `obtenerDiaSemana()`.
+ * 11. Extrae el día, mes y año de la fecha (`dataa.currentDate`).
+ * 12. Convierte la hora a formato de 12 horas si es necesario.
+ * 13. Incrementa `actualizarcalen`.
+ * 14. Llama a `dibujarReloj()` con la hora, fecha y datos de minería para actualizar la pantalla.
+ * 15. Reinicia `actual` a 0.
+ */
 
 void tDisplay_m8axScreen7(unsigned long mElapsed)
 {
@@ -3603,6 +3756,38 @@ void tDisplay_m8axScreen7(unsigned long mElapsed)
   dibujarReloj(horras, minutos, segundos, dia, mes, anio, quediase, data.currentHashRate.c_str(), data.temp.c_str(), millonario);
   actual = 0;
 }
+
+/*
+ * Función: tDisplay_m8axScreen8
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con una frase aleatoria, imagen de fondo y datos de minería.
+ *
+ *  Parámetro:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): hora y fecha actual.
+ *      - Moneda (`monedilla`).
+ *  2. Llama a `incrementCounter()`.
+ *  3. Imprime en consola los datos de minería.
+ *  4. Si `actualizarcalen` es múltiplo de 15 o `correccion` es 0:
+ *      - Aumenta el contador de frases (`numfrases`).
+ *      - Elige una imagen aleatoria (1 a 4) para mostrar de fondo:
+ *        1. Imagen de M8AX.
+ *        2. Reloj Lunar.
+ *        3. Cita 1.
+ *        4. Cita 2.
+ *      - Muestra la imagen seleccionada en el fondo.
+ *      - Solicita una cita aleatoria a través de la función `getQuote()`.
+ *      - Muestra la cita en la pantalla con `displayQuote()`.
+ *      - Imprime el número de la frase.
+ *  5. Establece la corrección de visualización a 1 (`correccion = 1`).
+ *  6. Convierte `data.valids` a un entero (`millonario`).
+ *  7. Si `millonario` es 0, imprime "NO RICO". De lo contrario, imprime "SI RICO" junto con los datos de minería (hora, fecha, hashrate, temperatura).
+ *  8. Incrementa `actualizarcalen`, reinicia `actualizarc` y `actuanot`.
+ */
 
 void tDisplay_m8axScreen8(unsigned long mElapsed)
 {
@@ -3664,6 +3849,31 @@ void tDisplay_m8axScreen8(unsigned long mElapsed)
   actualizarc = 0;
   actuanot = 0;
 }
+
+/*
+ * Función: tDisplay_m8axScreen9
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con la hora en formato romano, la fecha, el estado de la minería,
+ *  la temperatura del procesador, y un indicador de riqueza ("ERES RICO" o "NO RICO").
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): hora y fecha actual.
+ *      - Moneda (`monedilla`).
+ *  2. Convierte la hora, minutos, segundos, día, mes, año, y temperatura en formato romano utilizando `convertirARomanos()`.
+ *  3. Si `segundos % 59 == 0`, reinicia el contador de actualización de pantalla (`actualizarc`).
+ *  4. Si `actualizarc` es 0, selecciona aleatoriamente una imagen de fondo (entre 4 opciones).
+ *  5. Muestra la imagen seleccionada como fondo.
+ *  6. Imprime en la pantalla la hora, los valores romanos de día, mes, año y temperatura, junto con el estado de la minería.
+ *  7. Si el valor de `data.valids` es 1, imprime "ERES RICO", de lo contrario, imprime "NO RICO".
+ *  8. Muestra los valores de "V.BLOCKS" (número de bloques de minería) y la temperatura del procesador en formato romano.
+ *  9. El texto se muestra con colores aleatorios seleccionados de un arreglo `colors[]`.
+ *  10. Incrementa `actualizarc` y realiza actualizaciones periódicas de la pantalla.
+ */
 
 void tDisplay_m8axScreen9(unsigned long mElapsed)
 {
@@ -3733,7 +3943,6 @@ void tDisplay_m8axScreen9(unsigned long mElapsed)
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
-
   tft.setTextSize(1);
   tft.setCursor(250, 2);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
@@ -3784,6 +3993,31 @@ void tDisplay_m8axScreen9(unsigned long mElapsed)
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
+
+/*
+ * Función: tDisplay_m8axScreen10
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con la hora en formato binario, la fecha en formato binario,
+ *  el estado de la minería, la temperatura del procesador y un indicador de riqueza ("ERES RICO" o "NO RICO").
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): hora y fecha actual.
+ *      - Moneda (`monedilla`).
+ *  2. Convierte la hora, minutos, segundos, día, mes, año y temperatura en formato binario utilizando `ABinario()`.
+ *  3. Si `segundos % 59 == 0`, reinicia el contador de actualización de pantalla (`actualizarc`).
+ *  4. Si `actualizarc` es 0, selecciona aleatoriamente una imagen de fondo (entre 4 opciones).
+ *  5. Muestra la imagen seleccionada como fondo.
+ *  6. Imprime en la pantalla la hora, los valores binarios de día, mes, año y temperatura, junto con el estado de la minería.
+ *  7. Si el valor de `data.valids` es 1, imprime "ERES RICO", de lo contrario, imprime "NO RICO".
+ *  8. Muestra los valores de "V.BLOCKS" (número de bloques de minería) y la temperatura del procesador en formato binario.
+ *  9. El texto se muestra con colores aleatorios seleccionados de un arreglo `colors[]`.
+ *  10. Incrementa `actualizarc` y realiza actualizaciones periódicas de la pantalla.
+ */
 
 void tDisplay_m8axScreen10(unsigned long mElapsed)
 {
@@ -3853,7 +4087,6 @@ void tDisplay_m8axScreen10(unsigned long mElapsed)
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
-
   tft.setTextSize(1);
   tft.setCursor(240, 2);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
@@ -3904,6 +4137,34 @@ void tDisplay_m8axScreen10(unsigned long mElapsed)
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
+
+/*
+ * Función: tDisplay_m8axScreen11
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con la hora, fecha, el estado de la minería, la temperatura del procesador
+ *  y un indicador de riqueza ("ERES RICO" o "NO RICO"), pero con una variación en el manejo de la fecha y el año
+ *  en comparación con la función anterior.
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): hora y fecha actual.
+ *      - Moneda (`monedilla`).
+ *  2. Extrae la hora, minutos y segundos actuales, además de la fecha completa (día, mes, año).
+ *  3. Divide el año en dos partes (los primeros dos dígitos y los últimos dos dígitos).
+ *  4. Convierte la hora, minutos, segundos, día, mes y año en formato Morse utilizando la función `Amorse()`.
+ *  5. Si `segundos % 59 == 0`, reinicia el contador de actualización de pantalla (`actualizarc`).
+ *  6. Si `actualizarc` es 0, selecciona aleatoriamente una imagen de fondo (entre 4 opciones).
+ *  7. Muestra la imagen seleccionada como fondo.
+ *  8. Imprime en la pantalla la hora en formato Morse, junto con los valores binarios de día, mes, año y temperatura.
+ *  9. Si el valor de `data.valids` es 1, imprime "ERES RICO", de lo contrario, imprime "NO RICO".
+ *  10. Muestra los valores de "V.BLOCKS" (número de bloques de minería) y la temperatura del procesador en formato Morse.
+ *  11. El texto se muestra con colores aleatorios seleccionados de un arreglo `colors[]`.
+ *  12. Incrementa `actualizarc` y realiza actualizaciones periódicas de la pantalla.
+ */
 
 void tDisplay_m8axScreen11(unsigned long mElapsed)
 {
@@ -3978,7 +4239,6 @@ void tDisplay_m8axScreen11(unsigned long mElapsed)
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI]);
   tft.print(sRoman);
-
   tft.setTextSize(1);
   tft.setCursor(240, 2);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
@@ -4033,6 +4293,33 @@ void tDisplay_m8axScreen11(unsigned long mElapsed)
   tft.setTextColor(colors[colorI]);
   tft.print("T " + TempCPU + "g");
 }
+
+/*
+ * Función: tDisplay_m8axScreen12
+ * ------------------------------------
+ *  Esta función actualiza la pantalla con información sobre la minería, un mensaje personalizado y gráficos aleatorios,
+ *  además de cambiar el fondo entre varias opciones. También se genera un patrón aleatorio de píxeles en la pantalla.
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Moneda (`monedilla`).
+ *      - Reloj (`relojete`).
+ *  2. Incrementa el contador de actualizaciones (`incrementCounter()`).
+ *  3. Imprime en el monitor serial información sobre el progreso de la minería.
+ *  4. Selecciona aleatoriamente una imagen de fondo (entre 4 opciones) usando un número aleatorio generado por `esp_random()`.
+ *  5. Si el número es par, se establece un valor aleatorio para `limite` entre 0 y 15000, de lo contrario, entre 0 y 5000.
+ *  6. Muestra el hashrate actual en la pantalla con un tamaño de texto grande, utilizando un color aleatorio.
+ *  7. Muestra un mensaje en el centro de la pantalla ("... GRACIAS ...").
+ *  8. Muestra una URL debajo del mensaje principal (https://youtube.com/m8ax).
+ *  9. Dibuja un patrón de píxeles aleatorios en la pantalla. Cada píxel tiene un color aleatorio de un conjunto `colors[]`,
+ *      y las posiciones se generan aleatoriamente dentro de los límites de la pantalla (ancho 0 a 340, alto 0 a 170).
+ *  10. Reinicia varias variables (`actualizarcalen`, `actualizarc`, `actual`, `actuanot`, `correccion`) para preparar la pantalla
+ *      para la siguiente actualización.
+ */
 
 void tDisplay_m8axScreen12(unsigned long mElapsed)
 {
@@ -4101,6 +4388,32 @@ void tDisplay_m8axScreen12(unsigned long mElapsed)
   actuanot = 0;
   correccion = 0;
 }
+
+/*
+ * Función: tDisplay_m8axScreen13
+ * -----------------------------------
+ *  Esta función es responsable de actualizar la pantalla con información sobre la minería,
+ *  el precio de las criptomonedas y un mensaje personalizado. Además, selecciona aleatoriamente una imagen de fondo y
+ *  muestra una lista de criptomonedas con sus precios actualizados.
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados de:
+ *      - Minería (`data`): Información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Moneda (`monedilla`).
+ *      - Reloj (`relojete`).
+ *  2. Realiza una comprobación para saber si es el momento de actualizar la pantalla basándose en el minuto y segundo actuales.
+ *  3. Si es el momento de actualizar, selecciona aleatoriamente una de las 4 imágenes posibles para usar como fondo de pantalla.
+ *  4. Imprime en el monitor serial información sobre el progreso de la minería.
+ *  5. Para cada una de las 20 criptomonedas (a través del índice `iii`), se obtiene el precio y se muestra en la pantalla:
+ *      - Se distribuyen las criptomonedas en 4 columnas en función del índice `iii`.
+ *      - Si el precio de la criptomoneda es válido, se muestra el nombre y el precio en dólares.
+ *      - Si el precio no es válido (error al obtenerlo), se muestra un mensaje de error para esa criptomoneda.
+ *  6. Si la actualización de la pantalla se realiza, se reinician varias variables relacionadas con el ciclo de actualización.
+ *  7. Se dibuja una línea en la parte superior de la pantalla para separar la información.
+ */
 
 void tDisplay_m8axScreen13(unsigned long mElapsed)
 {
@@ -4233,7 +4546,7 @@ void tDisplay_m8axScreen13(unsigned long mElapsed)
         tft.print(criptomonedas[iii]);
         tft.setCursor(x, y + 15);
         tft.print("$-ERROR-$");
-        Serial.print("Error al obtener el precio de ");
+        Serial.print("M8AX - Error Al Obtener El Precio De ");
         Serial.println(criptomonedas[iii]);
       }
     }
@@ -4244,6 +4557,31 @@ void tDisplay_m8axScreen13(unsigned long mElapsed)
     correccion = 0;
   }
 }
+
+/*
+ * Función: tDisplay_m8axScreen14
+ * ------------------------------
+ *  Esta función se encarga de actualizar la pantalla con información sobre el estado de la minería,
+ *  noticias aleatorias y un mensaje sobre el "estado de riqueza" basado en la cantidad de shares validados.
+ *  La información se presenta de una manera gráfica con un fondo y se actualiza en intervalos de tiempo específicos.
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados sobre:
+ *      - Minería (`data`): Información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Reloj (`relojete`).
+ *  2. Si es el momento adecuado (basado en el valor de `actuanot` y `correccion`), selecciona aleatoriamente uno de los 4 fondos disponibles:
+ *      - `ImagenM8AX`, `M8AXRelojLunar`, `M8AXQuote1`, o `M8AXQuote2`.
+ *  3. Obtiene las noticias a través de la función `obtenerNoticias()`.
+ *  4. Actualiza la pantalla con el texto "M8AX-Noticias Num-" seguido del número de noticias actuales (`numnotis`).
+ *  5. Dibuja una línea horizontal en la parte superior de la pantalla.
+ *  6. Imprime información adicional sobre el tiempo actual, la fecha, el hashrate y la temperatura en la pantalla.
+ *      - Si el número de shares válidos (`data.valids`) es igual a 0, se imprime "NO RICO".
+ *      - Si el número de shares válidos es mayor a 0, se imprime "SI RICO".
+ *  7. Incrementa el contador `actuanot` y reinicia las variables relacionadas con el ciclo de actualización (`actualizarcalen`, `actualizarc`, `actual`).
+ */
 
 void tDisplay_m8axScreen14(unsigned long mElapsed)
 {
@@ -4306,6 +4644,38 @@ void tDisplay_m8axScreen14(unsigned long mElapsed)
   actual = 0;
 }
 
+/*
+ * Función: tDisplay_m8axScreen15
+ * ------------------------------
+ *  Esta función es responsable de actualizar la pantalla con información sobre el estado de la minería,
+ *  incluyendo el hash rate, temperaturas, y datos adicionales como la factorización de un número aleatorio.
+ *  También visualiza barras de progreso que representan los segundos, horas y minutos actuales.
+ *
+ *  Parámetros:
+ *    - mElapsed: Tiempo transcurrido desde la última actualización.
+ *
+ *  Flujo de ejecución:
+ *  1. Obtiene los datos actualizados sobre:
+ *      - Minería (`data`): Información sobre shares completados, Khashes, hashrate y temperatura.
+ *      - Reloj (`dataa`): Información sobre la hora y fecha.
+ *  2. Calcula el tiempo actual (segundos, minutos, horas) y actualiza las barras de progreso visualizando los valores en tiempo real.
+ *  3. Si `actualizarcalen` es 0, establece una imagen de fondo inicial en la pantalla y la actualiza.
+ *  4. Cada 30 segundos (segundo % 30 == 0), selecciona aleatoriamente una de las 4 imágenes de fondo y la muestra en la pantalla.
+ *  5. Convierte el valor de `currentHashRate` a un número flotante y lo usa para dibujar un gráfico analógico del hashrate.
+ *  6. Muestra un número aleatorio generado (`rndnumero2`) y su factorización.
+ *  7. Muestra el estado de la minería, especificando si está "SI RICO" o "NO RICO" basado en el número de shares válidos.
+ *  8. Muestra datos adicionales como:
+ *      - Hashes por segundo.
+ *      - Operaciones por segundo.
+ *      - TFLOPS, GOPS, MOPS, TOPS.
+ *  9. Muestra la temperatura de la minería en la pantalla.
+ * 10. Dibuja tres barras de progreso:
+ *      - Una para los segundos (basada en `segundos`).
+ *      - Otra para las horas (basada en `horas`).
+ *      - Otra para los minutos (basada en `minutos`).
+ *  11. Resetea varios contadores (`actualizarcalen`, `actualizarc`, `actuanot`) al final de la función.
+ */
+
 void tDisplay_m8axScreen15(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -4357,11 +4727,11 @@ void tDisplay_m8axScreen15(unsigned long mElapsed)
   dibujaAnalogKH(hashRa);
   tft.setTextColor(TFT_WHITE);
   tft.setTextSize(1);
-  rndnumero3 = esp_random();
-  const char *factorizacion = factorize(rndnumero3);
+  rndnumero2 = esp_random();
+  const char *factorizacion = factorize(rndnumero2);
   tft.setCursor(4, 154);
-  tft.print(String(rndnumero3) + " - " + (factorizacion));
-  Serial.println("M8AX - Factorizando Número - " + String(rndnumero3) + " - " + (factorizacion));
+  tft.print(String(rndnumero2) + " - " + (factorizacion));
+  Serial.println("M8AX - Factorizando Número - " + String(rndnumero2) + " - " + (factorizacion));
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setCursor(4, 144);
   tft.setTextColor(colors[colorI]);
@@ -4480,6 +4850,10 @@ void tDisplay_m8axScreen15(unsigned long mElapsed)
   actuanot = 0;
 }
 
+// Función tDisplay_m8axScreen16: Actualiza la pantalla con datos de minería, hora mundial, y datos de configuración del sistema.
+// Utiliza imágenes de fondo que cambian aleatoriamente cada 30 segundos y muestra la hora de 20 ciudades en varias columnas.
+// Además, incluye la visualización de los datos de minería, temperatura y estado actual.
+
 void tDisplay_m8axScreen16(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -4582,6 +4956,10 @@ void tDisplay_m8axScreen16(unsigned long mElapsed)
   actualizarc = 0;
   actuanot = 0;
 }
+
+// Función tDisplay_m8axScreen17: Actualiza la pantalla con información de minería, dirección BTC y muestra un código QR.
+// La pantalla muestra información de minería, una dirección de Bitcoin, y un QR asociado a esa dirección.
+// Además, cada 30 segundos cambia la imagen de fondo de manera aleatoria, y se muestran letras relacionadas con Bitcoin en diferentes posiciones de la pantalla.
 
 void tDisplay_m8axScreen17(unsigned long mElapsed)
 {
@@ -4701,6 +5079,26 @@ void tDisplay_m8axScreen17(unsigned long mElapsed)
   int colorrr = esp_random() % 4;
   dibujaQR(btcm8, (320 - 150) / 2, (170 - 150) / 2, 150, colorss[colorrr]); // Dibuja el QR centrado en la pantalla 320x170
 }
+
+// tDisplay_m8axScreen18: Esta función se encarga de actualizar la pantalla TFT con diversos datos relacionados con el proceso de minería y el reloj.
+// La pantalla muestra estadísticas de minería, un reloj actualizado, números aleatorios, y un "objetivo" para los números generados,
+// así como varios elementos gráficos (como líneas, imágenes, y códigos QR). Además, se calcula un valor relacionado con la minería y el tiempo,
+// y se actualizan los valores visualizados en la pantalla dependiendo del estado actual de la minería.
+
+// Parámetros:
+// - mElapsed: Un valor de tiempo transcurrido utilizado para obtener datos de minería y del reloj.
+
+// Procedimiento:
+// 1. Obtiene los datos de minería, reloj y moneda mediante las funciones `getMiningData`, `getClockData` y `getCoinData`.
+// 2. Extrae la hora, minuto y segundos actuales, además de generar números aleatorios y un destino para el "juego de números".
+// 3. Si el segundo actual es divisible entre 30, se elige aleatoriamente una imagen para mostrar en la pantalla (por ejemplo, una imagen de fondo o una cita).
+// 4. Actualiza la pantalla con texto informativo: estadísticas de minería (como shares completados, tasa de hash y temperatura),
+//    y muestra los números generados junto con el objetivo a alcanzar en el "juego de números".
+// 5. Se dibujan líneas en la pantalla para separar las secciones de información.
+// 6. Calcula las operaciones para el "juego de números" y muestra el resultado en la pantalla.
+// 7. Dibuja códigos QR con la hora, minuto y segundo actuales, utilizando colores aleatorios.
+// 8. Muestra un reloj visualizado en la parte superior con los valores de hora, minuto y segundo.
+// 9. Finalmente, imprime en el monitor serial información relevante sobre los números generados y el objetivo.
 
 void tDisplay_m8axScreen18(unsigned long mElapsed)
 {
@@ -4840,6 +5238,12 @@ void tDisplay_m8axScreen18(unsigned long mElapsed)
   tft.setTextSize(1);
 }
 
+// Función principal para mostrar la simulación de un dado y una moneda en la pantalla,
+// junto con información relacionada con la minería de criptomonedas, la hora y la temperatura.
+// Esta función se ejecuta repetidamente en cada ciclo de actualización, mostrando datos
+// como la tasa de hashrate, el estado del dado (número entre 1 y 6), y el resultado de la
+// moneda (cara o cruz) junto con la hora actual y la temperatura de la minería
+
 void monedaYdado(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -4933,6 +5337,28 @@ void monedaYdado(unsigned long mElapsed)
   tft.setTextSize(1);
 }
 
+// Funcionalidad:
+// 1. Recupera los datos de minería utilizando la función `getMiningData()` para mostrar información sobre
+//    el número de "shares" completados, los "khashes" totales, la tasa de hashrate y la temperatura.
+// 2. Si el contador `actuanot` alcanza un múltiplo de 10 o si `correccion` es igual a 0, selecciona
+//    aleatoriamente un fondo de una lista de imágenes predefinidas para mostrar en la pantalla, usando
+//    la función `esp_random()` para generar el índice aleatorio.
+// 3. Actualiza la pantalla con el fondo seleccionado y dibuja el texto centrado "M 8 A X", "JUEGO DE", y "LA VIDA",
+//    indicativos del nombre del juego y su propósito visual.
+// 4. Rellena la pantalla con un fondo negro y reinicia la cuadrícula del "Juego de la Vida" llamando a las
+//    funciones `initGrid()` y `drawGrid()`.
+// 5. Inicia una simulación del "Juego de la Vida" con un número máximo de generaciones (`MAX_GEN_COUNT`).
+//    En cada generación, se calcula el siguiente estado de la cuadrícula (celulas vivas/muertas) mediante la
+//    función `computeCA()`, luego se actualiza la cuadrícula y se vuelve a dibujar en pantalla, haciendo uso de
+//    la función `drawGrid()`. Este ciclo se repite con un pequeño retraso (`GEN_DELAY`) entre cada paso.
+// 6. Los valores de la cuadrícula se actualizan entre generaciones con la lógica de pasar de `newgrid` a `grid`,
+//    donde las celdas se actualizan en función de las reglas del "Juego de la Vida".
+// 7. Después de completar todas las generaciones, se restablecen varios contadores y banderas como `actual`,
+//    `actualizarc`, `actualizarcalen` y `correccion` para la próxima iteración de la función.
+// 8. La función se asegura de dibujar y mostrar información visual dinámica como el "Juego de la Vida" y las
+//    estadísticas de minería, en conjunto con las imágenes de fondo aleatorias, creando una experiencia visual
+//    completa e interactiva para el usuario.
+
 void tDisplay_m8axvida(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -4995,6 +5421,38 @@ void tDisplay_m8axvida(unsigned long mElapsed)
   actualizarc = 0;
   actual = 0;
 }
+
+// Función que gestiona la visualización de un reloj en formato de números romanos en la pantalla TFT,
+// junto con información sobre minería, temperatura, tiempo y día, en una interfaz de usuario interactiva.
+// La función actualiza la pantalla con la hora actual, el día de la semana, la temperatura, el hash rate y
+// otros datos en un formato llamativo y dinámico, con colores aleatorios para los textos y barras de progreso
+// para representar el tiempo y la actividad de minería.
+//
+// Parámetros:
+// - mElapsed: Tiempo transcurrido desde el inicio o la última actualización.
+//
+// Funcionalidad:
+// 1. Recupera los datos de minería, reloj y moneda utilizando las funciones `getMiningData()`, `getClockData()` y
+//    `getCoinData()` para obtener la información que se mostrará en la pantalla.
+// 2. Extrae y calcula los componentes de la hora, minuto y segundo a partir de los datos de reloj, dividiendo los
+//    valores de horas, minutos y segundos en dígitos individuales para su visualización.
+// 3. Calcula el tiempo transcurrido en el día en segundos (`segundosDelDia`) y convierte las horas, minutos y
+//    segundos en números romanos utilizando la función `numeroAEscrito()` para mostrarlos en la pantalla.
+// 4. Recupera el día de la semana y la fecha actual en formato "día/mes/año" para mostrar información adicional
+//    sobre la fecha y el estado del reloj.
+// 5. Si el valor de `actualizarc` es 0, selecciona aleatoriamente un fondo visual de una lista predefinida de
+//    imágenes usando el valor generado por `esp_random()`, y luego lo muestra en la pantalla.
+// 6. Muestra la hora en formato de números romanos (de 1 a 10 para las horas, minutos y segundos) en diferentes
+//    posiciones de la pantalla con colores aleatorios.
+// 7. Muestra la fecha, el hash rate, y si el usuario es "millonario" (según un cálculo basado en `valids` de minería)
+//    en varias posiciones de la pantalla, usando colores aleatorios para cada texto.
+// 8. Actualiza barras de progreso que representan el tiempo transcurrido en el día (0-24 horas) y el nivel de
+//    actividad de minería (0-360 KH/s). Las barras cambian de color aleatoriamente según el valor calculado.
+// 9. La función también actualiza la información en la pantalla de manera continua con cada llamada, mostrando
+//    datos actualizados sobre el reloj, minería y temperatura, lo que permite tener un reloj interactivo con
+//    detalles sobre la actividad de la minería en tiempo real.
+// 10. Al final de la ejecución, todos los textos y gráficos se muestran con colores aleatorios para mejorar
+//     la estética visual.
 
 void RelojDeNumeros(unsigned long mElapsed)
 {
@@ -5180,6 +5638,37 @@ void RelojDeNumeros(unsigned long mElapsed)
   tft.fillRect(X_INICIO, Y_POS - (grosor / 2), longitud_pintada, grosor, colors[colorI]);
 }
 
+// Función que maneja la actualización de la pantalla con información en texto plano sobre minería y reloj,
+// mostrando una imagen de fondo seleccionada aleatoriamente, y actualizando los datos de la minería cada ciertos
+// intervalos de tiempo. Además, gestiona la visualización continua de información textual sobre el estado de la
+// minería y la actividad en tiempo real. También incluye la gestión de imágenes aleatorias para dar variedad visual.
+//
+// Parámetros:
+// - mElapsed: Tiempo transcurrido desde el inicio o la última actualización.
+//
+// Funcionalidad:
+// 1. Recupera los datos de minería, reloj y moneda utilizando las funciones `getMiningData()`, `getClockData()`
+//    y `getCoinData()` para obtener la información que se mostrará en la pantalla.
+// 2. Se obtiene el tiempo actual (segundos) utilizando la función `timeClient.getSeconds()` para poder manejar
+//    los intervalos de tiempo para la actualización de la pantalla.
+// 3. Se incrementa el contador mediante `incrementCounter()` para hacer un seguimiento del tiempo transcurrido o
+//    el número de actualizaciones.
+// 4. Si el valor de `actualizarc` es 0, se selecciona una imagen de fondo aleatoria y se muestra en la pantalla.
+//    Las imágenes de fondo pueden ser: `ImagenM8AX`, `M8AXRelojLunar`, `M8AXQuote1` o `M8AXQuote2`.
+//    Esta imagen se muestra al inicio de la función y cada vez que `segundo % 30 == 0` para crear un cambio visual.
+// 5. La función `datosPantallaTextoPlano()` se encarga de actualizar la información textual que se muestra sobre la
+//    pantalla, como el estado de la minería, el tiempo y otros detalles en formato de texto plano.
+// 6. El uso de `background.pushImage()` y `background.pushSprite()` asegura que se actualice la pantalla correctamente
+//    con la nueva imagen o los datos mostrados.
+// 7. La función imprime en el monitor serie el estado de la minería, mostrando el número de shares completados, el
+//    total de Khashes, el hash rate actual y la temperatura.
+// 8. Cada 30 segundos (`segundo % 30 == 0`), se elige aleatoriamente una nueva imagen de fondo y se muestra en la
+//    pantalla, proporcionando una experiencia visual dinámica.
+// 9. Cada 5 segundos (`segundo % 5 == 0`), se actualiza nuevamente la información textual sobre la pantalla para
+//    mostrar los datos más recientes sobre la minería.
+// 10. Al final de la ejecución, los valores de las variables `actual`, `correccion`, `actuanot` y `actualizarcalen`
+//     se restablecen a 0 para preparar la función para la siguiente iteración.
+
 void datoTextPlano(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -5234,6 +5723,30 @@ void datoTextPlano(unsigned long mElapsed)
   actualizarcalen = 0;
 }
 
+// Función que muestra una pantalla de carga con efectos visuales aleatorios al iniciar el sistema,
+// mostrando una imagen de inicio y el texto que indica la versión actual del programa.
+//
+// Funcionalidad:
+// 1. Se genera un número aleatorio entre 0 y 5 utilizando `esp_random() % 6`, lo que determina cuál de los
+//    efectos visuales se aplicará durante la pantalla de carga. Los efectos posibles son:
+//    - `cortinas()`
+//    - `M8AXTicker2()`
+//    - `M8AXTicker()`
+//    - `M8AXTicker3()`
+//    - `M8AXTicker4()`
+//    - `nevar3()`
+//    Cada uno de estos efectos está definido en otras funciones, y se ejecuta uno de ellos de forma aleatoria.
+// 2. Después de aplicar el efecto visual correspondiente, se limpia la pantalla con `tft.fillScreen(TFT_BLACK)`
+//    para asegurarse de que no haya restos de otras pantallas previas.
+// 3. Se dibuja la imagen de inicio en la pantalla con `tft.pushImage(0, 0, initWidth, initHeight, initScreen)`,
+//    donde `initScreen` es la imagen de inicio que se va a mostrar, utilizando sus dimensiones `initWidth`
+//    y `initHeight`.
+// 4. Se establece el color del texto a negro con `tft.setTextColor(TFT_BLACK)` y el tamaño de texto a 1 con
+//    `tft.setTextSize(1)` para las siguientes cadenas de texto.
+// 5. Se dibuja el texto de la versión actual del programa en las coordenadas (25, 148) usando la fuente
+//    `FONT2` y el texto correspondiente a la constante `CURRENT_VERSION`. Esto muestra la versión del software
+//    en la pantalla de carga.
+
 void tDisplay_LoadingScreen(void)
 {
   int effect = esp_random() % 6;
@@ -5265,10 +5778,29 @@ void tDisplay_LoadingScreen(void)
   tft.drawString(CURRENT_VERSION, 25, 148, FONT2);
 }
 
+// Función que muestra la pantalla de configuración del dispositivo o programa.
+//
+// Funcionalidad:
+// 1. Se utiliza la función `tft.pushImage` para mostrar una imagen de la pantalla de configuración en el
+//    display TFT.
+// 2. Los parámetros pasados a `tft.pushImage` son:
+//    - `(0, 0)`: Las coordenadas de inicio donde se colocará la imagen en la pantalla, en este caso, la
+//      esquina superior izquierda de la pantalla (0,0).
+//    - `setupModeWidth`: El ancho de la imagen que se quiere mostrar.
+//    - `setupModeHeight`: La altura de la imagen que se quiere mostrar.
+//    - `setupModeScreen`: El array de bytes que contiene la imagen que se debe mostrar.
+
 void tDisplay_SetupScreen(void)
 {
   tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
 }
+
+// Esta función es ejecutada cada segundo y realiza varias acciones basadas en el tiempo actual y eventos aleatorios.
+// 1. Primero, obtiene la hora y fecha actual usando el cliente NTP para obtener la hora Epoch y convertirla a formato local.
+// 2. Felicita al usuario por Navidad o Año Nuevo entre las fechas de diciembre 20 y enero 6, mostrando un efecto de nieve.
+// 3. Realiza un mensaje aleatorio de ánimo en la pantalla, con texto motivacional sobre la esperanza, dependiendo de un número aleatorio.
+// 4. Realiza ciertas acciones de Telegram (como enviar mensajes) si la configuración está establecida y es el momento adecuado.
+// 5. La lógica de la hora y los minutos controla ciertos eventos como el envío de mensajes de Telegram o la actualización de la pantalla.
 
 void analiCadaSegundo(unsigned long frame)
 {
@@ -5282,8 +5814,8 @@ void analiCadaSegundo(unsigned long frame)
   int minutitos = timeinfo->tm_min;                    // Minutos
   int segundos = timeinfo->tm_sec;                     // Segundos
 
-  BOT_TOKEN = Settings.botTelegram;
-  CHAT_ID = Settings.ChanelIDTelegram;
+  BOT_TOKEN = Settings.botTelegram;    // Bot De Telegram
+  CHAT_ID = Settings.ChanelIDTelegram; // ID Del Canal De Telegram
 
   // Felicitar La Navidad O El Año Nuevo
 
@@ -5311,7 +5843,7 @@ void analiCadaSegundo(unsigned long frame)
   }
 
   rndnumero = esp_random();
-  if (rndnumero <= 10031977 && segundos <= 16 && segundos % 2 == 0 && dia % 2 != 0)
+  if (rndnumero <= 10031977 && segundos <= 20 && segundos % 2 == 0 && dia % 2 == 0)
   {
     Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
     actualizarcalen = 0;
@@ -5322,8 +5854,8 @@ void analiCadaSegundo(unsigned long frame)
     correccion = 0;
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(colors[colorIndex]);
-    tft.setTextSize(3);  // Tamaño del texto
-    tft.setCursor(0, 0); // Posición del cursor
+    tft.setTextSize(3);
+    tft.setCursor(0, 0);
     if (rndnumero % 2 == 0)
     {
       tft.println("La Esperanza Es");
@@ -5332,9 +5864,9 @@ void analiCadaSegundo(unsigned long frame)
       tft.println("Lo Conseguiremos!");
       tft.println("");
       tft.println("     VAMOS !");
-      tft.setTextSize(1); // Tamaño del texto
+      tft.setTextSize(1);
       tft.println("");
-      tft.setTextSize(2); // Tamaño del texto
+      tft.setTextSize(2);
       tft.setTextColor(TFT_WHITE);
       tft.println("     ... By M8AX ...");
     }
@@ -5345,7 +5877,7 @@ void analiCadaSegundo(unsigned long frame)
       tft.println("Will Archieve It!");
       tft.println("");
       tft.println("    COME ON !");
-      tft.setTextSize(2); // Tamaño del texto
+      tft.setTextSize(2);
       tft.setTextColor(TFT_WHITE);
       tft.println("");
       tft.println("");
@@ -5354,15 +5886,30 @@ void analiCadaSegundo(unsigned long frame)
     delay(3000);
   }
 
-  if (horita % 2 == 0)
+  if (startTime == 0)
   {
-    if (minutitos == 0 && segundos == 25 && BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
+    startTime = epochTime; // Guardar el tiempo de inicio cuando el dispositivo arranca
+  }
+
+  // Si ya ha pasado el tiempo de arranque mínimo (por ejemplo, 10 minutos) y han pasado 2 horas desde el último mensaje
+  if (epochTime - startTime >= minStartupTime && epochTime - lastTelegramEpochTime >= interval)
+  {
+    // Verificar si los datos de Telegram están configurados
+    if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
     {
-      sumatele += 1;
-      recopilaTelegram();
+      recopilaTelegram();                // Envia el mensaje a Telegram
+      lastTelegramEpochTime = epochTime; // Actualiza el tiempo de la última ejecución
     }
   }
 }
+
+// Función encargada de gestionar la animación de la pantalla actual.
+// 1. Incrementa el contador especial (ContadorEspecial) en cada llamada.
+// 2. Si el contador es divisible por 5, llama a la función 'analiCadaSegundo' para realizar acciones basadas en el tiempo.
+//    Esta función se encarga de verificar el tiempo, felicitar eventos especiales (Navidad/Año Nuevo),
+//    mostrar mensajes motivacionales y realizar tareas de Telegram en intervalos específicos de tiempo.
+// 3. La animación de la pantalla o las actualizaciones relacionadas con el frame también se manejan dentro de esta función.
+//    Sin embargo, el código para las animaciones no se incluye explícitamente en esta función.
 
 void tDisplay_AnimateCurrentScreen(unsigned long frame)
 {
@@ -5373,9 +5920,24 @@ void tDisplay_AnimateCurrentScreen(unsigned long frame)
   }
 }
 
+// Aún sin implementación
+
 void tDisplay_DoLedStuff(unsigned long frame)
 {
 }
+
+// Definición de la estructura `tDisplayDriver` que encapsula las funciones necesarias para controlar las pantallas y sus interacciones.
+// Esta estructura contiene las siguientes funciones:
+// - `tDisplay_Init`: Inicializa la pantalla y otros componentes necesarios.
+// - `tDisplay_AlternateScreenState`: Permite alternar entre diferentes estados de la pantalla.
+// - `tDisplay_AlternateRotation`: Maneja la rotación de la pantalla.
+// - `tDisplay_LoadingScreen`: Muestra la pantalla de carga con efectos aleatorios.
+// - `tDisplay_SetupScreen`: Muestra la pantalla de configuración.
+// - `tDisplayCyclicScreens`: Array de funciones cíclicas que se muestran de manera periódica, permitiendo la transición entre pantallas, como la pantalla del minero, cotización de BTC, hora, etc.
+// - `tDisplay_AnimateCurrentScreen`: Actualiza las pantallas de forma cíclica y con animaciones, como la del minero o las cotizaciones.
+// - `tDisplay_DoLedStuff`: Función vacía en este momento, reservada para gestionar efectos relacionados con LEDs.
+// Además, contiene detalles de la pantalla, como el tamaño y el número total de pantallas definidas en `tDisplayCyclicScreens` (calculado con `SCREENS_ARRAY_SIZE`).
+// La estructura `tDisplayDriver` centraliza el control de todas las operaciones relacionadas con la pantalla, permitiendo la ejecución secuencial o cíclica de diferentes pantallas en el dispositivo.
 
 CyclicScreenFunction tDisplayCyclicScreens[] = {tDisplay_MinerScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice, tDisplay_m8axScreen15, tDisplay_m8axScreen2, datoTextPlano, tDisplay_m8axScreen5, tDisplay_m8axScreen16, tDisplay_ClockScreen, tDisplay_m8axScreen1, tDisplay_m8axScreen7, RelojDeNumeros, tDisplay_m8axScreen9, tDisplay_m8axScreen10, tDisplay_m8axScreen11, tDisplay_m8axScreen18, tDisplay_m8axScreen3, tDisplay_m8axScreen13, tDisplay_m8axScreen14, tDisplay_m8axScreen8, tDisplay_m8axScreen4, tDisplay_m8axScreen6, tDisplay_m8axScreen17, monedaYdado, tDisplay_m8axScreen12, tDisplay_m8axvida};
 

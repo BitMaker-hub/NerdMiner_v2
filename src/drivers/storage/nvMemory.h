@@ -10,12 +10,13 @@
 // Handles load and store of user settings, except wifi credentials. Those are managed by the wifimanager.
 class nvMemory
 {
-public: 
+public:
     nvMemory();
     ~nvMemory();
-    bool saveConfig(TSettings* Settings);
-    bool loadConfig(TSettings* Settings);
+    bool saveConfig(TSettings *Settings);
+    bool loadConfig(TSettings *Settings);
     bool deleteConfig();
+
 private:
     bool init();
     bool Initialized_;
@@ -23,6 +24,6 @@ private:
 
 #ifndef NVMEM_SPIFFS
 #error We need some kind of permanent storage implementation!
-#endif //NVMEM_TYPE
+#endif // NVMEM_TYPE
 
 #endif // _NVMEMORY_H_
