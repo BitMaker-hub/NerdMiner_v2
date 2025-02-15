@@ -1,13 +1,30 @@
-/************************************************************************************
+/********************************************************************************************
  *   Escrito por: M8AX
  *
  *   Descripción:
+ *   ------------
+ *
  *   Expansión de las pantallas del NerdMinerV2 con aún más datos y mucho más "nerd"
- *   de lo que ya era xD
+ *   de lo que ya era xD...
  *
- *   Tmp. De Programación 13H
+ *   Se añaden más funciones y datos para que puedas ver en tiempo real lo que está
+ *   ocurriendo en tu minero, además de poder enviar mensajes a tu canal de telegram.
  *
- ************************************************************************************/
+ *   Se añaden más funciones para que puedas ver datos en pantalla y enviarlos a tu
+ *   canal de telegram, como la factorización prima de un número aleatorio, el día de
+ *   la semana, la hora, la fecha, la IP pública, el precio de Bitcoin, el promedio por
+ *   transacción, la altura de bloque, el hash rate global, el tiempo minando, la mejor
+ *   dificultad alcanzada, la dificultad de la red, el cómputo total, el hash rate actual,
+ *   la temperatura de la CPU, las plantillas de bloque, los shares enviados a la pool, En
+ *   resumen, un montón de datos que podrás ver en pantalla y enviar a tu canal de telegram
+ *   si lo has configurado, sino, no te preocupes, no pasa nada, todo seguirá funcionando y
+ *   minando como siempre.
+ *
+ *                              PARA MÁS INFORMACIÓN LEER PDF
+ *
+ *                     Tmp. De Programación 13H - 6100 Líneas De Código
+ *
+ ********************************************************************************************/
 
 // Invocando las poderosas librerías que hacen posible esta obra maestra del minado nerd
 
@@ -89,7 +106,11 @@ int totalci = 0;
 int mirarTiempo = 0;
 int sumatele = 1;
 int abortar = 0;
-int tempera = 0;
+int alertatemp = 0;
+int maxtemp = 0;
+int mintemp = 1000;
+float maxkh = 0.00;
+float minkh = 1000.00;
 float porcentaje = 0.00;
 const char *nombrecillo;
 const char *apiUrl = "http://ip-api.com/json/";
@@ -169,10 +190,10 @@ clock_data relojete;
 coin_data monedilla;
 moonPhase mymoonPhase;
 
-unsigned long lastTelegramEpochTime = 0; // Guarda el tiempo de la última ejecución (en segundos desde Epoch)
-unsigned long startTime = 0;
-const unsigned long interval = 2 * 60 * 60;       // 2 horas en segundos (2 horas * 60 minutos * 60 segundos)
-const unsigned long minStartupTime = 2 * 60 * 60; // Segundos para que no envíe telegram si esta configurado, nada más arrancar
+unsigned long lastTelegramEpochTime = 0;       // Guarda el tiempo de la última ejecución (en segundos desde Epoch)
+unsigned long startTime = 0;                   // Para guardar Epoch de inicio
+const unsigned long interval = 2 * 60 * 60;    // 2 horas en segundos (2 horas * 60 minutos * 60 segundos)
+const unsigned long minStartupTime = interval; // Segundos para que no envíe mensaje a telegram si esta configurado, nada más arrancar
 
 typedef struct
 {
@@ -218,7 +239,7 @@ void tDisplay_Init(void)
   }
 }
 
-// Cambiamos estado de la pantalla al pulsar el botón 1
+// Cambiamos estado de la pantalla al pulsar el botón 1 y abortar=1, para abortar la actualiazación de la pantalla de precios de criptomonedas
 
 void tDisplay_AlternateScreenState(void)
 {
@@ -233,6 +254,128 @@ void tDisplay_AlternateScreenState(void)
 void tDisplay_AlternateRotation(void)
 {
   tft.setRotation(flipRotation(tft.getRotation()));
+}
+
+/**
+ * Simula una pantalla de televisión con efectos de barras y diagonales de colores aleatorios.
+ *
+ * La función genera y muestra en pantalla una serie de barras de colores en diferentes direcciones
+ * (horizontales, verticales y diagonales), con un breve retraso entre cada una para crear una animación.
+ * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" en un color aleatorio.
+ *
+ * - El ancho de las barras y la velocidad del efecto se generan aleatoriamente dentro de un rango.
+ * - Se utilizan colores aleatorios para cada barra y se eliminan tras un breve retraso.
+ * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" con un tamaño de texto grande.
+ */
+
+void television()
+{
+  int barWidth = (esp_random() % (41 - 5)) + 5; // Genera un número entre 5 y 40
+  int speed = (esp_random() % (26 - 5)) + 5;    // Genera un número entre 5 y 25
+
+  // Barras horizontales
+  for (int y = 0; y < tft.height(); y += barWidth)
+  {
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.fillRect(0, y, tft.width(), barWidth, colors[colorI]);
+    delay(speed);
+    tft.fillRect(0, y, tft.width(), barWidth, TFT_BLACK);
+  }
+
+  // Barras verticales
+  for (int x = 0; x < tft.width(); x += barWidth)
+  {
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.fillRect(x, 0, barWidth, tft.height(), colors[colorI]);
+    delay(speed);
+    tft.fillRect(x, 0, barWidth, tft.height(), TFT_BLACK);
+  }
+
+  // Barras diagonales (de esquina a esquina)
+  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
+  {
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.drawLine(i, 0, 0, i, colors[colorI]); // Diagonal de arriba a la izquierda
+    delay(speed);
+    tft.drawLine(i, 0, 0, i, TFT_BLACK); // Borrar la línea
+  }
+
+  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
+  {
+    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, colors[colorI]); // Diagonal de abajo a la derecha
+    delay(speed);
+    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, TFT_BLACK); // Borrar la línea
+  }
+
+  // Finalizar con la pantalla en negro
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(7);
+  tft.setCursor(76, 52);
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.setTextColor(colors[colorI], TFT_BLACK);
+  tft.print("HOLA");
+  tft.setTextSize(1);
+}
+
+/**
+ * Animación de inicio para el ESP32-S3 con pantalla TFT.
+ *
+ * Esta función genera una animación de bienvenida que dura aproximadamente 5 segundos.
+ * Incluye varios efectos visuales antes de mostrar el texto central "M8AX" y "MINADOR DE BTC".
+ *
+ * Pasos de la animación:
+ * 1. Llena la pantalla de negro como fondo inicial.
+ * 2. Dibuja círculos concéntricos de colores aleatorios desde el centro, creando un efecto de expansión.
+ * 3. Realiza un efecto de destello cambiando la pantalla a diferentes colores rápidamente.
+ * 4. Muestra el texto "M8AX" en grande en el centro y debajo "MINADOR DE BTC".
+ * 5. Mantiene el mensaje en pantalla por un breve tiempo.
+ * 6. Finaliza con la animación television().
+ */
+
+void animacionInicio()
+{
+  tft.fillScreen(TFT_BLACK); // Pantalla en negro
+  int centroX = tft.width() / 2;
+  int centroY = tft.height() / 2;
+  int maxRadio = min(centroX, centroY);
+
+  // Efecto de círculos concéntricos
+
+  for (int r = 5; r < maxRadio; r += 5)
+  {
+    colorIndex = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.drawCircle(centroX, centroY, r, colors[colorIndex]);
+    delay(20);
+  }
+
+  // Efecto de destello
+
+  for (int i = 0; i < 3; i++)
+  {
+    colorIndex = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.fillScreen(colors[colorIndex]);
+    delay(50);
+    colorIndex = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+    tft.fillScreen(colors[colorIndex]);
+    delay(50);
+  }
+
+  // Mostrar el texto principal
+
+  tft.setTextColor(TFT_BLACK, colors[colorIndex]);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(3);
+  tft.drawString("M8AX", centroX, centroY - 20);
+  tft.setTextSize(2);
+  tft.drawString("MINADOR DE BTC", centroX, centroY + 20);
+  delay(750); // Mantiene el mensaje en pantalla
+
+  // Finalizar con la animación television
+
+  television();
+  delay(1000);
+  tft.setTextSize(1);
 }
 
 // Funcion para convertir un numero entero a números romanos
@@ -438,7 +581,7 @@ void calculate_operations(int numbers[], int target, char *result)
   snprintf(result, 500, "%s\nResultado: %d", best.operation, best.value);
   // Verificar si se ha alcanzado el objetivo exacto
   totalci = (totalci == 0) ? 1 : totalci;
-  porcentaje = (aciertos * 100) / totalci;
+  porcentaje = (static_cast<float>(aciertos) * 100) / totalci;
   if (best.value == target)
   {
     aciertos++;
@@ -637,27 +780,27 @@ void recopilaTelegram()
   String u4digits = String(mac[4], HEX) + String(mac[5], HEX);
   String telrb = monedilla.remainingBlocks;
 
-  String cadenaEnvio = F("--------------------------------------------------------------------------------------------------------------\n");
-  cadenaEnvio += "------------------------------- M8AX - NerdMinerV2-" + u4digits + " DATOS DE MINERÍA - M8AX ------------------------------\n";
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
-  cadenaEnvio += "------------------------------------------ " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " -----------------------------------------\n";
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
+  String cadenaEnvio = F("------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += "------------------------ M8AX - NerdMinerV2-" + u4digits + " DATOS DE MINERÍA - M8AX -----------------------\n";
+  cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += "----------------------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " ----------------------------------\n";
+  cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
   cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
-  cadenaEnvio += "HashRate Actual - " + mineria.currentHashRate + " KH/s\n";
-  cadenaEnvio += "Temperatura De CPU - " + mineria.temp + "°\n";
+  cadenaEnvio += "HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
+  cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70 - " + String(alertatemp) + " )\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
   cadenaEnvio += "Shares Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
   cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
   cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )\n";
-  cadenaEnvio += "Hash Rate Global - " + monedilla.globalHashRate + " EH/s\n";
-  cadenaEnvio += "Precio De BITCOIN - " + monedilla.btcPrice + "\n";
-  cadenaEnvio += "Promedio Por Transacción, FEE - " + monedilla.halfHourFee + "\n";
+  cadenaEnvio += "HR Global - " + monedilla.globalHashRate + " EH/s\n";
+  cadenaEnvio += "Precio De BTC - " + monedilla.btcPrice + "\n";
+  cadenaEnvio += "FEE Promedio Por TX - " + monedilla.halfHourFee + "\n";
   cadenaEnvio += "Altura De Bloque - " + relojete.blockHeight + "\n";
   telrb.replace("BLOCKS", "");
   cadenaEnvio += "Bloques Entre Halvings - 210000\n";
-  cadenaEnvio += "Bloques Restantes Para Halving - " + String(telrb) + "\n";
+  cadenaEnvio += "Bloques Hasta El Halving - " + String(telrb) + "\n";
   long int hechos = 210000 - telrb.toInt();
   cadenaEnvio += "Bloques Minados Post-Halving - " + String(hechos) + "\n";
   char buffer[10];
@@ -665,25 +808,25 @@ void recopilaTelegram()
   cadenaEnvio += "% Completado Desde El Último Halving - " + String(buffer) + "%\n";
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
-  cadenaEnvio += "Tu Wallet De Bitcoin - " + String(Settings.BtcWallet) + "\n";
+  cadenaEnvio += "Tu Wallet De BTC - " + String(Settings.BtcWallet) + "\n";
   cadenaEnvio += "Tu IP - " + getPublicIP() + "\n";
   cadenaEnvio += urlsm8ax[indice];
-  cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += F("\n------------------------------------------------------------------------------------------------\n");
   if (mineria.valids.toInt() == 1)
   {
-    cadenaEnvio += "||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA :) |||\n";
+    cadenaEnvio += "||| ¡ BLOQUE MINADO ! ¡ A COBRAR ! :) |||\n";
   }
   else
   {
-    cadenaEnvio += "||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||\n";
+    cadenaEnvio += "||| ¡ SIN PASTA, SIN GLORIA ! ¡ A SEGUIR CON LA HISTORIA ! |||\n";
   }
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
-  cadenaEnvio += F("----------------------------------------- M8AX - DATOS NERD - M8AX -------------------------------------------\n");
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
+  cadenaEnvio += F("---------------------------------- M8AX - DATOS NERD - M8AX ------------------------------------\n");
+  cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   rndnumero = esp_random();
   cadenaEnvio += "Factorización De Número - " + String(rndnumero) + " -> " + factorize(rndnumero) + "\n";
-  cadenaEnvio += "--------------------------------------------------------------------------------------------------------------\n                                              By M8AX Corp. " + convertirARomanos(anio);
-  cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------------------");
+  cadenaEnvio += "------------------------------------------------------------------------------------------------\n                                       By M8AX Corp. " + convertirARomanos(anio);
+  cadenaEnvio += F("\n------------------------------------------------------------------------------------------------");
   enviarMensajeATelegram(cadenaEnvio);
   cadenaEnvio = "";
 }
@@ -706,20 +849,20 @@ void datosPantallaTextoPlano()
 
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
   cadenaEnvio2 += ". Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
-  cadenaEnvio2 += ". HashRate Actual - " + mineria.currentHashRate + " KH/s";
-  cadenaEnvio2 += ". Temperatura De CPU - " + mineria.temp + "g";
+  cadenaEnvio2 += ". HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )";
+  cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70 - " + String(alertatemp) + " )";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
   cadenaEnvio2 += ". Shares Enviados A La Pool - " + mineria.completedShares;
   cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
   cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
   cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )";
-  cadenaEnvio2 += ". Hash Rate Global - " + monedilla.globalHashRate + " EH/s";
-  cadenaEnvio2 += ". Precio De BITCOIN - " + monedilla.btcPrice;
-  cadenaEnvio2 += ". Promedio Por Transacción, FEE - " + monedilla.halfHourFee;
+  cadenaEnvio2 += ". HR Global - " + monedilla.globalHashRate + " EH/s";
+  cadenaEnvio2 += ". Precio De BTC - " + monedilla.btcPrice;
+  cadenaEnvio2 += ". FEE Promedio Por TX - " + monedilla.halfHourFee;
   cadenaEnvio2 += ". Altura De Bloque - " + relojete.blockHeight;
   telrb.replace("BLOCKS", "");
   cadenaEnvio2 += ". Bloques Entre Halvings - 210000";
-  cadenaEnvio2 += ". Bloques Restantes Para Halving - " + String(telrb);
+  cadenaEnvio2 += ". Bloques Hasta El Halving - " + String(telrb);
   long int hechos = 210000 - telrb.toInt();
   cadenaEnvio2 += ". Bloques Minados Post-Halving - " + String(hechos);
   char buffer[10];
@@ -728,11 +871,11 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += ". % Restante Para Próximo Halving - " + String(100.000 - round(atof(buffer) * 1000) / 1000, 3) + "%";
   if (mineria.valids.toInt() == 1)
   {
-    cadenaEnvio2 += ". ||| HAS MINADO UN BLOQUE, ASÍ QUE TIENES PASTA EN TU BILLETERA xD |||";
+    cadenaEnvio2 += ". ||| BLOQUE MINADO, A COBRAR xD |||";
   }
   else
   {
-    cadenaEnvio2 += ". ||| AÚN NO HAS MINADO UN BLOQUE, BUFFF!, AÚN NO ERES RICO, PACIENCIA... |||";
+    cadenaEnvio2 += ". ||| SIN PASTA, SIN GLORIA, A SEGUIR CON LA HISTORIA... |||";
   }
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(1, 1);
@@ -1134,68 +1277,6 @@ void drawCenteredText(const char *text, int y, int delayTime)
     x += tft.textWidth(String(text[i])) + 5; // Ajusta la posición X para la siguiente letra
     delay(delayTime);                        // Retardo para el efecto
   }
-}
-
-/**
- * Simula una pantalla de televisión con efectos de barras y diagonales de colores aleatorios.
- *
- * La función genera y muestra en pantalla una serie de barras de colores en diferentes direcciones
- * (horizontales, verticales y diagonales), con un breve retraso entre cada una para crear una animación.
- * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" en un color aleatorio.
- *
- * - El ancho de las barras y la velocidad del efecto se generan aleatoriamente dentro de un rango.
- * - Se utilizan colores aleatorios para cada barra y se eliminan tras un breve retraso.
- * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" con un tamaño de texto grande.
- */
-
-void television()
-{
-  int barWidth = (esp_random() % (41 - 5)) + 5; // Genera un número entre 5 y 40
-  int speed = (esp_random() % (26 - 5)) + 5;    // Genera un número entre 5 y 25
-
-  // Barras horizontales
-  for (int y = 0; y < tft.height(); y += barWidth)
-  {
-    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.fillRect(0, y, tft.width(), barWidth, colors[colorI]);
-    delay(speed);
-    tft.fillRect(0, y, tft.width(), barWidth, TFT_BLACK);
-  }
-
-  // Barras verticales
-  for (int x = 0; x < tft.width(); x += barWidth)
-  {
-    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.fillRect(x, 0, barWidth, tft.height(), colors[colorI]);
-    delay(speed);
-    tft.fillRect(x, 0, barWidth, tft.height(), TFT_BLACK);
-  }
-
-  // Barras diagonales (de esquina a esquina)
-  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
-  {
-    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.drawLine(i, 0, 0, i, colors[colorI]); // Diagonal de arriba a la izquierda
-    delay(speed);
-    tft.drawLine(i, 0, 0, i, TFT_BLACK); // Borrar la línea
-  }
-
-  for (int i = 0; i < tft.width() + tft.height(); i += barWidth)
-  {
-    colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, colors[colorI]); // Diagonal de abajo a la derecha
-    delay(speed);
-    tft.drawLine(tft.width() - i, tft.height(), tft.width(), tft.height() - i, TFT_BLACK); // Borrar la línea
-  }
-
-  // Finalizar con la pantalla en negro
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(7);
-  tft.setCursor(76, 52);
-  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-  tft.setTextColor(colors[colorI], TFT_BLACK);
-  tft.print("HOLA");
-  tft.setTextSize(1);
 }
 
 /**
@@ -2867,6 +2948,20 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     }
   }
   background.pushSprite(0, 0);
+  if (horiac >= 22 || horiac < 8)
+  {
+    tft.setCursor(4, 160);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_BLACK);
+    tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+  }
+  else
+  {
+    tft.setCursor(4, 160);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE);
+    tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+  }
 }
 
 /*
@@ -3180,6 +3275,10 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   background.drawString(textoFinalm8ax3.c_str(), 310, 95, GFXFF);
   background.drawString(textoFinalm8ax4.c_str(), 310, 111, GFXFF);
   background.pushSprite(0, 0);
+  tft.setCursor(4, 123);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_WHITE);
+  tft.print("+ " + String(maxkh) + " - " + String(minkh));
 }
 
 /*
@@ -3596,7 +3695,7 @@ void tDisplay_m8axScreen5(unsigned long mElapsed)
   relojete = getClockData(mElapsed);
   mineria = getMiningData(mElapsed);
   char bbuffer[100];
-  snprintf(bbuffer, sizeof(bbuffer), "C. %s Share(s) %s kH Med. HR %s KH/s %sg",
+  snprintf(bbuffer, sizeof(bbuffer), "C. %s Share(s) %s KH. M-HR %s KH/s - %sg",
            data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
@@ -3731,7 +3830,6 @@ void tDisplay_m8axScreen7(unsigned long mElapsed)
   if (actualizarcalen % 1800 == 0)
   {
     timeClient.update();
-    ;
   }
   unsigned long segundo = timeClient.getSeconds();
   int horas = dataa.currentTime.substring(0, 2).toInt();
@@ -4917,7 +5015,6 @@ void tDisplay_m8axScreen16(unsigned long mElapsed)
     {
       ciudadHora -= 24;
     }
-
     // Formatea la hora (sin segundos)
     char timeStr[9];
     sprintf(timeStr, "%02d:%02d:%02d", ciudadHora, minutitos, segundos);
@@ -5119,7 +5216,7 @@ void tDisplay_m8axScreen18(unsigned long mElapsed)
     actualizarcalen++;
   }
   background.pushSprite(0, 0);
-  Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
+  Serial.printf("\nM8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
   if (segundo % 30 == 0)
   {
@@ -5735,6 +5832,7 @@ void datoTextPlano(unsigned long mElapsed)
 //    - `M8AXTicker3()`
 //    - `M8AXTicker4()`
 //    - `nevar3()`
+//    - `animacionInicio()`
 //    Cada uno de estos efectos está definido en otras funciones, y se ejecuta uno de ellos de forma aleatoria.
 // 2. Después de aplicar el efecto visual correspondiente, se limpia la pantalla con `tft.fillScreen(TFT_BLACK)`
 //    para asegurarse de que no haya restos de otras pantallas previas.
@@ -5749,7 +5847,7 @@ void datoTextPlano(unsigned long mElapsed)
 
 void tDisplay_LoadingScreen(void)
 {
-  int effect = esp_random() % 6;
+  int effect = esp_random() % 7;
   switch (effect)
   {
   case 0:
@@ -5769,6 +5867,9 @@ void tDisplay_LoadingScreen(void)
     break;
   case 5:
     nevar3();
+    break;
+  case 6:
+    animacionInicio();
     break;
   }
   tft.fillScreen(TFT_BLACK);
@@ -5795,12 +5896,26 @@ void tDisplay_SetupScreen(void)
   tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
 }
 
-// Esta función es ejecutada cada segundo y realiza varias acciones basadas en el tiempo actual y eventos aleatorios.
-// 1. Primero, obtiene la hora y fecha actual usando el cliente NTP para obtener la hora Epoch y convertirla a formato local.
-// 2. Felicita al usuario por Navidad o Año Nuevo entre las fechas de diciembre 20 y enero 6, mostrando un efecto de nieve.
-// 3. Realiza un mensaje aleatorio de ánimo en la pantalla, con texto motivacional sobre la esperanza, dependiendo de un número aleatorio.
-// 4. Realiza ciertas acciones de Telegram (como enviar mensajes) si la configuración está establecida y es el momento adecuado.
-// 5. La lógica de la hora y los minutos controla ciertos eventos como el envío de mensajes de Telegram o la actualización de la pantalla.
+/**
+ * Analiza y actualiza datos cada segundo.
+ *
+ * Esta función realiza múltiples tareas en cada ejecución:
+ *
+ * 1. Obtiene la hora actual en formato UNIX (epoch) y la convierte a una estructura de tiempo local.
+ * 2. Si el sistema ya ha arrancado (startTime > 0), actualiza los valores máximos y mínimos de:
+ *    - Hashrate (KH/s)
+ *    - Temperatura del minero
+ *    - Cuenta las veces que la CPU pasa de los 70°C
+ * 3. Ejecuta una animación de nieve en pantalla si es Navidad (20 de diciembre - 6 de enero).
+ * 4. Muestra mensajes motivacionales en la pantalla en ciertos momentos aleatorios.
+ * 5. Inicializa los datos del bot de Telegram al inicio y registra la hora de arranque.
+ * 6. Envía un mensaje a Telegram cada 2 horas si ya pasó el tiempo mínimo de arranque.
+ *
+ * La función también controla la variable `ContadorEspecial` y reinicia algunos parámetros
+ * cuando se activan los eventos especiales (Navidad, motivación).
+ *
+ * @param frame Número de fotograma actual (usado en ciertas animaciones o cálculos).
+ */
 
 void analiCadaSegundo(unsigned long frame)
 {
@@ -5814,8 +5929,34 @@ void analiCadaSegundo(unsigned long frame)
   int minutitos = timeinfo->tm_min;                    // Minutos
   int segundos = timeinfo->tm_sec;                     // Segundos
 
-  BOT_TOKEN = Settings.botTelegram;    // Bot De Telegram
-  CHAT_ID = Settings.ChanelIDTelegram; // ID Del Canal De Telegram
+  if (startTime > 0)
+  {
+    if (mineria.currentHashRate.toFloat() > maxkh)
+    {
+      maxkh = mineria.currentHashRate.toFloat(); // Actualiza el máximo de kh/s
+    }
+
+    if (mineria.currentHashRate.toFloat() < minkh)
+    {
+      minkh = mineria.currentHashRate.toFloat(); // Actualiza el mínimo de kh/s
+    }
+
+    if (mineria.temp.toInt() > maxtemp)
+    {
+      maxtemp = mineria.temp.toInt(); // Actualiza el máximo de temperatura
+    }
+
+    if (mineria.temp.toInt() < mintemp)
+    {
+      mintemp = mineria.temp.toInt(); // Actualiza el mínimo de temperatura
+    }
+
+    if (ContadorEspecial % 300 == 0 && mineria.temp.toInt() > 70)
+    {
+      Serial.println("M8AX - Temperatura De CPU, Ha Superado Los 70°C...");
+      alertatemp++;
+    }
+  }
 
   // Felicitar La Navidad O El Año Nuevo
 
@@ -5888,7 +6029,9 @@ void analiCadaSegundo(unsigned long frame)
 
   if (startTime == 0)
   {
-    startTime = epochTime; // Guardar el tiempo de inicio cuando el dispositivo arranca
+    BOT_TOKEN = Settings.botTelegram;    // Bot De Telegram
+    CHAT_ID = Settings.ChanelIDTelegram; // ID Del Canal De Telegram
+    startTime = epochTime;               // Guardar el tiempo de inicio cuando el dispositivo arranca
   }
 
   // Si ya ha pasado el tiempo de arranque mínimo (por ejemplo, 10 minutos) y han pasado 2 horas desde el último mensaje
