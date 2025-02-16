@@ -5,10 +5,10 @@
       {
         "chipFamily": "ESP32",
         "parts": [
-          { "path": "ota_data_initial.bin", "offset": 0xe000 },
-          { "path": "firmware.bin", "offset": 0x10000 },
-          { "path": "partition-table.bin", "offset": 0x8000 },
-          { "path": "bootloader.bin", "offset": 0x0000 }
+          { "path": "ota_data_initial.bin", "offset": 57344 },
+          { "path": "firmware.bin", "offset": 65536 },
+          { "path": "partition-table.bin", "offset": 32768 },
+          { "path": "bootloader.bin", "offset": 0 }
         ]
       },
       {
