@@ -1,21 +1,15 @@
 {
-    "name": "ESP Web Tool Demo",
-    "new_install_prompt_erase": true,
-    "builds": [
-      {
-        "chipFamily": "ESP32-S3",
-        "parts": [
-          { "path": "ota_data_initial.bin", "offset": 57344 },
-          { "path": "firmware.bin", "offset": 65536 },
-          { "path": "partition-table.bin", "offset": 32768 },
-          { "path": "bootloader.bin", "offset": 0 }
-        ]
-      },
-      {
-        "chipFamily": "ESP8266",
-        "parts": [
-          { "path": "esp8266/SerialHelloWorld.ino.bin", "offset": 0 }
-        ]
-      }
-    ]
-  }
+  "name": "M8AX - NerdMinerV2 Firmware UPDATE",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "ota_data_initial.bin", "offset": 57344 },
+        { "path": "firmware.bin", "offset": 65536 },
+        { "path": "partition-table.bin", "offset": 32768 },
+        { "path": "bootloader.bin", "offset": 0 }
+      ]
+    }
+  ]
+}
