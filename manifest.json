@@ -6,19 +6,19 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/flash/bootloader.bin",
+          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/bootloader.bin",
           "offset": "0x0"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/flash/partition-table.bin",
+          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/partition-table.bin",
           "offset": "0x8000"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/flash/firmware.bin",
+          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/firmware.bin",
           "offset": "0x10000"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/flash/ota_data_initial.bin",
+          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/blob/dev/ota_data_initial.bin",
           "offset": "0xe000"
         }
       ]
