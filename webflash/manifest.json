@@ -3,7 +3,7 @@
     "new_install_prompt_erase": true,
     "builds": [
       {
-        "chipFamily": "ESP32",
+        "chipFamily": "ESP32S3",
         "parts": [
           { "path": "ota_data_initial.bin", "offset": 57344 },
           { "path": "firmware.bin", "offset": 65536 },
