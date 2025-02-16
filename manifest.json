@@ -7,7 +7,7 @@
       "parts": [
         {
           "path": "https://bespoke-zabaione-da1bca.netlify.app/bootloader.bin",
-          "offset": "0x0"
+          "offset": "0x0000"
         },
         {
           "path": "https://bespoke-zabaione-da1bca.netlify.app/partition-table.bin",
