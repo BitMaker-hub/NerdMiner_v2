@@ -1,114 +1,36 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flashear M8AX - NerdMiner V2</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            text-align: center;
-        }
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 20px;
-            color: #1a73e8;
-        }
-        p {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            color: #555;
-        }
-        .button-container {
-            background-color: #1a73e8;
-            border-radius: 10px;
-            padding: 20px;
-            display: inline-block;
-        }
-        button {
-            font-size: 1.5em;
-            padding: 10px 30px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4caf50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        footer {
-            position: absolute;
-            bottom: 20px;
-            font-size: 0.9em;
-            color: #777;
-        }
-    </style>
-    <script type="module" src="https://unpkg.com/esp-web-tools@9.1.0/dist/web/install-button.js"></script>
-</head>
-<body>
-    <div>
-        <h1>Flashear M8AX - NerdMiner V2</h1>
-        <p>Conecta Tu <strong>NerdMiner V2</strong> Por USB Y Presiona El Siguiente Botón Para Flashear:</p>
-        
-        <div class="button-container">
-            <esp-web-install-button manifest="manifest.json">
-                <button>🚀 Flashear Ahora</button>
-            </esp-web-install-button>
-        </div>
+<html>
 
-        <footer>
-            <p>Powered By M8AX <a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank">Repositorio en GitHub</a></p>
-        </footer>
+
+<body>
+    <h1>Sample project for demoing ESP Web Tools</h1>
+
+    <div id="main" style="display: none;">
+
+        <br>
+        <script
+            type="module"
+            src="https://unpkg.com/esp-web-tools@7.3.1/dist/web/install-button.js?module">
+        </script>
+        <esp-web-install-button id="installButton" manifest="webflash/manifest.json"></esp-web-install-button>
+        <br>
+        <span>NOTE: Make sure to close anything using your devices com port (e.g. Serial monitor)</span>
     </div>
+    <div id="notSupported" style="display: none;">
+        Your browser does not support the Web Serial API. Try Chrome
+    </div>
+    
 
     <script>
-        // Función para asegurar que el ESP32 entra en modo de programación
-        function enterProgrammingMode() {
-            // Aseguramos que el GPIO0 esté en LOW (GND) para entrar en modo de flasheo
-            // Esto depende de cómo esté configurada tu placa y si tiene un botón de "boot"
-            console.log("Intentando entrar en modo de flasheo...");
-
-            // Aquí debería ir código para controlar GPIO0, si tienes acceso a la API para manejarlo, como:
-
-            // GPIO0 a GND (en algunos modelos se puede hacer manualmente o con un botón)
-            // Si no tienes acceso directo a los pines, asegúrate de que el ESP32 esté configurado para entrar en modo de programación.
-
-            // Este es un ejemplo que en algunos casos podría ayudar:
-            // GND = 0V, GPIO0 = 0V para entrar en el modo de flasheo.
-
-            // Esperar un momento para que el ESP32 entre en modo
-            setTimeout(function() {
-                console.log("Modo de flasheo activado.");
-            }, 1000);
+        if(navigator.serial){
+            document.getElementById("notSupported").style.display = 'none';
+            document.getElementById("main").style.display = 'block';
+        } else {
+            document.getElementById("notSupported").style.display = 'block';
+            document.getElementById("main").style.display = 'none';
         }
-
-        // Ejecutar la función para asegurar el modo de flasheo antes de la instalación
-        enterProgrammingMode();
-
-        // Cargar el archivo JSON desde una URL
-        fetch('https://raw.githubusercontent.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/refs/heads/dev/manifest.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error al cargar el archivo JSON');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log(data);  // Mostrar los datos en la consola
-            })
-            .catch(error => {
-                console.error('Hubo un problema con la solicitud de JSON:', error);
-            });
     </script>
+
 </body>
+
 </html>
