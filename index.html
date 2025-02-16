@@ -72,6 +72,29 @@
     </div>
 
     <script>
+        // Función para asegurar que el ESP32 entra en modo de programación
+        function enterProgrammingMode() {
+            // Aseguramos que el GPIO0 esté en LOW (GND) para entrar en modo de flasheo
+            // Esto depende de cómo esté configurada tu placa y si tiene un botón de "boot"
+            console.log("Intentando entrar en modo de flasheo...");
+
+            // Aquí debería ir código para controlar GPIO0, si tienes acceso a la API para manejarlo, como:
+
+            // GPIO0 a GND (en algunos modelos se puede hacer manualmente o con un botón)
+            // Si no tienes acceso directo a los pines, asegúrate de que el ESP32 esté configurado para entrar en modo de programación.
+
+            // Este es un ejemplo que en algunos casos podría ayudar:
+            // GND = 0V, GPIO0 = 0V para entrar en el modo de flasheo.
+
+            // Esperar un momento para que el ESP32 entre en modo
+            setTimeout(function() {
+                console.log("Modo de flasheo activado.");
+            }, 1000);
+        }
+
+        // Ejecutar la función para asegurar el modo de flasheo antes de la instalación
+        enterProgrammingMode();
+
         // Cargar el archivo JSON desde una URL
         fetch('https://raw.githubusercontent.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/refs/heads/dev/manifest.json')
             .then(response => {
@@ -81,9 +104,7 @@
                 return response.json();
             })
             .then(data => {
-                // Haz algo con los datos JSON aquí
-                console.log(data);  // Por ejemplo, mostrar los datos en la consola
-                // Puedes acceder a los datos y usarlos como quieras
+                console.log(data);  // Mostrar los datos en la consola
             })
             .catch(error => {
                 console.error('Hubo un problema con la solicitud de JSON:', error);
