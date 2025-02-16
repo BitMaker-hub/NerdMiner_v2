@@ -6,19 +6,19 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/releases/download/v10.03.77/bootloader.bin",
+          "path": "https://bespoke-zabaione-da1bca.netlify.app/bootloader.bin",
           "offset": "0x0"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/releases/download/v10.03.77/partition-table.bin",
+          "path": "https://bespoke-zabaione-da1bca.netlify.app/partition-table.bin",
           "offset": "0x8000"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/releases/download/v10.03.77/firmware.bin",
+          "path": "https://bespoke-zabaione-da1bca.netlify.app/firmware.bin",
           "offset": "0x10000"
         },
         {
-          "path": "https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/releases/download/v10.03.77/ota_data_initial.bin",
+          "path": "https://bespoke-zabaione-da1bca.netlify.app/ota_data_initial.bin",
           "offset": "0xe000"
         }
       ]
