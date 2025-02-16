@@ -1,0 +1,21 @@
+{
+    "name": "ESP Web Tool Demo",
+    "new_install_prompt_erase": true,
+    "builds": [
+      {
+        "chipFamily": "ESP32",
+        "parts": [
+          { "path": "boot_app0.bin", "offset": 57344 },
+          { "path": "SerialHelloWorld.ino.bin", "offset": 65536 },
+          { "path": "SerialHelloWorld.ino.bootloader.bin", "offset": 4096 },
+          { "path": "SerialHelloWorld.ino.partitions.bin", "offset": 32768 }
+        ]
+      },
+      {
+        "chipFamily": "ESP8266",
+        "parts": [
+          { "path": "esp8266/SerialHelloWorld.ino.bin", "offset": 0 }
+        ]
+      }
+    ]
+  }
