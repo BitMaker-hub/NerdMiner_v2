@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashear M8AX - NerdMiner V2</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #1a73e8;
+        }
+        p {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .button-container {
+            background-color: #1a73e8;
+            border-radius: 10px;
+            padding: 20px;
+            display: inline-block;
+        }
+        button {
+            font-size: 1.5em;
+            padding: 10px 30px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4caf50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        footer {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.9em;
+            color: #777;
+        }
+    </style>
+    <script type="module" src="https://unpkg.com/esp-web-tools@9.1.0/dist/web/install-button.js"></script>
+</head>
+<body>
+    <div>
+        <h1>Flashear M8AX - NerdMiner V2</h1>
+        <p>Conecta Tu <strong>NerdMiner V2</strong> Por USB Y Presiona El Siguiente Botón Para Flashear:</p>
+        
+        <div class="button-container">
+            <esp-web-install-button manifest="manifest.json">
+                <button>🚀 Flashear Ahora</button>
+            </esp-web-install-button>
+        </div>
+        
+        <footer>
+            <p>Powered By M8AX<a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank">Repositorio en GitHub</a></p>
+        </footer>
+    </div>
+</body>
+</html>
