@@ -65,10 +65,29 @@
                 <button>🚀 Flashear Ahora</button>
             </esp-web-install-button>
         </div>
-        
+
         <footer>
-            <p>Powered By M8AX<a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank">Repositorio en GitHub</a></p>
+            <p>Powered By M8AX <a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank">Repositorio en GitHub</a></p>
         </footer>
     </div>
+
+    <script>
+        // Cargar el archivo JSON desde una URL
+        fetch('https://raw.githubusercontent.com/m8ax/MvIiIaX-NerdMiner_V2-DeV/refs/heads/dev/manifest.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al cargar el archivo JSON');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Haz algo con los datos JSON aquí
+                console.log(data);  // Por ejemplo, mostrar los datos en la consola
+                // Puedes acceder a los datos y usarlos como quieras
+            })
+            .catch(error => {
+                console.error('Hubo un problema con la solicitud de JSON:', error);
+            });
+    </script>
 </body>
 </html>
