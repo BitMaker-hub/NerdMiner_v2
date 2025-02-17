@@ -1,0 +1,4 @@
+git status
+git add .
+git commit -m "mejora añadida a programa"
+git push
