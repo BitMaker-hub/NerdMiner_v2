@@ -108,6 +108,16 @@ double diff_from_target(void *target)
 	return d64 / dcut64;
 }
 
+bool isSha256Valid(const void* sha256)
+{
+    for(uint8_t i=0; i < 8; ++i)
+    {
+        if ( ((const uint32_t*)sha256)[i] != 0 ) 
+            return true;
+    }
+    return false;
+}
+
 /****************** PREMINING CALCULATIONS ********************/
 
 
