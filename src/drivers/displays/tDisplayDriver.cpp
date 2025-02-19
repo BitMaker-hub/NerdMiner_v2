@@ -788,7 +788,7 @@ void recopilaTelegram()
   cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
   cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
   cadenaEnvio += "HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
-  cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70 - " + String(alertatemp) + " )\n";
+  cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " )\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
   cadenaEnvio += "Shares Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
@@ -850,7 +850,7 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
   cadenaEnvio2 += ". Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
   cadenaEnvio2 += ". HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )";
-  cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70 - " + String(alertatemp) + " )";
+  cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70° - " + String(alertatemp) + " )";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
   cadenaEnvio2 += ". Shares Enviados A La Pool - " + mineria.completedShares;
   cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
