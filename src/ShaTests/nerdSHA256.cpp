@@ -2,33 +2,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <Arduino.h>
-
 // #include <wolfssl/wolfcrypt/sha256.h>
 #include <esp_log.h>
 #include <esp_timer.h>
-
 #include "nerdSHA256.h"
 #include <math.h>
 #include <string.h>
 
 #define HASH_SIZE 32
-
 //------------- JADE
 #define SHR(x, n) ((x & 0xFFFFFFFF) >> n)
-
 #define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-
 #define S0(x) (ROTR(x, 7) ^ ROTR(x, 18) ^ SHR(x, 3))
 #define S1(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHR(x, 10))
-
 #define S2(x) (ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22))
 #define S3(x) (ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25))
-
 #define F0(x, y, z) ((x & y) | (z & (x | y)))
 #define F1(x, y, z) (z ^ (x & (y ^ z)))
-
 #define RJ(t) (W[t] = S1(W[t - 2]) + W[t - 7] + S0(W[t - 15]) + W[t - 16])
-
 #define P(a, b, c, d, e, f, g, h, x, K)          \
     {                                            \
         temp1 = h + S3(e) + F1(e, f, g) + K + x; \
@@ -47,18 +38,16 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
 {
     return (x >> y) | (x << (sizeof(y) * 8 - y));
 }
+
 /* SHA256 math based on specification */
 #define Ch(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
 #define Maj(x, y, z) ((((x) | (y)) & (z)) | ((x) & (y)))
-
 #define R(x, n) (((x) & 0xFFFFFFFFU) >> (n))
-
 #define S(x, n) rotrFixed(x, n)
 #define Sigma0(x) (S(x, 2) ^ S(x, 13) ^ S(x, 22))
 #define Sigma1(x) (S(x, 6) ^ S(x, 11) ^ S(x, 25))
 #define Gamma0(x) (S(x, 7) ^ S(x, 18) ^ R(x, 3))
 #define Gamma1(x) (S(x, 17) ^ S(x, 19) ^ R(x, 10))
-
 #define a(i) S[(0 - (i)) & 7]
 #define b(i) S[(1 - (i)) & 7]
 #define c(i) S[(2 - (i)) & 7]
@@ -67,11 +56,9 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
 #define f(i) S[(5 - (i)) & 7]
 #define g(i) S[(6 - (i)) & 7]
 #define h(i) S[(7 - (i)) & 7]
-
 #define XTRANSFORM(S, D) Transform_Sha256((S), (D))
 #define XMEMCPY(d, s, l) memcpy((d), (s), (l))
 #define XMEMSET(b, c, l) memset((b), (c), (l))
-
 /* SHA256 version that keeps all data in registers */
 #define SCHED1(j) (W[j] = *((uint32_t *)&data[j * sizeof(uint32_t)]))
 #define SCHED(j) (            \
@@ -79,7 +66,6 @@ IRAM_ATTR static inline uint32_t rotrFixed(uint32_t x, uint32_t y)
     Gamma1(W[(j - 2) & 15]) + \
     W[(j - 7) & 15] +         \
     Gamma0(W[(j - 15) & 15]))
-
 #define RND1(j)                                                         \
     t0 = h(j) + Sigma1(e(j)) + Ch(e(j), f(j), g(j)) + K[j] + SCHED1(j); \
     t1 = Sigma0(a(j)) + Maj(a(j), b(j), c(j));                          \

@@ -786,7 +786,7 @@ void recopilaTelegram()
   cadenaEnvio += "----------------------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " ----------------------------------\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
-  cadenaEnvio += "Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
+  cadenaEnvio += "Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
   cadenaEnvio += "HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
   cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " )\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
@@ -848,7 +848,7 @@ void datosPantallaTextoPlano()
   String cadenaEnvio2 = "";
 
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
-  cadenaEnvio2 += ". Tiempo Minando - " + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
+  cadenaEnvio2 += ". Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
   cadenaEnvio2 += ". HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )";
   cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70° - " + String(alertatemp) + " )";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
@@ -1066,7 +1066,7 @@ String numeroAEscrito(int num, bool esDecimal = false)
   if (num < 0 || num > 9999)
     return "Número Fuera De Rango";
 
-  String unidades[] = {"Cero", "Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve"};
+  String unidades[] = {"cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"};
   String especiales[] = {"Diez", "Once", "Doce", "Trece", "Catorce", "Quince",
                          "Dieciséis", "Diecisiete", "Dieciocho", "Diecinueve"};
   String decenas[] = {"", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta",
@@ -1131,7 +1131,7 @@ String numeroAEscrito(int num, bool esDecimal = false)
       {
         resultado += "Veinti";
         if (num % 10 > 0)
-          resultado += capitalizar(unidades[num % 10]); // "VeintiUno", "VeintiTres", etc.
+          resultado += unidades[num % 10]; // "VeintiUno", "VeintiTres", etc.
       }
       else
       {
@@ -3756,7 +3756,7 @@ void tDisplay_m8axScreen5(unsigned long mElapsed)
  *  7. Muestra en pantalla:
  *      - La hora actual en `(64,160)`.
  *      - El hashrate en `(137,160)`, seguido de `"KH/s "`.
- *      - La temperatura en `(236,160)`, seguida de `"g"` (parece un error, posiblemente debería ser `"°C"`).
+ *      - La temperatura en `(236,160)`, seguida de `"g"` (grados).
  */
 
 void tDisplay_m8axScreen6(unsigned long mElapsed)
@@ -5415,9 +5415,9 @@ void monedaYdado(unsigned long mElapsed)
   tft.print("DE LA SUERTE");
   String cadena = data.currentHashRate.c_str(); // O "234,65" si necesitas reemplazar la coma
   cadena.replace(',', '.');                     // Si es necesario
-  float valor = cadena.toFloat();
-  int parteEntera = (int)valor;
-  int parteDecimal = (int)((valor - parteEntera) * 100 + 0.5);
+  String valor = data.currentHashRate;
+  int parteEntera = valor.substring(0, valor.indexOf(".")).toInt();
+  int parteDecimal = valor.substring(valor.indexOf(".") + 1).toInt();
   dibujarDado(dado, 60, 85);
   dibujarMoneda(moneda, 250, 80);
   tft.setTextColor(TFT_WHITE);

@@ -5,7 +5,6 @@
 #include <SPIFFS.h>
 #include <FS.h>
 #include <ArduinoJson.h>
-
 #include "../devices/device.h"
 #include "storage.h"
 
@@ -134,7 +133,7 @@ bool nvMemory::loadConfig(TSettings *Settings)
         }
         else
         {
-            Serial.println("SPIFS: No Hay Ficheror De Configuración Disponible!");
+            Serial.println("SPIFS: No Hay Fichero De Configuración Disponible!");
         }
     }
     return false;

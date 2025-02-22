@@ -1,3 +1,32 @@
+/***********************************************************************************************************************************
+ *   Escrito por: M8AX
+ *
+ *   Descripción:
+ *   ------------
+ *
+ *   Versión para placas WROOM ESP32D, optimizada para minar a 395 KH/s sin pantalla,
+ *   utilizando el LED para indicar estados importantes.
+ *
+ *   Comportamiento del LED:
+ *   -----------------------
+ *
+ *   - **Parpadeo tenue** → Minando a más de 350 KH/s (visible pero sin molestar).
+ *   - **Sin LED azul** → No está minando.
+ *   - **LED encendiéndose y apagándose a lo loco no simétricos** → ¡Has minado un bloque!
+ *   - **Parpadeo estilo "pi pi" de reloj Casio** → Es una hora en punto.
+ *   - **Encendido corto "pi"** → Son y media.
+ *   - **Encendido largo (~1s)** → Enviando mensaje a Telegram con estadísticas y datos Nerd. ( si está configurado )
+ *   - **Parpadeo menos tenue** → Minando a menos de 350 KH/s.
+ *   - **Parpadeos largos** → Temperatura superior a 70°C.
+ *   - **Al arrancar** → "Hola M8AX" en código Morse con el LED.
+ *   - **Sincronizando ahora al arrancar** → Parpadeo super rápido del LED.
+ *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
+ *
+ *   Minimizando código, maximizando funcionalidad. Solo 993 líneas de código en 3h.
+ *
+ *                                  M8AX Corp. - ¡A Minar!
+ ***********************************************************************************************************************************/
+
 #include "displayDriver.h"
 #ifdef NO_DISPLAY
 #include <Arduino.h>
@@ -12,31 +41,51 @@
 #include <iostream>
 #include <string>
 #include <ctime>
-
-extern TSettings Settings;
+#include "mbedtls/sha256.h"
 
 #define m8ax 2
 #define MAX_RESULT_LENGTH 500
 #define MAX_NUMBERS 6
 #define MAX_DEPTH 4
 
+extern TSettings Settings;
+
+const char *urlsm8ax[] = {"YT - https://youtube.com/m8ax", "OS - https://opensea.io/es/m8ax", "OC - https://oncyber.io/m8ax"};
+const char *meses[] = {
+    "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+    "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"};
+const char *morse[] = {
+    "....",  // H
+    "---",   // O
+    ".-..",  // L
+    ".-",    // A
+    "--",    // M
+    "---..", // 8
+    ".-",    // A
+    "-..-",  // X
+};
 char result[MAX_RESULT_LENGTH];
+String BOT_TOKEN;
+String CHAT_ID;
+const int morseLength = sizeof(morse) / sizeof(morse[0]);
 int sumatele = 1;
-int alertatemp = 0;
 int maxtemp = 0;
 int mintemp = 1000;
 int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
+int sumacalen = 0;
+uint32_t nominando = 0;
 uint32_t cuenta = 0;
 uint32_t rndnumero = 0;
+uint32_t alertatemp = 0;
 float maxkh = 0.00;
 float minkh = 1000.00;
 float porcentaje = 0.00;
 float eficiencia = 0.00;
 float consumo = 1.18;
-String BOT_TOKEN;
-String CHAT_ID;
+float distanciaLuna = 384400;
+float distanciaSol = 149600000;
 mining_data data;
 
 typedef struct
@@ -55,6 +104,184 @@ void noDisplay_AlternateScreenState(void)
 
 void noDisplay_AlternateRotation(void)
 {
+}
+
+double calcularKilometrosPorSegundo(double hashrateKH)
+{
+  const double caracteresPorHash = 64.0;
+  const double anchoCaracterMm = 2.5;
+  double hashrateHS = hashrateKH * 1000.0;
+  double caracteresPorSegundo = hashrateHS * caracteresPorHash;
+  double longitudMmPorSegundo = caracteresPorSegundo * anchoCaracterMm;
+  double longitudKmPorSegundo = longitudMmPorSegundo / 1e6;
+  return longitudKmPorSegundo;
+}
+
+String ABinario(int num)
+{
+  String binary = "";
+  if (num == 0)
+  {
+    return "0";
+  }
+  while (num > 0)
+  {
+    binary = (num % 2 == 0 ? "0" : "1") + binary;
+    num /= 2;
+  }
+  return binary;
+}
+
+String capitalizar(String palabra)
+{
+  if (palabra.length() > 0)
+  {
+    palabra[0] = toupper(palabra[0]);
+  }
+  return palabra;
+}
+
+String numeroAEscrito(int num, bool esDecimal = false)
+{
+  if (num < 0 || num > 9999)
+    return "Número Fuera De Rango";
+  String unidades[] = {"cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"};
+  String especiales[] = {"Diez", "Once", "Doce", "Trece", "Catorce", "Quince",
+                         "Dieciséis", "Diecisiete", "Dieciocho", "Diecinueve"};
+  String decenas[] = {"", "", "Veinte", "Treinta", "Cuarenta", "Cincuenta",
+                      "Sesenta", "Setenta", "Ochenta", "Noventa"};
+  String centenas[] = {"", "Ciento", "Doscientos", "Trescientos", "Cuatrocientos",
+                       "Quinientos", "Seiscientos", "Setecientos", "Ochocientos", "Novecientos"};
+  if (num == 100)
+    return "Cien";
+  if (num == 0)
+    return "Cero";
+  String resultado = "";
+  if (esDecimal && num < 10)
+  {
+    resultado += "Cero ";
+  }
+  if (num >= 1000)
+  {
+    if (num / 1000 == 1)
+    {
+      resultado += "Mil";
+    }
+    else
+    {
+      resultado += capitalizar(unidades[num / 1000]) + " Mil";
+    }
+    num %= 1000;
+    if (num > 0)
+      resultado += " ";
+  }
+  if (num >= 100)
+  {
+    resultado += capitalizar(centenas[num / 100]);
+    num %= 100;
+    if (num > 0)
+      resultado += " ";
+  }
+  if (num >= 10 && num <= 19)
+  {
+    resultado += capitalizar(especiales[num - 10]);
+  }
+  else
+  {
+    if (num >= 20)
+    {
+      if (num < 30)
+      {
+        resultado += "Veinti";
+        if (num % 10 > 0)
+          resultado += unidades[num % 10];
+      }
+      else
+      {
+        resultado += capitalizar(decenas[num / 10]);
+        if (num % 10 > 0)
+          resultado += " Y " + capitalizar(unidades[num % 10]);
+      }
+    }
+    else if (num > 0)
+    {
+      resultado += capitalizar(unidades[num]);
+    }
+  }
+  return resultado;
+}
+
+int obtenerDiasEnMes(int annio, int mes)
+{
+  if (mes == 2)
+  {
+    if ((annio % 4 == 0 && annio % 100 != 0) || (annio % 400 == 0))
+    {
+      return 29;
+    }
+    else
+    {
+      return 28;
+    }
+  }
+  return (mes == 4 || mes == 6 || mes == 9 || mes == 11) ? 30 : 31;
+}
+
+int obtenerDiaSemanaInicio(int annio, int mes)
+{
+  if (mes < 3)
+  {
+    mes += 12;
+    annio -= 1;
+  }
+  int k = annio % 100;
+  int j = annio / 100;
+  int dia = 1;
+  int h = (dia + (13 * (mes + 1)) / 5 + k + (k / 4) + (j / 4) + (5 * j)) % 7;
+  return (h + 5) % 7;
+}
+
+String generarCalendario(int annio, int mes)
+{
+  String calendario;
+  const char *diasSemana[] = {"Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"};
+  int diasEnMes = obtenerDiasEnMes(annio, mes);
+  int diaInicio = obtenerDiaSemanaInicio(annio, mes);
+  calendario += "\nM8AX - Calendario -> " + String(meses[mes - 1]) + " / " + String(annio) + "\n\n";
+  for (int i = 0; i < 7; i++)
+  {
+    calendario += String(diasSemana[i]) + "\t";
+  }
+  calendario += "\n";
+  for (int i = 0; i <= diaInicio; i++)
+  {
+    calendario += "\t";
+  }
+  for (int dia = 1; dia <= diasEnMes; dia++)
+  {
+    calendario += String(dia) + "\t";
+    diaInicio++;
+    if (diaInicio > 6)
+    {
+      diaInicio = 0;
+      calendario += "\n";
+    }
+  }
+  return calendario;
+}
+
+const char *convertirTiempoNoMinando(uint32_t segundos)
+{
+  uint32_t dias, horas, minutos, segs;
+  dias = segundos / 86400;
+  segundos %= 86400;
+  horas = segundos / 3600;
+  segundos %= 3600;
+  minutos = segundos / 60;
+  segs = segundos % 60;
+  static char buffer[20];
+  snprintf(buffer, sizeof(buffer), "%02lud %02luh %02lum %02lus", (unsigned long)dias, (unsigned long)horas, (unsigned long)minutos, (unsigned long)segs);
+  return buffer;
 }
 
 void find_operations(int numbers[], int target, State current, State *best, int depth, int used[])
@@ -122,12 +349,12 @@ void calculate_operations(int numbers[], int target, char *result)
   {
     State current;
     current.value = numbers[i];
-    snprintf(current.operation, sizeof(current.operation), "Inicio: %d", numbers[i]);
+    snprintf(current.operation, sizeof(current.operation), "Inicio - %d", numbers[i]);
     memset(used, 0, sizeof(used));
     used[i] = 1;
     find_operations(numbers, target, current, &best, 1, used);
   }
-  snprintf(result, 500, "%s\n>>> M8AX - Resultado: %d", best.operation, best.value);
+  snprintf(result, 500, "%s\n>>> M8AX - Resultado - %d", best.operation, best.value);
   if (totalci == 0)
   {
     porcentaje = (static_cast<float>(aciertos) * 100) / 1;
@@ -170,7 +397,7 @@ void convertirTiempo(const char *input, char *output)
 {
   int dias, horas, minutos, segundos;
   sscanf(input, "%d %d:%d:%d", &dias, &horas, &minutos, &segundos);
-  sprintf(output, "%d Días, %02d Horas, %02d Minutos, %02d Segundos",
+  sprintf(output, "%02dd %02dh %02dm %02ds",
           dias, horas, minutos, segundos);
 }
 
@@ -200,7 +427,7 @@ void sincronizarTiempo()
     Serial.print(".");
     delay(200);
   }
-  Serial.println("M8AX - Hora Sincronizada Correctamente...");
+  Serial.println("\nM8AX - Hora Sincronizada Correctamente...");
 }
 
 const char *FactorizaM8AX(uint32_t number)
@@ -272,11 +499,9 @@ String convertirARomanos(int num)
   {
     return "CERO";
   }
-
   String result = "";
   int values[] = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
   String romans[] = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
-
   for (int i = 0; i < 13; i++)
   {
     while (num >= values[i])
@@ -285,7 +510,6 @@ String convertirARomanos(int num)
       num -= values[i];
     }
   }
-
   return result;
 }
 
@@ -297,14 +521,12 @@ void enviarMensajeATelegram(String mensaje)
     WiFi.disconnect();
     WiFi.reconnect();
     delay(5000);
-
     if (WiFi.status() != WL_CONNECTED)
     {
       Serial.println("M8AX - No Se Pudo Reconectar WiFi...");
       return;
     }
   }
-
   WiFiClientSecure client;
   client.setInsecure();
   String mensajeCodificado = urlEncode(mensaje);
@@ -313,7 +535,6 @@ void enviarMensajeATelegram(String mensaje)
   Serial.println("M8AX - Enviando Mensaje A Telegram...");
   String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
   mensajeCodificado = "";
-
   if (client.connect("api.telegram.org", 443))
   {
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: api.telegram.org\r\n" + "Connection: close\r\n\r\n");
@@ -334,6 +555,7 @@ void enviarMensajeATelegram(String mensaje)
 void recopilaTelegram()
 {
   int horas, minutos, segundos, dia, mes, anio;
+  int indice = esp_random() % 3;
   time_t now;
   struct tm timeinfo;
   time(&now);
@@ -361,12 +583,45 @@ void recopilaTelegram()
   char output[50];
   convertirTiempo(data.timeMining.c_str(), output);
   cadenaEnvio += "Tiempo Minando - " + String(output) + "\n";
-  cadenaEnvio += "HR Actual - " + data.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
+  cadenaEnvio += "Tiempo No Minando - ";
+  cadenaEnvio += (String(convertirTiempoNoMinando(nominando)).c_str());
+  String valor = data.currentHashRate;
+  cadenaEnvio += "\nHR Actual - " + valor + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
+  int parteEntera = valor.substring(0, valor.indexOf(".")).toInt();
+  int parteDecimal = valor.substring(valor.indexOf(".") + 1).toInt();
+  cadenaEnvio += "HR Escrito - " + numeroAEscrito(parteEntera, false) + " Con " + numeroAEscrito(parteDecimal, true) + " KH/s\n";
+  cadenaEnvio += "HR Binario - " + ABinario(parteEntera) + " Con " + ABinario(parteDecimal) + " KH/s\n";
+  cadenaEnvio += "HR Hexadecimal - " + String(parteEntera, HEX) + " Con " + String(parteDecimal, HEX) + " KH/s\n";
+  cadenaEnvio += "HR Romano - " + convertirARomanos(parteEntera) + " Con " + convertirARomanos(parteDecimal) + " KH/s\n";
+  uint8_t entrada[valor.length() + 1];
+  memcpy(entrada, valor.c_str(), valor.length() + 1);
+  uint8_t salida[32];
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0);
+  mbedtls_sha256_update(&ctx, entrada, sizeof(entrada) - 1);
+  mbedtls_sha256_finish(&ctx, salida);
+  char sha256String[65];
+  for (int i = 0; i < 32; i++)
+  {
+    sprintf(&sha256String[i * 2], "%02x", salida[i]);
+  }
+  cadenaEnvio += "HR SHA-256 - " + String(sha256String) + " KH/s\n";
+  cadenaEnvio += "Si Cada Hash (64 Caracteres), Se Escribiera En Línea Recta Con\n";
+  cadenaEnvio += "Tamaño De Letra De Libro, Tu Minero Generaría Texto A - " + String(calcularKilometrosPorSegundo(valor.toFloat())) + " KM/s\n";
+  float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(valor.toFloat());
+  float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(valor.toFloat());
+  cadenaEnvio += "A La Luna Llegaríamos En - ";
+  cadenaEnvio += (String(convertirTiempoNoMinando(tiempoLunaSegundos)).c_str());
+  cadenaEnvio += "\nAl Sol Llegaríamos En - ";
+  cadenaEnvio += (String(convertirTiempoNoMinando(tiempoSolSegundos)).c_str());
   eficiencia = data.currentHashRate.toFloat() / consumo;
   float eficiencia_redondeada = round(eficiencia * 1000) / 1000;
-  cadenaEnvio += "Eficiencia Energética - ≈ " + String(eficiencia_redondeada, 3) + " KH/s/W\n";
-  cadenaEnvio += "Temp. De CPU - " + data.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " )\n";
-  cadenaEnvio += "Plantillas De Bloque - " + data.templates + "\n";
+  cadenaEnvio += "\nEficiencia Energética - ≈ " + String(eficiencia_redondeada, 3) + " KH/s/W - " + String(consumo) + "W\n";
+  cadenaEnvio += "Temperatura De CPU - " + data.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " Veces )\n";
+  cadenaEnvio += "Tiempo De CPU A Más De 70° - ";
+  cadenaEnvio += (String(convertirTiempoNoMinando(alertatemp)).c_str());
+  cadenaEnvio += "\nPlantillas De Bloque - " + data.templates + "\n";
   cadenaEnvio += "Shares Enviados A La Pool - " + data.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + data.bestDiff + "\n";
   cadenaEnvio += "Cómputo Total - " + data.totalKHashes + " KH - ( " + String(atof(data.totalKHashes.c_str()) / 1000, 3) + " MH )\n";
@@ -374,7 +629,8 @@ void recopilaTelegram()
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De BTC - " + String(Settings.BtcWallet) + "\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
-
+  cadenaEnvio += urlsm8ax[indice];
+  cadenaEnvio += F("\n------------------------------------------------------------------------------------------------\n");
   if (data.valids.toInt() == 1)
   {
     cadenaEnvio += "||| ¡ BLOQUE MINADO ! ¡ A COBRAR ! :) |||\n";
@@ -383,7 +639,6 @@ void recopilaTelegram()
   {
     cadenaEnvio += "||| ¡ SIN PASTA, SIN GLORIA ! ¡ A SEGUIR CON LA HISTORIA ! |||\n";
   }
-
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += F("---------------------------------- M8AX - DATOS NERD - M8AX ------------------------------------\n");
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
@@ -399,15 +654,13 @@ void recopilaTelegram()
   generate_random_numbers(numeritos, 6, 1, 100);
   cadenaEnvio += ("Juego De Cifras Número - " + String(totalci) + "\n");
   cadenaEnvio += ("Aciertos - " + String(aciertos) + " | Fallos - " + String(fallos) + "\n");
-  cadenaEnvio += ("Números: ");
-
+  cadenaEnvio += ("Números - ");
   for (int i = 0; i < 6; i++)
   {
     cadenaEnvio += (numeritos[i]);
     cadenaEnvio += (" ");
   }
-
-  cadenaEnvio += ("\nObjetivo: " + String(destino) + "\n");
+  cadenaEnvio += ("\nObjetivo - " + String(destino) + "\n");
   calculate_operations(numeritos, destino, result);
   String resultadoStr = String(result);
   resultadoStr.replace(">>> M8AX - ", "");
@@ -418,22 +671,9 @@ void recopilaTelegram()
   cadenaEnvio = "";
 }
 
-const char *morse[] = {
-    "....",  // H
-    "---",   // O
-    ".-..",  // L
-    ".-",    // A
-    "--",    // M
-    "---..", // 8
-    ".-",    // A
-    "-..-",  // X
-};
-
-const int morseLength = sizeof(morse) / sizeof(morse[0]);
-
 void fiestaLED()
 {
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 5; i++)
   {
     digitalWrite(m8ax, HIGH);
     vTaskDelay(pdMS_TO_TICKS(25));
@@ -457,6 +697,17 @@ void fiestaLED()
   digitalWrite(m8ax, LOW);
 }
 
+void sincroLED()
+{
+  for (int i = 0; i < 100; i++)
+  {
+    digitalWrite(m8ax, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(25));
+    digitalWrite(m8ax, LOW);
+    vTaskDelay(pdMS_TO_TICKS(25));
+  }
+}
+
 void noDisplay_NoScreen(unsigned long mElapsed)
 {
   data = getMiningData(mElapsed);
@@ -466,57 +717,58 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   float hhashrate = data.currentHashRate.toFloat();
   time_t now;
   struct tm timeinfo;
-
   time(&now);
   localtime_r(&now, &timeinfo);
-
   horas = timeinfo.tm_hour;
   minutos = timeinfo.tm_min;
   segundos = timeinfo.tm_sec;
   dia = timeinfo.tm_mday;
   mes = timeinfo.tm_mon + 1;
   anio = timeinfo.tm_year + 1900;
-
   cuenta++;
-
-  if (cuenta > 15)
+  if (cuenta > 25)
   {
     if (hhashrate > maxkh)
     {
       maxkh = hhashrate;
     }
-
     if (hhashrate < minkh)
     {
       minkh = hhashrate;
     }
-
     if (temperatura > maxtemp)
     {
       maxtemp = temperatura;
     }
-
     if (temperatura < mintemp)
     {
       mintemp = temperatura;
     }
   }
-
   if (ganador == 0)
   {
     if (hhashrate > 0)
     {
-      if (hhashrate > 300)
+      if (temperatura > 70 && temperatura <= 80)
       {
         digitalWrite(m8ax, HIGH);
-        vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 1 : 5));
+        vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 1000 : 1000));
         digitalWrite(m8ax, LOW);
       }
       else
       {
-        digitalWrite(m8ax, HIGH);
-        vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 100 : 300));
-        digitalWrite(m8ax, LOW);
+        if (hhashrate > 350)
+        {
+          digitalWrite(m8ax, HIGH);
+          vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 1 : 5));
+          digitalWrite(m8ax, LOW);
+        }
+        else
+        {
+          digitalWrite(m8ax, HIGH);
+          vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 100 : 300));
+          digitalWrite(m8ax, LOW);
+        }
       }
     }
     else
@@ -524,7 +776,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       digitalWrite(m8ax, LOW);
     }
   }
-
   if (ganador != 0)
   {
     if (cuenta % 5 == 0)
@@ -533,28 +784,56 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     }
     fiestaLED();
   }
-
   if (cuenta % 30 == 0)
   {
     eficiencia = data.currentHashRate.toFloat() / consumo;
     float eficiencia_redondeada = round(eficiencia * 1000) / 1000;
     Serial.print("\n--------------------------------------------------------------------------------");
-    Serial.printf("\n>>> M8AX - Bloques Válidos: %s\n", data.valids.c_str());
-    Serial.printf(">>> M8AX - Plantillas De Bloques: %s\n", data.templates.c_str());
-    Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada: %s\n", data.bestDiff.c_str());
-    Serial.printf(">>> M8AX - Shares Enviados A La Pool: %s\n", data.completedShares.c_str());
-    Serial.printf(">>> M8AX - HashRate: %s KH/s\n", String(hhashrate));
-    Serial.printf(">>> M8AX - Max HashRate: %s KH/s\n", String(maxkh));
-    Serial.printf(">>> M8AX - Min HashRate: %s KH/s\n", String(minkh));
-    Serial.printf(">>> M8AX - Eficiencia Energética - ≈ %.3f KH/s/W\n", eficiencia_redondeada);
-    Serial.printf(">>> M8AX - Temperatura: %s°\n", data.temp.c_str());
-    Serial.printf(">>> M8AX - Max Temperatura: %s°\n", String(maxtemp));
-    Serial.printf(">>> M8AX - Min Temperatura: %s°\n", String(mintemp));
-    Serial.printf(">>> M8AX - Temoeratura > 70°: %s Veces\n", String(alertatemp));
-    Serial.printf(">>> M8AX - Cómputo Total ( MH ): %s\n", data.totalMHashes.c_str());
+    Serial.printf("\n>>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
+    Serial.printf(">>> M8AX - Plantillas De Bloques - %s\n", data.templates.c_str());
+    Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada - %s\n", data.bestDiff.c_str());
+    Serial.printf(">>> M8AX - Shares Enviados A La Pool - %s\n", data.completedShares.c_str());
+    Serial.printf(">>> M8AX - HashRate - %s KH/s\n", String(hhashrate));
+    String valor = String(hhashrate);
+    int parteEntera = valor.substring(0, valor.indexOf(".")).toInt();
+    int parteDecimal = valor.substring(valor.indexOf(".") + 1).toInt();
+    Serial.printf(">>> M8AX - HR Escrito - %s Con %s KH/s\n", numeroAEscrito(parteEntera, false).c_str(), numeroAEscrito(parteDecimal, true).c_str());
+    Serial.printf(">>> M8AX - HR Binario - %s Con %s KH/s\n", ABinario(parteEntera).c_str(), ABinario(parteDecimal).c_str());
+    Serial.printf(">>> M8AX - HR Hexadecimal - %s Con %s KH/s\n", String(parteEntera, HEX).c_str(), String(parteDecimal, HEX).c_str());
+    Serial.printf(">>> M8AX - HR Romano - %s Con %s KH/s\n", convertirARomanos(parteEntera).c_str(), convertirARomanos(parteDecimal).c_str());
+    uint8_t entrada[valor.length() + 1];
+    memcpy(entrada, valor.c_str(), valor.length() + 1);
+    uint8_t salida[32];
+    mbedtls_sha256_context ctx;
+    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_starts(&ctx, 0);
+    mbedtls_sha256_update(&ctx, entrada, sizeof(entrada) - 1);
+    mbedtls_sha256_finish(&ctx, salida);
+    char sha256String[65];
+    for (int i = 0; i < 32; i++)
+    {
+      sprintf(&sha256String[i * 2], "%02x", salida[i]);
+    }
+    Serial.printf(">>> M8AX - HR SHA-256 - %s KH/s\n", String(sha256String).c_str());
+    Serial.printf(">>> M8AX - Max HashRate - %s KH/s\n", String(maxkh));
+    Serial.printf(">>> M8AX - Min HashRate - %s KH/s\n", String(minkh));
+    Serial.println(">>> M8AX - Si Cada Hash (64 Caracteres), Se Escribiera En Línea Recta Con");
+    Serial.printf(">>> M8AX - Tamaño De Letra De Libro, Tu Minero Generaría Texto A - %s KM/s\n", String(calcularKilometrosPorSegundo(valor.toFloat())));
+    float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(hhashrate);
+    float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(hhashrate);
+    Serial.printf(">>> M8AX - A La Luna Llegaríamos En - %s\n", String(convertirTiempoNoMinando(tiempoLunaSegundos)).c_str());
+    Serial.printf(">>> M8AX - Al Sol Llegaríamos En - %s\n", String(convertirTiempoNoMinando(tiempoSolSegundos)).c_str());
+    Serial.printf(">>> M8AX - Eficiencia Energética - ≈ %.3f KH/s/W - %sW\n", eficiencia_redondeada, String(consumo));
+    Serial.printf(">>> M8AX - Temperatura - %s°\n", data.temp.c_str());
+    Serial.printf(">>> M8AX - Max Temperatura - %s°\n", String(maxtemp));
+    Serial.printf(">>> M8AX - Min Temperatura - %s°\n", String(mintemp));
+    Serial.printf(">>> M8AX - Temperatura A Más De 70° - %s Veces\n", String(alertatemp));
+    Serial.printf(">>> M8AX - Tiempo De CPU A Más De 70° - %s\n", String(convertirTiempoNoMinando(alertatemp)).c_str());
+    Serial.printf(">>> M8AX - Cómputo Total ( MH ) - %s\n", String(atof(data.totalKHashes.c_str()) / 1000, 3));
     char output[50];
     convertirTiempo(data.timeMining.c_str(), output);
-    Serial.printf(">>> M8AX - Tiempo Minando: %s\n", output);
+    Serial.printf(">>> M8AX - Tiempo Minando - %s\n", output);
+    Serial.printf(">>> M8AX - Tiempo No Minando - %s\n", String(convertirTiempoNoMinando(nominando)).c_str());
     int numeritos[6];
     int destino = 1 + (esp_random() % 1000);
     generate_random_numbers(numeritos, 6, 1, 100);
@@ -570,28 +849,31 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print("--------------------------------------------------------------------------------\n");
     Serial.print(">>> M8AX - Juego De Cifras Número - " + String(totalci) + "\n");
     Serial.print(">>> M8AX - Aciertos - " + String(aciertos) + " | Fallos - " + String(fallos) + "\n");
-    Serial.print(">>> M8AX - Números: ");
-
+    Serial.print(">>> M8AX - Números - ");
     for (int i = 0; i < 6; i++)
     {
       Serial.print(numeritos[i]);
       Serial.print(" ");
     }
-
     Serial.println();
-    Serial.print(">>> M8AX - Objetivo: " + String(destino) + "\n");
+    Serial.print(">>> M8AX - Objetivo - " + String(destino) + "\n");
     calculate_operations(numeritos, destino, result);
     Serial.print(">>> M8AX - " + String(result) + "\n");
-    Serial.print("--------------------------------------------------------------------------------\n\n");
+    Serial.print("--------------------------------------------------------------------------------\n");
+    for (int i = 1; i <= 12; i++)
+    {
+      String calendario = generarCalendario(anio + sumacalen, i);
+      Serial.println(calendario);
+      Serial.print("\n--------------------------------------------------------------------------------\n");
+    }
+    Serial.print("\n");
+    sumacalen++;
   }
-
   String fechaHora = String(timeinfo.tm_hour < 10 ? "0" : "") + String(timeinfo.tm_hour) + ":" +
                      String(timeinfo.tm_min < 10 ? "0" : "") + String(timeinfo.tm_min) + ":" +
                      String(timeinfo.tm_sec < 10 ? "0" : "") + String(timeinfo.tm_sec);
-
   Serial.printf("%s >>> M8AX - Completados %s Share(s), %s Khashes, Med. HashRate %s KH/s - %s°\n",
                 fechaHora.c_str(), data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-
   if (minutos == 30 && segundos == 0)
   {
     digitalWrite(m8ax, HIGH);
@@ -599,7 +881,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     digitalWrite(m8ax, LOW);
     vTaskDelay(pdMS_TO_TICKS(300));
   }
-
   if (minutos == 0 && segundos == 0)
   {
     digitalWrite(m8ax, HIGH);
@@ -611,12 +892,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     digitalWrite(m8ax, LOW);
     vTaskDelay(pdMS_TO_TICKS(300));
   }
-
   if (temperatura > 70)
   {
     Serial.println("M8AX - La Temperatura De La CPU Ha Superado Los 70°C...");
     alertatemp++;
-
     if (temperatura > 80)
     {
       Serial.println("M8AX - ¡ Temperatura Muy Alta ! 80°C Superados. Entrando En Deep Sleep Por 10 Minutos Para Enfriar La CPU...");
@@ -624,7 +903,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       esp_deep_sleep_start();
     }
   }
-
   if (cuenta % 7200 == 0)
   {
     BOT_TOKEN = Settings.botTelegram;
@@ -633,13 +911,20 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
     {
       digitalWrite(m8ax, HIGH);
+      vTaskDelay(pdMS_TO_TICKS(2000));
       recopilaTelegram();
     }
   }
-
   if (cuenta == 5)
   {
+    sincroLED();
     sincronizarTiempo();
+  }
+  if (hhashrate == 0)
+  {
+    nominando++;
+    digitalWrite(m8ax, LOW);
+    Serial.println("M8AX - La CPU, No Está Minando...");
   }
 }
 

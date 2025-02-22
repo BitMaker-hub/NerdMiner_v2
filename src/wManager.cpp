@@ -31,7 +31,7 @@ extern SDCard SDCrd;
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
 {
-    Serial.println("Debería Guardar Configuración");
+    Serial.println("Guardando La Configuración...");
     shouldSaveConfig = true;
     // wm.setConfigPortalBlocking(false);
 }
