@@ -22,7 +22,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 13H - 6100 Líneas De Código
+ *                     Tmp. De Programación 13H - 6102 Líneas De Código
  *
  ********************************************************************************************/
 
@@ -142,6 +142,12 @@ const char *ciudades[] = {
     "Los Angeles", "Beijing", "Moscu", "Delhi", "Buenos Aires",
     "Berlin", "Mexico", "Madrid", "Seul", "Roma",
     "El Cairo", "Amsterdam", "Toronto", "Sao Paulo", "Cape Town"};
+const char *urlsm8ax[] = {
+    "YT - https://youtube.com/m8ax",
+    "OS - https://opensea.io/es/m8ax",
+    "OC - https://oncyber.io/m8ax",
+    "FW - https://m8ax.github.io/MvIiIaX-NerdMiner_V2-DeV/",
+    "GH - https://github.com/m8ax"};
 String urls[] = {
     "https://cointelegraph.com/rss",
     "https://es.cointelegraph.com/rss/tag/altcoin",
@@ -152,10 +158,6 @@ String urls[] = {
     "https://es.cointelegraph.com/rss/tag/ethereum",
     "https://es.cointelegraph.com/rss/category/top-10-cryptocurrencies",
     "https://es.cointelegraph.com/rss/category/market-analysis"};
-const char *urlsm8ax[] = {
-    "YT - https://youtube.com/m8ax",
-    "OS - https://opensea.io/es/m8ax",
-    "OC - https://oncyber.io/m8ax"};
 int zonasHorarias[] = {
     -5, 0, 1, 9, 11, // Nueva York, Londres, Paris, Tokio, Sidney
     -8, 8, 3, 5, -3, // Los Angeles, Beijing, Moscu, Delhi, Buenos Aires
@@ -261,11 +263,11 @@ void tDisplay_AlternateRotation(void)
  *
  * La función genera y muestra en pantalla una serie de barras de colores en diferentes direcciones
  * (horizontales, verticales y diagonales), con un breve retraso entre cada una para crear una animación.
- * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" en un color aleatorio.
+ * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" o "HELLO" en un color aleatorio.
  *
  * - El ancho de las barras y la velocidad del efecto se generan aleatoriamente dentro de un rango.
  * - Se utilizan colores aleatorios para cada barra y se eliminan tras un breve retraso.
- * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" con un tamaño de texto grande.
+ * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" o "HELLO" con un tamaño de texto grande.
  */
 
 void television()
@@ -314,7 +316,7 @@ void television()
   tft.setCursor(76, 52);
   colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
   tft.setTextColor(colors[colorI], TFT_BLACK);
-  tft.print("HOLA");
+  (colorI % 2 == 0) ? tft.print("HOLA") : tft.print("HELLO");
   tft.setTextSize(1);
 }
 
@@ -762,7 +764,7 @@ void recopilaTelegram()
   int horita = timeinfo->tm_hour;                      // Hora
   int minutitos = timeinfo->tm_min;                    // Minutos
   int segundos = timeinfo->tm_sec;                     // Segundos
-  int indice = esp_random() % 3;
+  int indice = esp_random() % 5;
 
   // Formatear la hora en "00:00:00"
   char horaFormateada[9];
@@ -1982,7 +1984,7 @@ String getQuote()
   http.begin(serverName);
   http.addHeader("Content-Type", "application/json");
 
-  String quote = "ERROR AL OBTENER LA CITA... Por Muchas Vueltas Que Demos, Siempre Tendremos El Culo Atras..."; // Valor por defecto en caso de error
+  String quote = "ERROR AL OBTENER LA CITA... Mi Lema Es - ( ... Por Muchas Vueltas Que Demos, Siempre Tendremos El Culo Atras ... )"; // Valor por defecto en caso de error
 
   int httpResponseCode = 0;
   int attempts = 0;
