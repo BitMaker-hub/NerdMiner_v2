@@ -10,6 +10,24 @@
         { "path": "partition-table.bin", "offset": 32768 },
         { "path": "bootloader.bin", "offset": 0 }
       ]
+    },
+    {
+      "chipFamily": "ESP32-D",
+      "parts": [
+        { "path": "ota_data_initial.bin", "offset": 57344 },
+        { "path": "firmware_esp32d.bin", "offset": 65536 },
+        { "path": "partition-table.bin", "offset": 32768 },
+        { "path": "bootloader.bin", "offset": 0 }
+      ]
+    },
+    {
+      "chipFamily": "ESP32-D0WD-V3",
+      "parts": [
+        { "path": "ota_data_initial.bin", "offset": 57344 },
+        { "path": "firmware_esp32d.bin", "offset": 65536 },
+        { "path": "partition-table.bin", "offset": 32768 },
+        { "path": "bootloader.bin", "offset": 0 }
+      ]
     }
   ]
 }
