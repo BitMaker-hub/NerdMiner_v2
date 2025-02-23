@@ -12,7 +12,7 @@
       ]
     },
     {
-      "chipFamily": "ESP32-D0WD",
+      "chipFamily": "ESP32-D0WD-V3",
       "parts": [
         { "path": "ota_data_initial.bin", "offset": 57344 },
         { "path": "firmware_esp32d.bin", "offset": 65536 },
