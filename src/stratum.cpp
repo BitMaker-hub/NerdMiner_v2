@@ -60,9 +60,9 @@ bool tx_mining_subscribe(WiFiClient &client, mining_subscribe &mSubscribe)
     // Subscribe
     id = 1; // Initialize id messages
 #ifndef HAN
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"M8AX-NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
 #else
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\"]}\n", id, CURRENT_VERSION);
+    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
 #endif
 
     Serial.printf("[TRABAJADOR] ==> Suscripción A La Minería\n");

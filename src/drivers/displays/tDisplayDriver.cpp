@@ -22,7 +22,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 13H - 6102 Líneas De Código
+ *                     Tmp. De Programación 14H - 6115 Líneas De Código
  *
  ********************************************************************************************/
 
@@ -263,11 +263,13 @@ void tDisplay_AlternateRotation(void)
  *
  * La función genera y muestra en pantalla una serie de barras de colores en diferentes direcciones
  * (horizontales, verticales y diagonales), con un breve retraso entre cada una para crear una animación.
- * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" o "HELLO" en un color aleatorio.
+ * Al finalizar, la pantalla se limpia y se muestra la palabra "HOLA" o "HELLO" en un color aleatorio
+ * O bien, se muestra "AUPA" o "ALOHA" en función de otro número aleatorio.
  *
  * - El ancho de las barras y la velocidad del efecto se generan aleatoriamente dentro de un rango.
  * - Se utilizan colores aleatorios para cada barra y se eliminan tras un breve retraso.
  * - Finalmente, la pantalla se limpia y se muestra el mensaje "HOLA" o "HELLO" con un tamaño de texto grande.
+ * - O bien, se muestra "AUPA" o "ALOHA" en función de otro número aleatorio, (numeroSaludo).
  */
 
 void television()
@@ -311,12 +313,23 @@ void television()
   }
 
   // Finalizar con la pantalla en negro
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  int numeroSaludo = (esp_random() % 10) + 1;
+  tft.setTextColor(colors[colorI], TFT_BLACK);
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(7);
-  tft.setCursor(76, 52);
-  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
-  tft.setTextColor(colors[colorI], TFT_BLACK);
-  (colorI % 2 == 0) ? tft.print("HOLA") : tft.print("HELLO");
+
+  if (colorI % 2 == 0)
+  {
+    tft.setCursor(76, 52);
+    (numeroSaludo % 2 == 0) ? tft.print("HOLA") : tft.print("AUPA");
+  }
+  else
+  {
+    tft.setCursor(60, 52);
+    (numeroSaludo % 2 == 0) ? tft.print("HELLO") : tft.print("ALOHA");
+  }
+
   tft.setTextSize(1);
 }
 

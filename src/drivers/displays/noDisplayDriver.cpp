@@ -689,7 +689,7 @@ void recopilaTelegram()
   if (valor.toFloat() > 0)
   {
     cadenaEnvio += "\nSi Cada Hash (64 Caracteres), Se Escribiera En Línea Recta Con\n";
-    cadenaEnvio += "Tamaño De Letra De Libro, Tu Minero Generaría Texto A - " + String(calcularKilometrosPorSegundo(valor.toFloat())) + " KM/s\n";
+    cadenaEnvio += "Tamaño De Letra De Libro, Tu Minero Generaría Texto A - " + String(calcularKilometrosPorSegundo(valor.toFloat())) + " Km/s\n";
     float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(valor.toFloat());
     float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(valor.toFloat());
     float tiempoDiaSolSegundos = distanciadiamsol / calcularKilometrosPorSegundo(valor.toFloat());
@@ -881,7 +881,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     if (hhashrate > 0)
     {
       Serial.println(">>> M8AX - Si Cada Hash (64 Caracteres), Se Escribiera En Línea Recta Con");
-      Serial.printf(">>> M8AX - Tamaño De Letra De Libro, Tu Minero Generaría Texto A - %s KM/s\n", String(calcularKilometrosPorSegundo(valor.toFloat())));
+      Serial.printf(">>> M8AX - Tamaño De Letra De Libro, Tu Minero Generaría Texto A - %s Km/s\n", String(calcularKilometrosPorSegundo(valor.toFloat())));
       float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(hhashrate);
       float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(hhashrate);
       float tiempoDiaSolSegundos = distanciadiamsol / calcularKilometrosPorSegundo(hhashrate);
