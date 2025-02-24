@@ -24,7 +24,12 @@
  *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
  *   - ¡ A MINAR !
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1080 líneas de código en 3h. ///
+ *                             Un minero de Bitcoin es un dispositivo o software que realiza cálculos
+ *                             matemáticos complejos para verificar y validar transacciones en la red.
+ *                             Los mineros compiten para resolver estos problemas y añadir un bloque
+ *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
+ *
+ *   - /// Minimizando código, maximizando funcionalidad. Solo 1111 líneas de código en 4h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  ***********************************************************************************************************************************/
@@ -51,6 +56,8 @@
 #define MAX_DEPTH 4
 #define MAX_HASHRATE 420
 #define BAR_LENGTH 42
+#define GOTAAGUA 0.00005
+#define pasoskm 0.0007
 
 extern TSettings Settings;
 
@@ -673,6 +680,13 @@ void recopilaTelegram()
   cadenaEnvio += "HR Binario - " + ABinario(parteEntera) + " Con " + ABinario(parteDecimal) + " KH/s\n";
   cadenaEnvio += "HR Hexadecimal - " + String(parteEntera, HEX) + " Con " + String(parteDecimal, HEX) + " KH/s\n";
   cadenaEnvio += "HR Romano - " + convertirARomanos(parteEntera) + " Con " + convertirARomanos(parteDecimal) + " KH/s\n";
+  float hrgfloat = data.currentHashRate.toFloat() / 1000000.0;
+  float hrtfloat = data.currentHashRate.toFloat() / 1000000000.0;
+  float hrpfloat = data.currentHashRate.toFloat() / 1000000000000.0;
+  float semanagh = hrgfloat * 60 * 60 * 24 * 7;
+  float semanath = hrtfloat * 60 * 60 * 24 * 7;
+  float semanaph = hrpfloat * 60 * 60 * 24 * 7;
+  cadenaEnvio += "+/- GH/SEM - " + String(semanagh, 2) + " GH/Semana | +/- TH/SEM - " + String(semanath, 2) + " TH/Semana | +/- PH/SEM - " + String(semanaph, 6) + " PH/Semana\n";
   uint8_t entrada[valor.length() + 1];
   memcpy(entrada, valor.c_str(), valor.length() + 1);
   uint8_t salida[32];
@@ -694,12 +708,18 @@ void recopilaTelegram()
     float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(valor.toFloat());
     float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(valor.toFloat());
     float tiempoDiaSolSegundos = distanciadiamsol / calcularKilometrosPorSegundo(valor.toFloat());
+    float litrostotales = ((valor.toFloat() * 1000) * 64) * GOTAAGUA;
+    float kmandando = valor.toFloat() * pasoskm;
     cadenaEnvio += "A La Luna Llegaríamos En - ";
     cadenaEnvio += (String(convertirTiempoNoMinando(tiempoLunaSegundos)).c_str());
     cadenaEnvio += "\nAl Sol Llegaríamos En - ";
     cadenaEnvio += (String(convertirTiempoNoMinando(tiempoSolSegundos)).c_str());
     cadenaEnvio += "\nRecorreríamos El Diámetro Del Sol En - ";
     cadenaEnvio += (String(convertirTiempoNoMinando(tiempoDiaSolSegundos)).c_str());
+    cadenaEnvio += "\nSi Cada Carácter De Un Hash, Fuera Una Gota De Agua - ";
+    cadenaEnvio += String(litrostotales) + " Litros/s";
+    cadenaEnvio += "\nSi Cada KH/s, Fuera Un Paso De Una Persona, Andaría A - ";
+    cadenaEnvio += String(kmandando, 5) + " Km/s | " + String(kmandando * 3600.0, 5) + " Km/h";
   }
   eficiencia = data.currentHashRate.toFloat() / consumo;
   float eficiencia_redondeada = round(eficiencia * 1000) / 1000;
@@ -868,6 +888,13 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - HR Binario - %s Con %s KH/s\n", ABinario(parteEntera).c_str(), ABinario(parteDecimal).c_str());
     Serial.printf(">>> M8AX - HR Hexadecimal - %s Con %s KH/s\n", String(parteEntera, HEX).c_str(), String(parteDecimal, HEX).c_str());
     Serial.printf(">>> M8AX - HR Romano - %s Con %s KH/s\n", convertirARomanos(parteEntera).c_str(), convertirARomanos(parteDecimal).c_str());
+    float hrgfloat = data.currentHashRate.toFloat() / 1000000.0;
+    float hrtfloat = data.currentHashRate.toFloat() / 1000000000.0;
+    float hrpfloat = data.currentHashRate.toFloat() / 1000000000000.0;
+    float semanagh = hrgfloat * 60 * 60 * 24 * 7;
+    float semanath = hrtfloat * 60 * 60 * 24 * 7;
+    float semanaph = hrpfloat * 60 * 60 * 24 * 7;
+    Serial.printf(">>> M8AX - +/- GH/SEM - %s GH/Semana | +/- TH/SEM - %s TH/Semana | +/- PH/SEM - %s PH/Semana\n", String(semanagh, 2), String(semanath, 2), String(semanaph, 6));
     uint8_t entrada[valor.length() + 1];
     memcpy(entrada, valor.c_str(), valor.length() + 1);
     uint8_t salida[32];
@@ -891,9 +918,13 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       float tiempoLunaSegundos = distanciaLuna / calcularKilometrosPorSegundo(hhashrate);
       float tiempoSolSegundos = distanciaSol / calcularKilometrosPorSegundo(hhashrate);
       float tiempoDiaSolSegundos = distanciadiamsol / calcularKilometrosPorSegundo(hhashrate);
+      float litrostotales = ((valor.toFloat() * 1000) * 64) * GOTAAGUA;
+      float kmandando = valor.toFloat() * pasoskm;
       Serial.printf(">>> M8AX - A La Luna Llegaríamos En - %s\n", String(convertirTiempoNoMinando(tiempoLunaSegundos)).c_str());
       Serial.printf(">>> M8AX - Al Sol Llegaríamos En - %s\n", String(convertirTiempoNoMinando(tiempoSolSegundos)).c_str());
       Serial.printf(">>> M8AX - Recorreríamos El Diámetro Del Sol En - %s\n", String(convertirTiempoNoMinando(tiempoDiaSolSegundos)).c_str());
+      Serial.printf(">>> M8AX - Si Cada Carácter De Un Hash, Fuera Una Gota De Agua - %s Litros/s\n", String(litrostotales).c_str());
+      Serial.printf(">>> M8AX - Si Cada KH/s, Fuera Un Paso De Una Persona, Andaría A -  %s Km/s | %s Km/h\n", String(kmandando, 5).c_str(), String(kmandando * 3600.0, 5).c_str());
     }
     Serial.printf(">>> M8AX - Eficiencia Energética - ≈ %.3f KH/s/W - %sW\n", eficiencia_redondeada, String(consumo));
     Serial.printf(">>> M8AX - Temperatura - %s°\n", data.temp.c_str());
@@ -968,7 +999,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     digitalWrite(m8ax, LOW);
     vTaskDelay(pdMS_TO_TICKS(500));
   }
-  if (data.completedShares != enviados && cuenta > 30)
+  if (data.completedShares != enviados && cuenta > 60)
   {
     enviados = data.completedShares;
     Serial.println("M8AX - Enviando Share A La Pool...");
