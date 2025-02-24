@@ -24,7 +24,7 @@
  *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
  *   - ¡ A MINAR !
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1070 líneas de código en 3h. ///
+ *   - /// Minimizando código, maximizando funcionalidad. Solo 1080 líneas de código en 3h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  ***********************************************************************************************************************************/
@@ -658,6 +658,7 @@ void recopilaTelegram()
   cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
   String numdesemana = convertirARomanos(numSemana(now));
   cadenaEnvio += "Semana Del Año Número - " + numdesemana + "\n";
+  cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + "\n";
   char output[50];
   convertirTiempo(data.timeMining.c_str(), output);
   cadenaEnvio += "Tiempo Minando - " + String(output) + "\n";
@@ -733,6 +734,10 @@ void recopilaTelegram()
   cadenaEnvio += "Factorización De Número - 2 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
   rndnumero = esp_random();
   cadenaEnvio += "Factorización De Número - 3 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
+  rndnumero = esp_random();
+  cadenaEnvio += "Factorización De Número - 4 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
+  rndnumero = esp_random();
+  cadenaEnvio += "Factorización De Número - 5 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   int numeritos[6];
   int destino = 1 + (esp_random() % 1000);
@@ -849,6 +854,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print("\n-------------------------------------------------------------------------------------------------------------");
     Serial.printf("\n>>> M8AX - Datos Serial Número - %s\n", String(sumacalen + 1));
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s - Semana Del Año Número - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana);
+    Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %s\n", String(WiFi.RSSI()));
     Serial.printf(">>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
     Serial.printf(">>> M8AX - Plantillas De Bloques - %s\n", data.templates.c_str());
     Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada - %s\n", data.bestDiff.c_str());
@@ -912,6 +918,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print(">>> M8AX - Factorización De Número - 2 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - Factorización De Número - 3 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
+    rndnumero = esp_random();
+    Serial.print(">>> M8AX - Factorización De Número - 4 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
+    rndnumero = esp_random();
+    Serial.print(">>> M8AX - Factorización De Número - 5 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     Serial.print("-------------------------------------------------------------------------------------------------------------\n");
     Serial.print(">>> M8AX - Juego De Cifras Número - " + String(totalci) + "\n");
     Serial.print(">>> M8AX - Aciertos - " + String(aciertos) + " | Fallos - " + String(fallos) + "\n");

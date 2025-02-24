@@ -22,7 +22,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6115 Líneas De Código
+ *                     Tmp. De Programación 14H - 6125 Líneas De Código
  *
  ********************************************************************************************/
 
@@ -765,6 +765,7 @@ void enviarMensajeATelegram(String mensaje)
 }
 
 // Función para recopilar todo lo que vamos a enviar a nuestro canal de telegram
+// Se ha añadido el envío del RSSI de la señal WiFi
 
 void recopilaTelegram()
 {
@@ -824,7 +825,7 @@ void recopilaTelegram()
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De BTC - " + String(Settings.BtcWallet) + "\n";
-  cadenaEnvio += "Tu IP - " + getPublicIP() + "\n";
+  cadenaEnvio += "Tu IP - " + getPublicIP() + " | WiFi RSSI " + String(WiFi.RSSI()) + "\n";
   cadenaEnvio += urlsm8ax[indice];
   cadenaEnvio += F("\n------------------------------------------------------------------------------------------------\n");
   if (mineria.valids.toInt() == 1)
@@ -847,6 +848,7 @@ void recopilaTelegram()
 }
 
 // Función para imprimir datos en pantalla en formato texto plano, todo seguido con información
+// Se añaden todos los datos disponibles para mostrar + RSSI de la red WiFi
 
 void datosPantallaTextoPlano()
 {
@@ -863,6 +865,7 @@ void datosPantallaTextoPlano()
   String cadenaEnvio2 = "";
 
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
+  cadenaEnvio2 += ". WiFi RSSI " + String(WiFi.RSSI());
   cadenaEnvio2 += ". Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
   cadenaEnvio2 += ". HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )";
   cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70° - " + String(alertatemp) + " )";
@@ -2853,6 +2856,7 @@ void incrementCounter()
     - Se utiliza un fondo estático que se actualiza con la imagen de la minería.
     - El uso de `esp_random()` para la intermitencia de los puntos (". .", "...") agrega un efecto visual aleatorio que hace que la pantalla sea más dinámica.
     - Los datos de minería y de reloj se obtienen de otras funciones, lo que implica que las funciones como `getMiningData`, `getClockData` y `getCoinData` deben estar implementadas correctamente para obtener la información correcta.
+    - Añadido RSSI de la conexión WiFi, en la parte central superior de la pantalla.
 */
 
 void tDisplay_MinerScreen(unsigned long mElapsed)
@@ -2969,6 +2973,10 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     tft.setTextSize(1);
     tft.setTextColor(TFT_BLACK);
     tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+    tft.setTextColor(TFT_ORANGE);
+    tft.setCursor(137, 8);
+    tft.print("RSSI " + String(WiFi.RSSI()));
+    tft.setTextColor(TFT_BLACK);
   }
   else
   {
@@ -2976,6 +2984,8 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+    tft.setCursor(137, 8);
+    tft.print("RSSI " + String(WiFi.RSSI()));
   }
 }
 
