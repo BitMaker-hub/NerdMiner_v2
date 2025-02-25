@@ -295,6 +295,8 @@ void wt32Display_AlternateRotation(void)
 {
 }
 
+static unsigned long ulTime = millis() - 100000;
+
 void wt32Display_NoScreen(unsigned long mElapsed)
 {
   mining_data data = getMiningData(mElapsed);
@@ -305,7 +307,7 @@ void wt32Display_NoScreen(unsigned long mElapsed)
   //Serial.printf(">>> Temperature: %s\n", data.temp.c_str());
 
   lv_label_set_text(ui_lblhashrate, data.currentHashRate.c_str());
-  lv_bar_set_value(ui_barhashrate, data.currentHashRate.toInt() * 10, LV_ANIM_ON);
+  lv_bar_set_value(ui_barhashrate, data.currentHashRate.toInt(), LV_ANIM_ON);
   lv_label_set_text(ui_lblvalid, data.valids.c_str());
   lv_label_set_text(ui_lbltemplates, data.templates.c_str());
   lv_label_set_text(ui_lbltotalhashrate, data.totalKHashes.c_str());
@@ -313,21 +315,43 @@ void wt32Display_NoScreen(unsigned long mElapsed)
   lv_label_set_text(ui_lblshares32, data.completedShares.c_str());
   lv_label_set_text(ui_lblclock, data.timeMining.c_str());
   lv_label_set_text(ui_lbltemperature, data.temp.c_str());
+
   lv_label_set_text(ui_lblclock2, data.currentTime.c_str());
 
-  /*
-  M5.Lcd.print("Pool: "); M5.Lcd.setTextColor(GREENYELLOW); M5.Lcd.print(Settings.PoolAddress); M5.Lcd.print(":"); M5.Lcd.println(Settings.PoolPort); M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.print("IP  : "); M5.Lcd.setTextColor(GREENYELLOW); M5.Lcd.println(WiFi.localIP()); M5.Lcd.setTextColor(WHITE);
-  */
+  lv_label_set_text(ui_lblIp, WiFi.localIP().toString().c_str());
+  lv_label_set_text(ui_lblAddress, String(Settings.BtcWallet).c_str());
+
+  if(millis() - ulTime > 1000 * 60) {
+    ulTime = millis();
+  
+    coin_data cdata = getCoinData(mElapsed);
+
+    lv_label_set_text(ui_lblPrice, cdata.btcPrice.c_str());
+    lv_label_set_text(ui_lblGlobalHashrate, cdata.globalHashRate.c_str());
+    lv_label_set_text(ui_lblDifficulty, cdata.netwrokDifficulty.c_str());
+    lv_bar_set_value(ui_barhalving, cdata.progressPercent, LV_ANIM_ON);
+    lv_label_set_text(ui_lblHeight2, cdata.blockHeight.c_str());
+
+    pool_data pdata = getPoolData();
+
+    lv_label_set_text(ui_lblWorkers, String(pdata.workersCount).c_str());
+    lv_label_set_text(ui_lblMaxDifficulty, pdata.bestDifficulty.c_str());
+    lv_label_set_text(ui_lblTotHashrate, pdata.workersHash.c_str());
+  }
 }
+
 void wt32Display_LoadingScreen(void)
 {
   Serial.println("Initializing...");
   Serial.print("Firmware Version: ");
   Serial.println(AUTO_VERSION);
-  lv_label_set_text(ui_lblssid, "SSID HanSoloAP");
-  lv_label_set_text(ui_lblpassword, "Password MineYourCoins");
+  lv_label_set_text(ui_lblssid, "HanSoloAP");
+  lv_label_set_text(ui_lblpassword, "MineYourCoins");
   lv_label_set_text(ui_lblversion, AUTO_VERSION);
+  lv_label_set_text(ui_lblversion2, AUTO_VERSION);
+
+  lv_label_set_text(ui_lblPool, (String(Settings.PoolAddress)+":"+String(Settings.PoolPort)).c_str());
+
   _ui_screen_change(&ui_HomeScreen, LV_SCR_LOAD_ANIM_FADE_ON, 2000, 0, &ui_HomeScreen_screen_init);
 }
 
@@ -362,4 +386,12 @@ DisplayDriver wt32DisplayDriver = {
     0,
     0,
 };
+
+// LVGL Events
+#include "wManager.h"
+
+void reset_configuration_event(lv_event_t * e){
+  reset_configuration();
+}
+
 #endif
