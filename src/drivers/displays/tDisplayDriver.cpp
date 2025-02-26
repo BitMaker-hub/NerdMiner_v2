@@ -20,9 +20,15 @@
  *   si lo has configurado, sino, no te preocupes, no pasa nada, todo seguirá funcionando y
  *   minando como siempre.
  *
+ *           Un minero de Bitcoin es un dispositivo o software que realiza cálculos
+ *           matemáticos complejos para verificar y validar transacciones en la red.
+ *           Los mineros compiten para resolver estos problemas y añadir un bloque
+ *           a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
+ *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6125 Líneas De Código
+ *                     Tmp. De Programación 14H - 6200 Líneas De Código
+ *                     ------------------------------------------------
  *
  ********************************************************************************************/
 
@@ -94,6 +100,8 @@ uint8_t grid[GRIDX][GRIDY];
 uint8_t newgrid[GRIDX][GRIDY];
 uint16_t genCount = 0;
 uint16_t colors[] = {TFT_WHITE, TFT_RED, TFT_GREEN, TFT_BLUE, TFT_YELLOW, TFT_CYAN, TFT_MAGENTA, TFT_ORANGE, TFT_GREENYELLOW, TFT_PINK, TFT_LIGHTGREY, TFT_SKYBLUE, TFT_OLIVE, TFT_GOLD, TFT_SILVER};
+uint16_t coloris[] = {TFT_WHITE, TFT_YELLOW, TFT_CYAN, TFT_GREENYELLOW, TFT_LIGHTGREY, TFT_BLACK, TFT_ORANGE, TFT_GOLD, TFT_SILVER};
+int colorrrr = esp_random() % 9;
 int colorIndex = 0;
 int colorI = 0;
 int columna = 0;
@@ -1616,6 +1624,34 @@ void M8AXTicker4()
 }
 
 /**
+ * Muestra una animación similar al M8AXTicker, pero con el texto "I M O D   T E C H".
+ *
+ * - Llena la pantalla con un fondo negro y luego selecciona un color de texto aleatorio.
+ * - Muestra tres líneas de texto centradas:
+ *   - "E H D  -  M D D D"
+ *   - "NerdMiner V2"
+ *   - "V  10 . 03 . 77"
+ * - Después de mostrar el texto, realiza una pausa de 500 ms.
+ * - Luego ejecuta la función `television()`, que probablemente genera algún tipo de animación visual.
+ * - Después de 1000 ms, restablece el tamaño del texto a 1.
+ */
+
+void M8AXTicker5()
+{
+  colorI = esp_random() % (sizeof(colors) / sizeof(colors[0]));
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(colors[colorI], TFT_BLACK);
+  tft.setTextSize(2);
+  drawCenteredText("E H D  -  M D D D", 30, 100);
+  drawCenteredText("NerdMiner V2", 70, 100);
+  drawCenteredText("V  10 . 03 . 77", 110, 100);
+  delay(500);
+  television();
+  delay(1000);
+  tft.setTextSize(1);
+}
+
+/**
  * Dibuja un código QR en la pantalla TFT.
  *
  * Esta función genera un código QR a partir de una cadena de texto (`data`) y lo dibuja en la pantalla TFT
@@ -2163,6 +2199,7 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   int anioo = anio.toInt();
   int horaa = horas;
   int minutoo = minutos;
+  unsigned long segundo = timeClient.getSeconds();
   String mesecillo = obtenerNombreMes(mess).substring(0, 3);
   // Inicializar la estructura tm
   struct tm timeinfo;
@@ -2171,7 +2208,7 @@ void dibujarReloj(int horas, int minutos, int segundos, String dia, String mes, 
   timeinfo.tm_mday = diaa;         // Día del mes
   timeinfo.tm_hour = horaa;        // Hora
   timeinfo.tm_min = minutoo;       // Minutos
-  timeinfo.tm_sec = 0;             // Segundos
+  timeinfo.tm_sec = segundo;       // Segundos
   timeinfo.tm_isdst = -1;          // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
@@ -2797,7 +2834,11 @@ void incrementCounter()
   }
   else
   {
-    if (colorIndex % 2 == 0)
+    if (colorIndex < 4)
+    {
+      nombrecillo = "EHD-MDDD";
+    }
+    else if (colorIndex % 2 == 0)
     {
       nombrecillo = " - M 8 A X -";
     }
@@ -2867,6 +2908,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   relojete = getClockData(mElapsed);
   mineria = getMiningData(mElapsed);
   int horiac = dataa.currentTime.substring(0, 2).toInt();
+  int lastTwoInt = atoi(data.timeMining.c_str() + data.timeMining.length() - 2);
   incrementCounter();
   actualizarcalen = 0;
   actualizarc = 0;
@@ -2876,20 +2918,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   background.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
-  // Hashrate Day And Night
-  render.setFontSize(30);
-  render.setCursor(11, 128);
-  if (horiac >= 22 || horiac < 8)
-  {
-    render.setFontColor(TFT_BLACK);
-    render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_BLACK);
-  }
-  else
-  {
-    render.setFontColor(TFT_WHITE);
-    render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_WHITE);
-  }
-  // Total hashes
+  // Total Mhashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268, 139, TFT_BLACK);
   // Block templates
@@ -2904,11 +2933,25 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(14);
   render.rdrawString(data.timeMining.c_str(), 315, 104, 0xDEDB);
   // By M8AX
-  background.setFreeFont(FSSBO9);
-  background.setTextSize(0);
-  background.setTextDatum(TL_DATUM);
-  background.setTextColor(TFT_BLACK);
-  background.drawString(nombrecillo, 25, 101, GFXFF);
+  if (lastTwoInt % 30 == 0)
+  {
+    colorrrr = esp_random() % 9;
+  }
+  if (horiac >= 22 || horiac < 8)
+  {
+    background.setFreeFont(FSSBO9);
+    background.setTextSize(0);
+    background.setTextDatum(TL_DATUM);
+    background.setTextColor(TFT_BLACK);
+  }
+  else
+  {
+    background.setFreeFont(FSSBO9);
+    background.setTextSize(0);
+    background.setTextDatum(TL_DATUM);
+    background.setTextColor(coloris[colorrrr]);
+  }
+  background.drawString(nombrecillo, (nombrecillo == "EHD-MDDD") ? 20 : 23, 101, GFXFF);
   // Valid Blocks
   int validInt = atoi(data.valids.c_str());
   if (validInt == 0)
@@ -2929,11 +2972,6 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   // Print Hour
   render.setFontSize(10);
   render.rdrawString(data.currentTime.c_str(), 286, 1, TFT_BLACK);
-  // Push prepared background to screen
-  String lastTwoDigits = data.timeMining;
-  String lastTwo = lastTwoDigits.substring(lastTwoDigits.length() - 2);
-  int lastTwoInt = lastTwo.toInt();
-  int randomTick = (esp_random() % 10) + 1;
   if (lastTwoInt % 2 == 0)
   {
     // Es par
@@ -2941,7 +2979,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     background.setTextSize(2);
     background.setTextDatum(TL_DATUM);
     background.setTextColor(colors[colorIndex]);
-    if (randomTick % 2 == 0)
+    if ((esp_random() % 10 + 1) % 2 == 0)
     {
       background.drawString("...", 275, 68, GFXFF);
     }
@@ -2957,7 +2995,7 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
     background.setTextSize(2);
     background.setTextDatum(TL_DATUM);
     background.setTextColor(colors[colorIndex]);
-    if (randomTick % 2 == 0)
+    if ((esp_random() % 10 + 1) % 2 == 0)
     {
       background.drawString(".  ", 275, 68, GFXFF);
     }
@@ -2966,24 +3004,32 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
       background.drawString("   ", 275, 68, GFXFF);
     }
   }
-  background.pushSprite(0, 0);
+  // Hashrate Day And Night
   if (horiac >= 22 || horiac < 8)
   {
-    tft.setCursor(4, 160);
-    tft.setTextSize(1);
-    tft.setTextColor(TFT_BLACK);
-    tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
-    tft.setTextColor(TFT_ORANGE);
-    tft.setCursor(137, 8);
-    tft.print("RSSI " + String(WiFi.RSSI()));
-    tft.setTextColor(TFT_BLACK);
-  }
-  else
-  {
+    render.setFontSize(30);
+    render.setFontColor(TFT_BLACK);
+    render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_BLACK);
+    background.pushSprite(0, 0);
     tft.setCursor(4, 160);
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+    tft.setTextColor(TFT_ORANGE);
+    tft.setCursor(137, 8);
+    tft.print("RSSI " + String(WiFi.RSSI()));
+  }
+  else
+  {
+    render.setFontSize(30);
+    render.setFontColor(TFT_WHITE);
+    render.rdrawString(data.currentHashRate.c_str(), 128, 120, TFT_WHITE);
+    background.pushSprite(0, 0);
+    tft.setCursor(4, 160);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE);
+    tft.print("Max HR " + String(maxkh) + " Min HR " + String(minkh));
+    tft.setTextColor(TFT_WHITE);
     tft.setCursor(137, 8);
     tft.print("RSSI " + String(WiFi.RSSI()));
   }
@@ -3046,6 +3092,8 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
   relojete = getClockData(mElapsed);
   mineria = getMiningData(mElapsed);
   moonData_t moon;
+  int horiac = dataa.currentTime.substring(0, 2).toInt();
+  unsigned long segundo = timeClient.getSeconds();
   actualizarcalen = 0;
   actualizarc = 0;
   actual = 0;
@@ -3056,11 +3104,6 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
   background.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), dataa.temp.c_str());
-  // Hashrate
-  render.setFontSize(21);
-  render.setCursor(19, 126);
-  render.setFontColor(TFT_BLACK);
-  render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
   // Print BTC Price
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
@@ -3094,7 +3137,7 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
   timeinfo.tm_mday = dia;         // Día del mes
   timeinfo.tm_hour = hora;        // Hora
   timeinfo.tm_min = minuto;       // Minutos
-  timeinfo.tm_sec = 0;            // Segundos
+  timeinfo.tm_sec = segundo;      // Segundos
   timeinfo.tm_isdst = -1;         // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
@@ -3108,8 +3151,29 @@ void tDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(colors[colorIndex]);
   String textoFinal = "Luna.Ilu - " + String(porcentajeTexto);
   background.drawString(textoFinal, 156, 106, GFXFF);
-  // Push prepared background to screen
-  background.pushSprite(0, 0);
+  // Hashrate
+  render.setFontSize(21);
+  render.setCursor(19, 126);
+  if (horiac >= 22 || horiac < 8)
+  {
+    render.setFontColor(TFT_BLACK);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
+    background.pushSprite(0, 0);
+    tft.setCursor(4, 123);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE);
+    tft.print("+ " + String(maxkh) + " - " + String(minkh));
+  }
+  else
+  {
+    render.setFontColor(TFT_WHITE);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_WHITE);
+    background.pushSprite(0, 0);
+    tft.setCursor(4, 123);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE);
+    tft.print("+ " + String(maxkh) + " - " + String(minkh));
+  }
 }
 
 /*
@@ -3241,7 +3305,7 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   mineria = getMiningData(mElapsed);
   unsigned long segundo = timeClient.getSeconds();
   int segundos = segundo % 60;
-  // data.currentDate ="01/12/2023";
+  int horiac = dataa.currentTime.substring(0, 2).toInt();
   incrementCounter();
   actualizarcalen = 0;
   actualizarc = 0;
@@ -3254,9 +3318,16 @@ void tDisplay_BTCprice(unsigned long mElapsed)
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), dataa.temp.c_str());
   // Hashrate
   render.setFontSize(22);
-  render.setCursor(19, 126);
-  render.setFontColor(TFT_BLACK);
-  render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
+  if (horiac >= 22 || horiac < 8)
+  {
+    render.setFontColor(TFT_BLACK);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
+  }
+  else
+  {
+    render.setFontColor(TFT_WHITE);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_WHITE);
+  }
   // Print BlockHeight
   render.setFontSize(18);
   render.rdrawString(data.blockHeight.c_str(), 254, 138, TFT_WHITE);
@@ -3375,6 +3446,7 @@ void tDisplay_m8axScreen1(unsigned long mElapsed)
   int anio = dataa.currentDate.substring(6, 10).toInt();
   int hora = dataa.currentTime.substring(0, 2).toInt();
   int minuto = dataa.currentTime.substring(3, 5).toInt();
+  unsigned long segundo = timeClient.getSeconds();
   // Inicializar la estructura tm
   struct tm timeinfo;
   timeinfo.tm_year = anio - 1900; // Año desde 1900
@@ -3382,7 +3454,7 @@ void tDisplay_m8axScreen1(unsigned long mElapsed)
   timeinfo.tm_mday = dia;         // Día del mes
   timeinfo.tm_hour = hora;        // Hora
   timeinfo.tm_min = minuto;       // Minutos
-  timeinfo.tm_sec = 0;            // Segundos
+  timeinfo.tm_sec = segundo;      // Segundos
   timeinfo.tm_isdst = -1;         // Determina si es horario de verano (automático)
   // Convertir a time_t
   time_t cadenaDeTiempo = mktime(&timeinfo);
@@ -5872,7 +5944,7 @@ void datoTextPlano(unsigned long mElapsed)
 
 void tDisplay_LoadingScreen(void)
 {
-  int effect = esp_random() % 7;
+  int effect = esp_random() % 8;
   switch (effect)
   {
   case 0:
@@ -5895,6 +5967,9 @@ void tDisplay_LoadingScreen(void)
     break;
   case 6:
     animacionInicio();
+    break;
+  case 7:
+    M8AXTicker5();
     break;
   }
   tft.fillScreen(TFT_BLACK);
