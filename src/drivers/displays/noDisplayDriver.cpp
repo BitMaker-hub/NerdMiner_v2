@@ -15,7 +15,7 @@
  *   - **LED encendiéndose y apagándose a lo loco no simétricos** → ¡Has minado un bloque!
  *   - **Parpadeo estilo "pi pi" de reloj Casio** → Es una hora en punto.
  *   - **Encendido corto "pi"** → Son y media.
- *   - **Encendido largo (~1s)** → Enviando mensaje a Telegram con estadísticas y datos Nerd. ( si está configurado )
+ *   - **Encendido largo (~2s)** → Enviando mensaje a Telegram con estadísticas y datos Nerd. ( si está configurado )
  *   - **Parpadeo menos tenue tick medio largo y uno más corto** → Minando a menos de 350 KH/s.
  *   - **Parpadeos largos** → Temperatura superior a 70°C.
  *   - **Al arrancar** → "Hola M8AX" en código Morse con el LED.
@@ -24,14 +24,17 @@
  *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
  *   - ¡ A MINAR !
  *
+ *
  *                             Un minero de Bitcoin es un dispositivo o software que realiza cálculos
  *                             matemáticos complejos para verificar y validar transacciones en la red.
  *                             Los mineros compiten para resolver estos problemas y añadir un bloque
  *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1115 líneas de código en 4h. ///
+ *
+ *   - /// Minimizando código, maximizando funcionalidad. Solo 1165 líneas de código en 4h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
+ *                                                           FEBRERO 2025
  ***********************************************************************************************************************************/
 
 #include "displayDriver.h"
@@ -80,6 +83,18 @@ const char *morse[] = {
     ".-",    // A
     "-..-",  // X
 };
+const char *digitosAscii[] = {
+    " 000 \n0   0\n0   0\n0   0\n 000 ", // 0
+    "  1  \n 11  \n  1  \n  1  \n 111 ", // 1
+    " 222 \n2   2\n  2  \n 2   \n22222", // 2
+    " 333 \n3   3\n  33 \n3   3\n 333 ", // 3
+    "4   4\n4   4\n 4444\n    4\n    4", // 4
+    "55555\n5    \n5554 \n    5\n5555 ", // 5
+    " 666 \n6    \n6664 \n6   6\n 666 ", // 6
+    "77777\n    7\n   7 \n  7  \n 7   ", // 7
+    " 888 \n8   8\n 888 \n8   8\n 888 ", // 8
+    " 999 \n9   9\n 9999\n    9\n 999 "  // 9
+};
 char result[MAX_RESULT_LENGTH];
 String BOT_TOKEN;
 String CHAT_ID;
@@ -122,6 +137,39 @@ void noDisplay_AlternateScreenState(void)
 
 void noDisplay_AlternateRotation(void)
 {
+}
+
+String arteASCII(int number)
+{
+  String numberStr = String(number);
+  String asciiArt[5] = {"", "", "", "", ""};
+  for (size_t i = 0; i < numberStr.length(); i++)
+  {
+    int digit = numberStr[i] - '0';
+    String digitArt = digitosAscii[digit];
+    int lineIndex = 0;
+    for (size_t j = 0; j < digitArt.length(); j++)
+    {
+      if (digitArt[j] == '\n')
+      {
+        lineIndex++;
+      }
+      else
+      {
+        asciiArt[lineIndex] += digitArt[j];
+      }
+    }
+    for (int j = 0; j < 5; j++)
+    {
+      asciiArt[j] += "  ";
+    }
+  }
+  String finalArt = "";
+  for (int i = 0; i < 5; i++)
+  {
+    finalArt += asciiArt[i] + "\n";
+  }
+  return finalArt;
 }
 
 String generarBarraHash(float hashrate)
@@ -801,6 +849,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   mes = timeinfo.tm_mon + 1;
   anio = timeinfo.tm_year + 1900;
   cuenta++;
+  if (cuenta == 5)
+  {
+    sincronizarTiempo();
+  }
   if (cuenta > 25)
   {
     if (hhashrate > maxkh)
@@ -853,6 +905,8 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     else
     {
       digitalWrite(m8ax, LOW);
+      nominando++;
+      Serial.printf(">>> M8AX - La CPU, No Ha Minado Por - %s\n", String(convertirTiempoNoMinando(nominando)).c_str());
     }
   }
   if (ganador != 0)
@@ -979,6 +1033,12 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     }
     Serial.print("\n");
     sumacalen++;
+    Serial.print("-------------------------------------------KH/S-HASHRATE-ASCII-----------------------------------------------\n\n");
+    Serial.print(arteASCII(parteEntera));
+    Serial.print("\n       PUNTO       \n\n");
+    Serial.print(arteASCII(parteDecimal));
+    Serial.print("\n-------------------------------------------------------------------------------------------------------------");
+    Serial.print("\n\n-------------------------------------------------------------------------------------------------------------\n\n");
   }
   String fechaHora = String(timeinfo.tm_hour < 10 ? "0" : "") + String(timeinfo.tm_hour) + ":" +
                      String(timeinfo.tm_min < 10 ? "0" : "") + String(timeinfo.tm_min) + ":" +
@@ -1037,16 +1097,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       vTaskDelay(pdMS_TO_TICKS(2000));
       recopilaTelegram();
     }
-  }
-  if (cuenta == 5)
-  {
-    sincronizarTiempo();
-  }
-  if (hhashrate == 0.0)
-  {
-    nominando++;
-    digitalWrite(m8ax, LOW);
-    Serial.println("M8AX - La CPU, No Está Minando...");
   }
 }
 
