@@ -19,7 +19,7 @@
  *   - **Parpadeo menos tenue tick medio largo y uno más corto** → Minando a menos de 350 KH/s.
  *   - **Parpadeos largos** → Temperatura superior a 70°C.
  *   - **Al arrancar** → "Hola M8AX" en código Morse con el LED.
- *   - **Sincronizando la hora al arrancar** → Parpadeo super rápido del LED.
+ *   - **Sincronización de hora exitosa al arrancar** → Parpadeo super rápido del LED.
  *   - **Share enviado a la pool** → 5 ticks rapidos del LED.
  *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
  *   - ¡ A MINAR !
@@ -667,7 +667,7 @@ void recopilaTelegram()
   cadenaEnvio += "Semana Del Año Número - " + numdesemana + "\n";
   cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm\n";
   cadenaEnvio += "Canal WiFi - " + String(WiFi.channel()) + "\n";
-  cadenaEnvio += "HostName - " + String(WiFi.getHostname()) + "\n";
+  cadenaEnvio += String("HostName - ((( --- ") + strupr(strdup(WiFi.getHostname())) + " --- )))\n";
   char output[50];
   convertirTiempo(data.timeMining.c_str(), output);
   cadenaEnvio += "Tiempo Minando - " + String(output) + "\n";
@@ -878,7 +878,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s - Semana Del Año Número - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana);
     Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %s dBm\n", String(WiFi.RSSI()));
     Serial.printf(">>> M8AX - Canal WiFi - %s\n", String(WiFi.channel()));
-    Serial.printf(">>> M8AX - HostName - %s\n", String(WiFi.getHostname()));
+    Serial.printf(">>> M8AX - HostName - ((( --- %s --- )))\n", strupr(strdup(WiFi.getHostname())));
     Serial.printf(">>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
     Serial.printf(">>> M8AX - Plantillas De Bloques - %s\n", data.templates.c_str());
     Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada - %s\n", data.bestDiff.c_str());
@@ -1042,7 +1042,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   {
     sincronizarTiempo();
   }
-  if (hhashrate == 0)
+  if (hhashrate == 0.0)
   {
     nominando++;
     digitalWrite(m8ax, LOW);
