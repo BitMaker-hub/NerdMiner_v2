@@ -35,7 +35,7 @@
 		            z-index: 1;
 		        }
 		        .note {
-		            color: red;
+		            color: blue;
 		            font-weight: bold;
 		            margin-bottom: 15px;
 		        }
@@ -97,14 +97,12 @@
 		    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
 		    text-align: center; /* Center the text under the image */
 		}
-		
 		.btc-donation img {
 		    width: 100%;
 		    height: 100%;
 		    object-fit: cover;
 		    border-radius: 5px;
 		}
-		
 		/* Imagen para donaciones BTC */
 		.btcc-donation {
 		    position: fixed;
@@ -117,16 +115,12 @@
 		    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
 		    text-align: center; /* Center the text under the image */
 		}
-		
 		.btcc-donation img {
 		    width: 100%;
 		    height: 100%;
 		    object-fit: cover;
 		    border-radius: 5px;
 		}
-		
-		
-		
 		.donation-text {
 		    margin-top: 10px;  /* Space between image and text */
 		    font-size: 12px;  /* Adjust the font size as needed */
@@ -134,13 +128,10 @@
 		    font-weight: bold;  /* Make the text bold */
 		    text-align: center;  /* Center the text */
 		}
-		
-		
-		
 	</style>
 </head>
 <body>
-	<div id="crypto-ticker" style="background-color: #333; color: white; padding: 10px; text-align: center; font-size: 14px;">
+	<div id="crypto-ticker" style="background-color: #333; color: white; padding: 10px; text-align: center; font-size: 13px;">
 		Cargando Precios...
 	</div>
 	<!-- Fondo de partículas animadas -->
@@ -152,7 +143,6 @@
 			<img src="webflash/m8ax.png" alt="https://opensea.io/m8ax">
 		</a>
 	</div>
-
 	<!-- Imagen de donación BTC -->
 	<div class="btc-donation">
 		<a href="bitcoin:bc1qljq00pm2plq2l9jxzdzt0xc8t79j9wcmu7r8em" target="_blank" title="... Dóname Algo xD ...">
@@ -169,9 +159,9 @@
 		<p class="donation-text">DONACION BITCOIN<br>PARA EL CREADOR<br>( VOLUNTARIA )<br><br>ESCANEA PARA <br>OBTENER MI<br>DIRECCIÓN DE<br>BITCOIN</p>
 		<!-- Corrected HTML structure -->
 	</div>
-
 	<div class="container">
 		<div class="header-image">
+                        <script type="text/javascript" src="https://contador.websiteout.com/js/7/0/200/1"></script><br>
 			<a href="https://youtu.be/hjlTQvUVsiU" target="_blank" title="Haz Clic Para Para Ver El Video De Mi Versión Del Firmware Del NerdMinerV2.">
                 Pincha Para Ver Video En Cualquier Imágen Ó Aquí Mismo<p>
                 <img src="webflash/pantallas.jpg" alt="Pantallas Del --- M8AX - NerdMinerV2 - M8AX | ( PINCHA PARA VER VIDEO ) |">
@@ -182,7 +172,6 @@
 			<button>Descargar Manual PDF De M8AX - NerdMinerV2 - M8AX</button></p>
 		</a>
 		<button id="playButton">Reproducir Canción: M8AX - NerdMinerV2 - M8AX</button>
-
 		<script>
 			document.getElementById('playButton').addEventListener('click', function() {
 			                const audio = document.getElementById('backgroundAudio');
@@ -190,9 +179,7 @@
 			                audio.volume = 0.5;  // Ajustar volumen si es necesario
 			                this.style.display = 'none';  // Ocultar el botón después de hacer clic
 			            });
-			
 		</script>
-
 		<h1><a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank" title="Haz Clic Para Visitar El Repositorio Del Firmware M8AX NerdMinerV2 En GitHub.">M8AX - Firmware NerdMinerV2</a></h1>
 		<p class="note">Antes De Nada, Si No Funciona De Forma Normal, Asegúrate De Poner Tu NerdminerV2 En Modo Programación, Pulsar El Botón 1 'De Abajo' Del NerdMinerV2, Conectar El USB Y Soltar El Botón Tras Dos Segundos...</p>
 		<div id="main" style="display: none;">
@@ -303,7 +290,6 @@
 		            },
 		            retina_detect: true
 		        });
-		
 		        // Verificar compatibilidad con la API Web Serial
 		        if (navigator.serial) {
 		            document.getElementById("notSupported").style.display = 'none';
@@ -312,64 +298,49 @@
 		            document.getElementById("notSupported").style.display = 'block';
 		            document.getElementById("main").style.display = 'none';
 		        }
-		
 	</script>
-
 	<!-- Audio de fondo que se repite constantemente -->
 	<audio id="backgroundAudio" autoplay loop>
         <source src="webflash/m8ax.mp3" type="audio/mpeg">
         Tu navegador no soporta la etiqueta de audio.
     </audio>
-
 	<!-- Opcional: Control de volumen con JavaScript -->
 	<script>
 		document.getElementById('backgroundAudio').volume = 0.5; // 50% de volumen
-		
 	</script>
-
 	<div style="position: absolute; right: 0; bottom: 0;">
 		<a href="https://youtube.com/m8ax" target="_blank" title="Pulsa Para Ver Mi Canal De Youtube.">
 			<img src="webflash/m8ax.png" alt="https://youtube.com/m8ax" style="width: 100px; height: 100px;">
 		</a>
 	</div>
-
 	<div style="position: absolute; center: 0; bottom: 0;">
 		<font color="#ffffff">Proyecto Original De
 			<a href="https://flasher.bitronics.store/" target="_blank" title="Haz Clic Para Instalar El Firmware Original De Bitmaker.">
 				<img src="webflash/bitmaker.png" alt="https://flasher.bitronics.store/" style="width: 60px; height: 60px;">
 			</a>Firmwares Mineros De Bitcoin ( LOS ORIGINALES )</font>
 	</div>
-
 	<script>
 		async function getCryptoPrices() {
 		            const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,ripple,litecoin,cardano,doge,polkadot,uniswap,binancecoin,solana,chainlink,vechain,shiba,inuyasha,terra,monero,ethereum-classic,stellar,usd-coin,wrapped-bitcoin&order=market_cap_desc&per_page=20&page=1&sparkline=false";
-		            
 		            try {
 		                const response = await fetch(url);
 		                const data = await response.json();
-		                
 		                let tickerHtml = "Precios De Criptomonedas: ";
-		                
 		                data.forEach(crypto => {
 		                    tickerHtml += `${crypto.name}: $${crypto.current_price} | `;
 		                });
-		                
 		                // Remove the last " | "
 		                tickerHtml = tickerHtml.slice(0, -3);
-		                
 		                document.getElementById('crypto-ticker').innerHTML = tickerHtml;
 		            } catch (error) {
 		                document.getElementById('crypto-ticker').innerHTML = "Error al cargar los precios.";
 		                console.error("Error fetching data: ", error);
 		            }
 		        }
-		
 		        // Llamar a la función para cargar los precios
 		        getCryptoPrices();
-		        
 		        // Actualizar cada 60 segundos
 		        setInterval(getCryptoPrices, 60000);
-		
 	</script>
 </body>
 </html>
