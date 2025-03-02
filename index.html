@@ -6,103 +6,143 @@
 	<title>M8AX - NerdMinerV2 - M8AX Firmware UPDATE</title>
 	<style>
 		body {
-													            font-family: Arial, sans-serif;
-													            text-align: center;
-													            background-color: #1a1a1a;
-													            display: flex;
-													            flex-direction: column;
-													            justify-content: center;
-													            align-items: center;
-													            height: 100vh;
-													            margin: 0;
-													            overflow: hidden;
-													            position: relative;
-													        }
-													        h1 {
-													            color: #00000;
-													        }
-													        .container {
-													            background: rgba(255, 255, 255, 0.9);
-													            padding: 20px;
-													            border-radius: 10px;
-													            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.5);
-													            width: 80%;
-													            max-width: 500px;
-													            display: flex;
-													            flex-direction: column;
-													            justify-content: flex-start;
-													            position: relative;
-													            z-index: 1;
-													        }
-													        .note {
-													            color: red;
-													            font-weight: bold;
-													            margin-bottom: 15px;
-													        }
-													        span {
-													            display: block;
-													            margin-top: 10px;
-													        }
-													        .header-image {
-													            margin-bottom: 20px;
-													            text-align: center;
-													        }
-													        .header-image img {
-													            max-width: 100%;
-													            height: auto;
-													        }
-													        .footer-image {
-													            margin-top: 20px;
-													            text-align: center;
-													        }
-													        .footer-image img {
-													            max-width: 100%;
-													            height: auto;
-													        }
-													        /* Estilos para el fondo de partículas */
-													        #particles-js {
-													            position: absolute;
-													            top: 0;
-													            left: 0;
-													            width: 100%;
-													            height: 100%;
-													            z-index: 0;
-													        }
-													        /* Estilos para la imagen en la esquina inferior izquierda */
-													        .corner-image {
-													            position: fixed; /* Fija la imagen en la pantalla */
-													            bottom: 10px; /* Distancia desde la parte inferior */
-													            left: 10px; /* Distancia desde la izquierda */
-													            width: 100px; /* Tamaño cuadrado */
-													            height: 100px; /* Tamaño cuadrado */
-													            z-index: 2; /* Asegura que esté por encima del fondo de partículas */
-													            border-radius: 10px; /* Bordes redondeados (opcional) */
-													            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); /* Sombra (opcional) */
-													        }
-													        .corner-image img {
-													            width: 100%;
-													            height: 100%;
-													            object-fit: cover; /* Ajusta la imagen al tamaño del contenedor */
-													            border-radius: 10px; /* Bordes redondeados (opcional) */
-													        }
-													
-											
-									
-							
-				
+		            font-family: Arial, sans-serif;
+		            text-align: center;
+		            background-color: #1a1a1a;
+		            display: flex;
+		            flex-direction: column;
+		            justify-content: center;
+		            align-items: center;
+		            height: 100vh;
+		            margin: 0;
+		            overflow: hidden;
+		            position: relative;
+		        }
+		        h1 {
+		            color: #00000;
+		        }
+		        .container {
+		            background: rgba(255, 255, 255, 0.9);
+		            padding: 20px;
+		            border-radius: 10px;
+		            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.5);
+		            width: 80%;
+		            max-width: 500px;
+		            display: flex;
+		            flex-direction: column;
+		            justify-content: flex-start;
+		            position: relative;
+		            z-index: 1;
+		        }
+		        .note {
+		            color: red;
+		            font-weight: bold;
+		            margin-bottom: 15px;
+		        }
+		        span {
+		            display: block;
+		            margin-top: 10px;
+		        }
+		        .header-image {
+		            margin-bottom: 20px;
+		            text-align: center;
+		        }
+		        .header-image img {
+		            max-width: 100%;
+		            height: auto;
+		        }
+		        .footer-image {
+		            margin-top: 20px;
+		            text-align: center;
+		        }
+		        .footer-image img {
+		            max-width: 100%;
+		            height: auto;
+		        }
+		        /* Estilos para el fondo de partículas */
+		        #particles-js {
+		            position: absolute;
+		            top: 0;
+		            left: 0;
+		            width: 100%;
+		            height: 100%;
+		            z-index: 0;
+		        }
+		        /* Estilos para la imagen en la esquina inferior izquierda */
+		        .corner-image {
+		            position: fixed;
+		            bottom: 10px;
+		            left: 10px;
+		            width: 100px;
+		            height: 100px;
+		            z-index: 2;
+		            border-radius: 10px;
+		            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+		        }
+		        .corner-image img {
+		            width: 100%;
+		            height: 100%;
+		            object-fit: cover;
+		            border-radius: 10px;
+		        }
+		/* Imagen para donaciones BTC */
+		.btc-donation {
+		    position: fixed;
+		    top: 151px;  /* 4 cm lower from the top */
+		    right: 250px;  /* 3 cm more to the left */
+		    width: 150px;
+		    height: 150px;
+		    z-index: 3;
+		    border-radius: 10px;
+		    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+		    text-align: center; /* Center the text under the image */
+		}
+		
+		.btc-donation img {
+		    width: 100%;
+		    height: 100%;
+		    object-fit: cover;
+		    border-radius: 5px;
+		}
+		
+		/* Imagen para donaciones BTC */
+		.btcc-donation {
+		    position: fixed;
+		    top: 151px;  /* 4 cm lower from the top */
+		    right: 1500px;  /* 3 cm more to the left */
+		    width: 150px;
+		    height: 150px;
+		    z-index: 3;
+		    border-radius: 10px;
+		    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+		    text-align: center; /* Center the text under the image */
+		}
+		
+		.btcc-donation img {
+		    width: 100%;
+		    height: 100%;
+		    object-fit: cover;
+		    border-radius: 5px;
+		}
+		
+		
+		
+		.donation-text {
+		    margin-top: 10px;  /* Space between image and text */
+		    font-size: 12px;  /* Adjust the font size as needed */
+		    color: #fff;  /* White text color */
+		    font-weight: bold;  /* Make the text bold */
+		    text-align: center;  /* Center the text */
+		}
+		
+		
 		
 	</style>
 </head>
-
 <body>
 	<div id="crypto-ticker" style="background-color: #333; color: white; padding: 10px; text-align: center; font-size: 14px;">
 		Cargando Precios...
 	</div>
-	</p>
-	<!-- hitwebcounter Code START -->
-	<a href="https://www.hitwebcounter.com" target="_blank">
-		<img src="https://hitwebcounter.com/counter/counter.php?page=19092374&style=0025&nbdigits=9&type=ip&initCount=0" title="Counter Widget" Alt="Visit counter For Websites" border="0" /></a>
-
 	<!-- Fondo de partículas animadas -->
 	<div id="particles-js"></div>
 
@@ -112,32 +152,44 @@
 			<img src="webflash/m8ax.png" alt="https://opensea.io/m8ax">
 		</a>
 	</div>
+
+	<!-- Imagen de donación BTC -->
+	<div class="btc-donation">
+		<a href="bitcoin:bc1qljq00pm2plq2l9jxzdzt0xc8t79j9wcmu7r8em" target="_blank" title="... Dóname Algo xD ...">
+			<img src="webflash/btcdonation.png" alt="Donación Voluntaria De BTC">
+		</a>
+		<p class="donation-text">DONACION BITCOIN<br>PARA EL CREADOR<br>( VOLUNTARIA )<br><br>ESCANEA PARA <br>OBTENER MI<br>DIRECCIÓN DE<br>BITCOIN</p>
+		<!-- Corrected HTML structure -->
+	</div>
+	<!-- Imagen de donación BTC -->
+	<div class="btcc-donation">
+		<a href="bitcoin:bc1qljq00pm2plq2l9jxzdzt0xc8t79j9wcmu7r8em" target="_blank" title="... Dóname Algo xD ...">
+			<img src="webflash/btcdonation.png" alt="Donación Voluntaria De BTC">
+		</a>
+		<p class="donation-text">DONACION BITCOIN<br>PARA EL CREADOR<br>( VOLUNTARIA )<br><br>ESCANEA PARA <br>OBTENER MI<br>DIRECCIÓN DE<br>BITCOIN</p>
+		<!-- Corrected HTML structure -->
+	</div>
+
 	<div class="container">
 		<div class="header-image">
 			<a href="https://youtu.be/hjlTQvUVsiU" target="_blank" title="Haz Clic Para Para Ver El Video De Mi Versión Del Firmware Del NerdMinerV2.">
-                               Pincha Para Ver Video En Cualquier Imágen Ó Aquí Mismo<p>
-                               <img src="webflash/pantallas.jpg" alt="Pantallas Del --- M8AX - NerdMinerV2 - M8AX | ( PINCHA PARA VER VIDEO ) |">
-                        </a>
+                Pincha Para Ver Video En Cualquier Imágen Ó Aquí Mismo<p>
+                <img src="webflash/pantallas.jpg" alt="Pantallas Del --- M8AX - NerdMinerV2 - M8AX | ( PINCHA PARA VER VIDEO ) |">
+            </a>
 		</div>
 		<!-- Botón para descargar el manual -->
 		<a id="downloadManual" href="M8AX-NerdMinerV2-M8AX-Manual.pdf" download>
 			<button>Descargar Manual PDF De M8AX - NerdMinerV2 - M8AX</button></p>
-
 		</a>
 		<button id="playButton">Reproducir Canción: M8AX - NerdMinerV2 - M8AX</button>
 
 		<script>
 			document.getElementById('playButton').addEventListener('click', function() {
-																			         const audio = document.getElementById('backgroundAudio');
-																			         audio.play();  // Reproducir el audio cuando el usuario haga clic
-																			         audio.volume = 0.5;  // Ajustar volumen si es necesario
-																			         this.style.display = 'none';  // Ocultar el botón después de hacer clic
-																			      });
-																			
-																
-													
-										
-						
+			                const audio = document.getElementById('backgroundAudio');
+			                audio.play();  // Reproducir el audio cuando el usuario haga clic
+			                audio.volume = 0.5;  // Ajustar volumen si es necesario
+			                this.style.display = 'none';  // Ocultar el botón después de hacer clic
+			            });
 			
 		</script>
 
@@ -159,112 +211,107 @@
 	<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 	<script>
 		// Configuración del fondo de partículas
-													        particlesJS("particles-js", {
-													            particles: {
-													                number: {
-													                    value: 80,
-													                    density: {
-													                        enable: true,
-													                        value_area: 800
-													                    }
-													                },
-													                color: {
-													                    value: "#ffffff"
-													                },
-													                shape: {
-													                    type: "circle",
-													                    stroke: {
-													                        width: 0,
-													                        color: "#000000"
-													                    },
-													                    polygon: {
-													                        nb_sides: 5
-													                    }
-													                },
-													                opacity: {
-													                    value: 0.5,
-													                    random: true,
-													                    anim: {
-													                        enable: true,
-													                        speed: 1,
-													                        opacity_min: 0.1,
-													                        sync: false
-													                    }
-													                },
-													                size: {
-													                    value: 3,
-													                    random: true,
-													                    anim: {
-													                        enable: true,
-													                        speed: 2,
-													                        size_min: 0.1,
-													                        sync: false
-													                    }
-													                },
-													                line_linked: {
-													                    enable: true,
-													                    distance: 150,
-													                    color: "#ff0000",
-													                    opacity: 0.4,
-													                    width: 1
-													                },
-													                move: {
-													                    enable: true,
-													                    speed: 3,
-													                    direction: "none",
-													                    random: true,
-													                    straight: false,
-													                    out_mode: "bounce",
-													                    bounce: true,
-													                    attract: {
-													                        enable: false,
-													                        rotateX: 600,
-													                        rotateY: 1200
-													                    }
-													                }
-													            },
-													            interactivity: {
-													                detect_on: "canvas",
-													                events: {
-													                    onhover: {
-													                        enable: true,
-													                        mode: "bubble"
-													                    },
-													                    onclick: {
-													                        enable: true,
-													                        mode: "push"
-													                    },
-													                    resize: true
-													                },
-													                modes: {
-													                    bubble: {
-													                        distance: 200,
-													                        size: 6,
-													                        duration: 2,
-													                        opacity: 0.8,
-													                        speed: 3
-													                    },
-													                    push: {
-													                        particles_nb: 4
-													                    }
-													                }
-													            },
-													            retina_detect: true
-													        });
-													
-													        // Verificar compatibilidad con la API Web Serial
-													        if (navigator.serial) {
-													            document.getElementById("notSupported").style.display = 'none';
-													            document.getElementById("main").style.display = 'block';
-													        } else {
-													            document.getElementById("notSupported").style.display = 'block';
-													            document.getElementById("main").style.display = 'none';
-													        }
-													
-											
-									
-							
-				
+		        particlesJS("particles-js", {
+		            particles: {
+		                number: {
+		                    value: 80,
+		                    density: {
+		                        enable: true,
+		                        value_area: 800
+		                    }
+		                },
+		                color: {
+		                    value: "#ffffff"
+		                },
+		                shape: {
+		                    type: "circle",
+		                    stroke: {
+		                        width: 0,
+		                        color: "#000000"
+		                    },
+		                    polygon: {
+		                        nb_sides: 5
+		                    }
+		                },
+		                opacity: {
+		                    value: 0.5,
+		                    random: true,
+		                    anim: {
+		                        enable: true,
+		                        speed: 1,
+		                        opacity_min: 0.1,
+		                        sync: false
+		                    }
+		                },
+		                size: {
+		                    value: 3,
+		                    random: true,
+		                    anim: {
+		                        enable: true,
+		                        speed: 2,
+		                        size_min: 0.1,
+		                        sync: false
+		                    }
+		                },
+		                line_linked: {
+		                    enable: true,
+		                    distance: 150,
+		                    color: "#ff0000",
+		                    opacity: 0.4,
+		                    width: 1
+		                },
+		                move: {
+		                    enable: true,
+		                    speed: 3,
+		                    direction: "none",
+		                    random: true,
+		                    straight: false,
+		                    out_mode: "bounce",
+		                    bounce: true,
+		                    attract: {
+		                        enable: false,
+		                        rotateX: 600,
+		                        rotateY: 1200
+		                    }
+		                }
+		            },
+		            interactivity: {
+		                detect_on: "canvas",
+		                events: {
+		                    onhover: {
+		                        enable: true,
+		                        mode: "bubble"
+		                    },
+		                    onclick: {
+		                        enable: true,
+		                        mode: "push"
+		                    },
+		                    resize: true
+		                },
+		                modes: {
+		                    bubble: {
+		                        distance: 200,
+		                        size: 6,
+		                        duration: 2,
+		                        opacity: 0.8,
+		                        speed: 3
+		                    },
+		                    push: {
+		                        particles_nb: 4
+		                    }
+		                }
+		            },
+		            retina_detect: true
+		        });
+		
+		        // Verificar compatibilidad con la API Web Serial
+		        if (navigator.serial) {
+		            document.getElementById("notSupported").style.display = 'none';
+		            document.getElementById("main").style.display = 'block';
+		        } else {
+		            document.getElementById("notSupported").style.display = 'block';
+		            document.getElementById("main").style.display = 'none';
+		        }
 		
 	</script>
 
@@ -276,22 +323,15 @@
 
 	<!-- Opcional: Control de volumen con JavaScript -->
 	<script>
-		// Ajustar el volumen del audio (0.0 a 1.0)
-													        document.getElementById('backgroundAudio').volume = 0.5; // 50% de volumen
-													
-											
-									
-							
-				
+		document.getElementById('backgroundAudio').volume = 0.5; // 50% de volumen
 		
 	</script>
+
 	<div style="position: absolute; right: 0; bottom: 0;">
 		<a href="https://youtube.com/m8ax" target="_blank" title="Pulsa Para Ver Mi Canal De Youtube.">
 			<img src="webflash/m8ax.png" alt="https://youtube.com/m8ax" style="width: 100px; height: 100px;">
 		</a>
 	</div>
-	</p>
-
 
 	<div style="position: absolute; center: 0; bottom: 0;">
 		<font color="#ffffff">Proyecto Original De
@@ -302,34 +342,33 @@
 
 	<script>
 		async function getCryptoPrices() {
-											        const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,ripple,litecoin,cardano,doge,polkadot,uniswap,binancecoin,solana,chainlink,vechain,shiba,inuyasha,terra,monero,ethereum-classic,stellar,usd-coin,wrapped-bitcoin&order=market_cap_desc&per_page=20&page=1&sparkline=false";
-											        
-											        try {
-											            const response = await fetch(url);
-											            const data = await response.json();
-											            
-											            let tickerHtml = "Precios De Criptomonedas: ";
-											            
-											            data.forEach(crypto => {
-											                tickerHtml += `${crypto.name}: $${crypto.current_price} | `;
-											            });
-											            
-											            // Remove the last " | "
-											            tickerHtml = tickerHtml.slice(0, -3);
-											            
-											            document.getElementById('crypto-ticker').innerHTML = tickerHtml;
-											        } catch (error) {
-											            document.getElementById('crypto-ticker').innerHTML = "Error al cargar los precios.";
-											            console.error("Error fetching data: ", error);
-											        }
-											    }
-											
-											    // Llamar a la función para cargar los precios
-											    getCryptoPrices();
-											
-											    // Actualizar cada 60 segundos
-											    setInterval(getCryptoPrices, 60000);
-				
+		            const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,ripple,litecoin,cardano,doge,polkadot,uniswap,binancecoin,solana,chainlink,vechain,shiba,inuyasha,terra,monero,ethereum-classic,stellar,usd-coin,wrapped-bitcoin&order=market_cap_desc&per_page=20&page=1&sparkline=false";
+		            
+		            try {
+		                const response = await fetch(url);
+		                const data = await response.json();
+		                
+		                let tickerHtml = "Precios De Criptomonedas: ";
+		                
+		                data.forEach(crypto => {
+		                    tickerHtml += `${crypto.name}: $${crypto.current_price} | `;
+		                });
+		                
+		                // Remove the last " | "
+		                tickerHtml = tickerHtml.slice(0, -3);
+		                
+		                document.getElementById('crypto-ticker').innerHTML = tickerHtml;
+		            } catch (error) {
+		                document.getElementById('crypto-ticker').innerHTML = "Error al cargar los precios.";
+		                console.error("Error fetching data: ", error);
+		            }
+		        }
+		
+		        // Llamar a la función para cargar los precios
+		        getCryptoPrices();
+		        
+		        // Actualizar cada 60 segundos
+		        setInterval(getCryptoPrices, 60000);
 		
 	</script>
 </body>
