@@ -31,7 +31,7 @@
  *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
  *
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1200 líneas de código en 4.5h. ///
+ *   - /// Minimizando código, maximizando funcionalidad. Solo 1225 líneas de código en 4.5h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *                                                           FEBRERO 2025
@@ -47,10 +47,7 @@
 #include <HTTPClient.h>
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
-#include "esp_system.h"
-#include "esp_flash.h"
 #include <urlencode.h>
-#include <iostream>
 #include <string>
 #include <ctime>
 #include "mbedtls/sha256.h"
@@ -101,6 +98,7 @@ char result[MAX_RESULT_LENGTH];
 String BOT_TOKEN;
 String CHAT_ID;
 String enviados;
+String ipPublica = "";
 const int morseLength = sizeof(morse) / sizeof(morse[0]);
 int sumatele = 1;
 int maxtemp = 0;
@@ -139,6 +137,24 @@ void noDisplay_AlternateScreenState(void)
 
 void noDisplay_AlternateRotation(void)
 {
+}
+
+String getPublicIP()
+{
+  String publicIP = "";
+  HTTPClient http;
+  http.begin("http://api.ipify.org");
+  int httpCode = http.GET();
+  if (httpCode > 0)
+  {
+    publicIP = http.getString();
+  }
+  else
+  {
+    Serial.println("M8AX - Error Al Obtener La IP Pública...");
+  }
+  http.end();
+  return publicIP;
 }
 
 String obtenerEstadoTemperatura(int temperatura)
@@ -742,6 +758,9 @@ void recopilaTelegram()
   cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm\n";
   cadenaEnvio += "Canal WiFi - " + String(WiFi.channel()) + "\n";
   cadenaEnvio += String("HostName - ((( --- ") + strupr(strdup(WiFi.getHostname())) + " --- )))\n";
+  cadenaEnvio += String("Dirección MAC - ((( --- ") + WiFi.macAddress().c_str() + " --- )))\n";
+  cadenaEnvio += String("IP Pública - ((( --- ") + ipPublica + " --- )))\n";
+  cadenaEnvio += String("IP Local - ((( --- ") + WiFi.localIP().toString() + " --- )))\n";
   cadenaEnvio += "Modelo Del Chip - " + String(ESP.getChipModel()) + ", " + String(ESP.getCpuFreqMHz()) + " Mhz, " + String(ESP.getChipCores()) + " Núcleos\n";
   cadenaEnvio += "Memoria RAM Libre - " + String(ESP.getFreeHeap()) + " Bytes\n";
   char output[50];
@@ -881,6 +900,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   if (cuenta == 5)
   {
     sincronizarTiempo();
+    ipPublica = getPublicIP();
   }
   if (cuenta > 25)
   {
@@ -966,6 +986,9 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %s dBm\n", String(WiFi.RSSI()));
     Serial.printf(">>> M8AX - Canal WiFi - %s\n", String(WiFi.channel()));
     Serial.printf(">>> M8AX - HostName - ((( --- %s --- )))\n", strupr(strdup(WiFi.getHostname())));
+    Serial.printf(">>> M8AX - Dirección MAC - ((( --- %s --- )))\n", WiFi.macAddress().c_str());
+    Serial.printf(">>> M8AX - IP Pública - ((( --- %s --- )))\n", ipPublica);
+    Serial.printf(">>> M8AX - IP Local - ((( --- %s --- )))\n", WiFi.localIP().toString());
     Serial.printf(">>> M8AX - Modelo Del Chip - %s, %d MHz, %d Núcleos\n", String(ESP.getChipModel()), ESP.getCpuFreqMHz(), ESP.getChipCores());
     Serial.printf(">>> M8AX - Memoria RAM Libre - %d Bytes\n", ESP.getFreeHeap());
     Serial.printf(">>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
@@ -1126,6 +1149,8 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     BOT_TOKEN = Settings.botTelegram;
     CHAT_ID = Settings.ChanelIDTelegram;
     sincronizarTiempo();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ipPublica = getPublicIP();
     if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
     {
       digitalWrite(m8ax, HIGH);

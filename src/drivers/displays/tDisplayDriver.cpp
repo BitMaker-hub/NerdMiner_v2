@@ -27,7 +27,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6200 Líneas De Código
+ *                     Tmp. De Programación 14H - 6210 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -65,7 +65,6 @@
 #include <stdlib.h>
 #include "OpenFontRender.h"
 #include "rotation.h"
-#include <iostream>
 #include <string>
 #include <ctime>
 #include <clientntp.h>
@@ -796,16 +795,16 @@ void recopilaTelegram()
   char fechaFormateada[11];
   sprintf(fechaFormateada, "%02d/%02d/%04d", dia, mes, anio);
 
-  std::string quediase = obtenerDiaSemana(std::string(fechaFormateada));
+  // Extraer los últimos 4 dígitos de la mac
   uint8_t mac[6];
   WiFi.macAddress(mac);
+  char u4digits[5];
+  sprintf(u4digits, "%02X%02X", mac[4], mac[5]);
 
-  // Extraer los últimos 4 dígitos de la mac
-  String u4digits = String(mac[4], HEX) + String(mac[5], HEX);
+  std::string quediase = obtenerDiaSemana(std::string(fechaFormateada));
   String telrb = monedilla.remainingBlocks;
-
   String cadenaEnvio = F("------------------------------------------------------------------------------------------------\n");
-  cadenaEnvio += "------------------------ M8AX - NerdMinerV2-" + u4digits + " DATOS DE MINERÍA - M8AX -----------------------\n";
+  cadenaEnvio += "------------------------ M8AX - NerdMinerV2-" + String(u4digits) + " DATOS DE MINERÍA - M8AX -----------------------\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "----------------------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " ----------------------------------\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
@@ -6014,6 +6013,10 @@ void tDisplay_SetupScreen(void)
  * La función también controla la variable `ContadorEspecial` y reinicia algunos parámetros
  * cuando se activan los eventos especiales (Navidad, motivación).
  *
+ * Si la temperatura de la CPU sobrepasa los 80 grados, la CPU entrará en modo deep sleep
+ * durante 10 minutos, minutos en los cuales la CPU bajará la temperatura. Pasados
+ * los 10 minutos, el NerdMinerV2 rearrancará solo y comenzará a minar con la CPU Más Fría... ( VIGILAR )
+ *
  * @param frame Número de fotograma actual (usado en ciertas animaciones o cálculos).
  */
 
@@ -6055,6 +6058,13 @@ void analiCadaSegundo(unsigned long frame)
     {
       Serial.println("M8AX - Temperatura De CPU, Ha Superado Los 70°C...");
       alertatemp++;
+    }
+
+    if (ContadorEspecial % 30 == 0 && mineria.temp.toInt() > 80)
+    {
+      Serial.println("M8AX - ¡ Temperatura Muy Alta ! 80°C Superados. Entrando En Deep Sleep Por 10 Minutos Para Enfriar La CPU...");
+      esp_sleep_enable_timer_wakeup(600e6);
+      esp_deep_sleep_start();
     }
   }
 
