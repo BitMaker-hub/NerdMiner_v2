@@ -1,4 +1,5 @@
 /********************************************************************************************
+ *
  *   Escrito por: M8AX
  *
  *   Descripción:
@@ -27,7 +28,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6210 Líneas De Código
+ *                     Tmp. De Programación 14H - 6215 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -192,6 +193,7 @@ uint32_t correccion = 0;
 uint32_t numfrases = 0;
 uint32_t numnotis = 0;
 uint32_t ContadorEspecial = 0;
+uint32_t uncontadormas = 0;
 WiFiUDP udp;
 HTTPClient http;
 mining_data mineria;
@@ -533,9 +535,9 @@ void find_operations(int numbers[], int target, State current, State *best, int 
       // Suma
       int new_value = current.value + numbers[i];
 
+      // No se permiten resultados negativos
       if (new_value >= 0)
-      { // No se permiten resultados negativos
-
+      {
         State new_state;
         new_state.value = new_value;
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d + %d) = %d", current.operation, current.value, numbers[i], new_value);
@@ -553,8 +555,10 @@ void find_operations(int numbers[], int target, State current, State *best, int 
 
       // Multiplicación (solo si no es innecesario)
       int mult_value = current.value * numbers[i];
+
+      // Limitar el rango de multiplicación
       if (mult_value >= 0 && mult_value <= target + 100)
-      { // Limitar el rango de multiplicación
+      {
         State new_state;
         new_state.value = mult_value;
         snprintf(new_state.operation, sizeof(new_state.operation), "%s -> (%d * %d) = %d", current.operation, current.value, numbers[i], mult_value);
@@ -2135,7 +2139,6 @@ String obtenerNombreMes(int mes)
 
 /**
  * Dibuja un porcentaje de un círculo como un arco iluminado.
- *
  * Esta función dibuja un círculo completo y luego ilumina un porcentaje del mismo, según el valor de `porcentaje` proporcionado. El área iluminada es proporcional a dicho porcentaje y se pinta de color.
  *
  * @param centroX El valor de la coordenada X del centro del círculo.
@@ -6032,7 +6035,7 @@ void analiCadaSegundo(unsigned long frame)
   int minutitos = timeinfo->tm_min;                    // Minutos
   int segundos = timeinfo->tm_sec;                     // Segundos
 
-  if (startTime > 0)
+  if (startTime > 0 && uncontadormas > 50)
   {
     if (mineria.currentHashRate.toFloat() > maxkh)
     {
@@ -6101,6 +6104,7 @@ void analiCadaSegundo(unsigned long frame)
     actualizarc = 0;
     actual = 0;
     actuanot = 0;
+    uncontadormas = 51;
     ContadorEspecial = 0;
     correccion = 0;
     tft.fillScreen(TFT_BLACK);
@@ -6167,6 +6171,7 @@ void analiCadaSegundo(unsigned long frame)
 void tDisplay_AnimateCurrentScreen(unsigned long frame)
 {
   ContadorEspecial++;
+  uncontadormas++;
   if (ContadorEspecial % 5 == 0)
   {
     analiCadaSegundo(frame);

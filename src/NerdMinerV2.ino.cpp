@@ -638,7 +638,7 @@ void setup()
 #endif
 
   /******** INIT NERDMINER ************/
-  Serial.println("... M8AX - NerdMiner V2 Arrancando Motores - M8AX ...");
+  Serial.println("\n... M8AX - NerdMiner V2 Arrancando Motores - M8AX ...");
 
   /******** INIT DISPLAY ************/
   initDisplay();
