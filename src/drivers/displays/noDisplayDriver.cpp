@@ -32,7 +32,7 @@
  *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
  *
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1500 líneas de código en 5h. ///
+ *   - /// Minimizando código, maximizando funcionalidad. Solo 1530 líneas de código en 5h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *                                                           FEBRERO 2025
@@ -239,17 +239,17 @@ moonData_t moonPhase::_getPhase(const int32_t year, const int32_t month, const i
   return returnValue;
 }
 
-String interpretarRangoTemperatura(float tempRang)
+const char *interpretarRangoTemperatura(float tempRang)
 {
   if (tempRang < 10)
   {
     return "( Bajo )";
   }
-  else if (tempRang >= 10 && tempRang < 20)
+  else if (tempRang < 20)
   {
     return "( Normal )";
   }
-  else if (tempRang >= 20 && tempRang < 30)
+  else if (tempRang < 30)
   {
     return "( Alto )";
   }
@@ -312,7 +312,7 @@ float getPrecioBTC()
   return btcPrice;
 }
 
-String evaluarRSSI(String rssiStr)
+const char *evaluarRSSI(const String &rssiStr)
 {
   int rssi = rssiStr.toInt();
   if (rssi >= -50)
@@ -360,26 +360,24 @@ String getPublicIP()
   return publicIP;
 }
 
-String obtenerEstadoTemperatura(int temperatura)
+const char *obtenerEstadoTemperatura(int temperatura)
 {
-  String comoestatemp;
   if (temperatura >= 20 && temperatura <= 45)
   {
-    comoestatemp = "Temperatura Baja | ";
+    return "Temperatura Baja | ";
   }
   else if (temperatura >= 46 && temperatura <= 65)
   {
-    comoestatemp = "Temperatura Normal | ";
+    return "Temperatura Normal | ";
   }
   else if (temperatura >= 66 && temperatura <= 75)
   {
-    comoestatemp = "Temperatura Alta | ";
+    return "Temperatura Alta | ";
   }
   else
   {
-    comoestatemp = "Temperatura Muy Alta | ";
+    return "Temperatura Muy Alta | ";
   }
-  return comoestatemp;
 }
 
 String arteASCII(int number)
@@ -768,8 +766,7 @@ void convertirTiempo(const char *input, char *output)
 {
   int dias, horas, minutos, segundos;
   sscanf(input, "%d %d:%d:%d", &dias, &horas, &minutos, &segundos);
-  sprintf(output, "%02dd %02dh %02dm %02ds",
-          dias, horas, minutos, segundos);
+  sprintf(output, "%02dd %02dh %02dm %02ds", dias, horas, minutos, segundos);
 }
 
 std::string obtenerDiaSemana(const std::string &fecha)
@@ -905,11 +902,15 @@ void enviarMensajeATelegram(String mensaje)
   WiFiClientSecure client;
   client.setInsecure();
   String mensajeCodificado = urlEncode(mensaje);
+  mensajeCodificado.reserve(mensajeCodificado.length() + 100);
   mensaje = "";
+  mensaje.reserve(0);
   mensajeCodificado.replace("\n", "%0A");
   Serial.println("M8AX - Enviando Mensaje A Telegram...");
   String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
+  url.reserve(url.length() + 50);
   mensajeCodificado = "";
+  mensajeCodificado.reserve(0);
   if (client.connect("api.telegram.org", 443))
   {
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + "Host: api.telegram.org\r\n" + "Connection: close\r\n\r\n");
@@ -918,12 +919,16 @@ void enviarMensajeATelegram(String mensaje)
     client.flush();
     client.stop();
     sumatele += 1;
+    url = "";
+    url.reserve(0);
   }
   else
   {
     Serial.println("M8AX - Error De Conexión, Mensaje A Telegram Falló...");
     client.flush();
     client.stop();
+    url = "";
+    url.reserve(0);
   }
 }
 
@@ -950,11 +955,16 @@ void recopilaTelegram()
   char u4digits[5];
   sprintf(u4digits, "%02X%02X", mac[4], mac[5]);
   std::string quediase = obtenerDiaSemana(std::string(fechaFormateada));
-  String cadenaEnvio = F("--------------------------------------------------------------------------------------------------\n");
+  String cadenaEnvio;
+  cadenaEnvio.reserve(6000);
+  cadenaEnvio = "";
+  cadenaEnvio = F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "--------------------- M8AX - PLACA-WROOM-ESP32D-" + String(u4digits) + " DATOS DE MINERÍA - M8AX ---------------------\n";
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "---------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " - % Luna Visible - " + String(porcentajeTexto) + " ----------------------\n";
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
+  quediase.clear();
+  quediase.shrink_to_fit();
   if (sumatele <= 3999)
   {
     cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
@@ -965,9 +975,12 @@ void recopilaTelegram()
   }
   String numdesemana = convertirARomanos(numSemana(now));
   cadenaEnvio += "Semana Del Año Número - " + numdesemana + "\n";
+  numdesemana.reserve(0);
   cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm -> ( " + evaluarRSSI(String(WiFi.RSSI())) + " ) | ";
   cadenaEnvio += "Canal WiFi - " + String(WiFi.channel()) + "\n";
-  cadenaEnvio += String("HostName - ((( --- ") + strupr(strdup(WiFi.getHostname())) + " --- )))\n";
+  char *hostname = strdup(WiFi.getHostname());
+  cadenaEnvio += String("HostName - ((( --- ") + strupr(hostname) + " --- )))\n";
+  free(hostname);
   cadenaEnvio += String("Dirección MAC - ((( --- ") + WiFi.macAddress().c_str() + " --- )))\n";
   cadenaEnvio += String("IP Pública - ((( --- ") + ipPublica + " --- )))\n";
   cadenaEnvio += String("IP Local - ((( --- ") + WiFi.localIP().toString() + " --- )))\n";
@@ -1009,6 +1022,7 @@ void recopilaTelegram()
     sprintf(&sha256String[i * 2], "%02x", salida[i]);
   }
   cadenaEnvio += "HR SHA-256 - " + String(sha256String) + " KH/s";
+  mbedtls_sha256_free(&ctx);
   if (valor.toFloat() > 0)
   {
     cadenaEnvio += "\nSi Cada Hash (64 Caracteres), Se Escribiera En Línea Recta Con\n";
@@ -1044,7 +1058,7 @@ void recopilaTelegram()
   float tempRange = maxtemp - mintemp;
   cadenaEnvio += "\nEficiencia Energética - ≈ " + String(eficiencia_redondeada, 3) + " KH/s/W - " + String(consumo) + "W\n";
   cadenaEnvio += "Temperatura De CPU - " + data.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | RANGO - " + String((int)tempRange) + "° - " + interpretarRangoTemperatura(tempRange) + " | TMP>75° - " + String(alertatemp) + " Veces )\n";
-  cadenaEnvio += obtenerEstadoTemperatura(data.temp.toInt()).c_str();
+  cadenaEnvio += obtenerEstadoTemperatura(data.temp.toInt());
   cadenaEnvio += "Tiempo De CPU A Más De 75° - ";
   cadenaEnvio += (String(convertirTiempoNoMinando(alertatemp)).c_str());
   cadenaEnvio += "\nPlantillas De Bloque - " + data.templates + "\n";
@@ -1093,12 +1107,18 @@ void recopilaTelegram()
   cadenaEnvio += ("\nObjetivo - " + String(destino) + "\n");
   calculate_operations(numeritos, destino, result);
   String resultadoStr = String(result);
+  memset(result, 0, sizeof(result));
   resultadoStr.replace(">>> M8AX - ", "");
   cadenaEnvio += (String(resultadoStr) + "\n");
   cadenaEnvio += "--------------------------------------------------------------------------------------------------\n                                       By M8AX Corp. " + convertirARomanos(anio);
   cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------");
   enviarMensajeATelegram(cadenaEnvio);
+  resultadoStr = "";
+  resultadoStr.reserve(0);
   cadenaEnvio = "";
+  cadenaEnvio.reserve(0);
+  valor = "";
+  valor.reserve(0);
 }
 
 void noDisplay_NoScreen(unsigned long mElapsed)
@@ -1220,7 +1240,11 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s | Semana Del Año Número - %s | %% Luna Visible - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana, String(porcentajeTexto).c_str());
     Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %d dBm -> ( %s )\n", WiFi.RSSI(), String(evaluarRSSI(String(WiFi.RSSI()))).c_str());
     Serial.printf(">>> M8AX - Canal WiFi - %s\n", String(WiFi.channel()));
-    Serial.printf(">>> M8AX - HostName - ((( --- %s --- )))\n", strupr(strdup(WiFi.getHostname())));
+    quediase.clear();
+    quediase.shrink_to_fit();
+    char *hostname = strdup(WiFi.getHostname());
+    Serial.printf(">>> M8AX - HostName - ((( --- %s --- )))\n", strupr(hostname));
+    free(hostname);
     Serial.printf(">>> M8AX - Dirección MAC - ((( --- %s --- )))\n", WiFi.macAddress().c_str());
     Serial.printf(">>> M8AX - IP Pública - ((( --- %s --- )))\n", ipPublica);
     Serial.printf(">>> M8AX - IP Local - ((( --- %s --- )))\n", WiFi.localIP().toString());
@@ -1261,6 +1285,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       sprintf(&sha256String[i * 2], "%02x", salida[i]);
     }
     Serial.printf(">>> M8AX - HR SHA-256 - %s KH/s\n", String(sha256String).c_str());
+    mbedtls_sha256_free(&ctx);
     Serial.printf(">>> M8AX - Max HashRate - %s KH/s\n", String(maxkh));
     Serial.printf(">>> M8AX - Min HashRate - %s KH/s\n", String(minkh));
     if (hhashrate > 0)
@@ -1286,7 +1311,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       Serial.printf(">>> M8AX - Si Grabáramos Los Hashes En Texto, La Velocidad De Grabación Sería - %.2f MB/s - %.2f TB/Día\n", mbteseg, tbdia);
     }
     Serial.printf(">>> M8AX - Eficiencia Energética - ≈ %.3f KH/s/W - %sW\n", eficiencia_redondeada, String(consumo));
-    Serial.printf(">>> M8AX - %sTemperatura - %s°\n", obtenerEstadoTemperatura(data.temp.toInt()).c_str(), data.temp.c_str());
+    Serial.printf(">>> M8AX - %sTemperatura - %s°\n", obtenerEstadoTemperatura(data.temp.toInt()), data.temp.c_str());
     float tempRange = maxtemp - mintemp;
     Serial.printf(">>> M8AX - Max Temperatura - %s°\n", String(maxtemp));
     Serial.printf(">>> M8AX - Min Temperatura - %s°\n", String(mintemp));
@@ -1338,12 +1363,15 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print(">>> M8AX - Objetivo - " + String(destino) + "\n");
     calculate_operations(numeritos, destino, result);
     Serial.print(">>> M8AX - " + String(result) + "\n");
+    memset(result, 0, sizeof(result));
     Serial.print("-------------------------------------------------------------------------------------------------------------\n");
     for (int i = 1; i <= 12; i++)
     {
       String calendario = generarCalendario(anio + sumacalen, i);
       Serial.println(calendario);
       Serial.print("\n-------------------------------------------------------------------------------------------------------------\n");
+      calendario.clear();
+      calendario.reserve(0);
     }
     Serial.print("\n");
     sumacalen++;
@@ -1359,6 +1387,8 @@ void noDisplay_NoScreen(unsigned long mElapsed)
                      String(timeinfo.tm_sec < 10 ? "0" : "") + String(timeinfo.tm_sec);
   Serial.printf("%s >>> M8AX - Completados %s Share(s), %s Khashes, Med. HashRate %s KH/s - %s°\n",
                 fechaHora.c_str(), data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str(), data.temp.c_str());
+  fechaHora.clear();
+  fechaHora.reserve(0);
   if (minutos == 30 && segundos == 0)
   {
     digitalWrite(m8ax, HIGH);
@@ -1425,7 +1455,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
 void noDisplay_LoadingScreen(void)
 {
   pinMode(m8ax, OUTPUT);
-  Serial.println("... M8AX - ARRANCANDO ...\n");
+  Serial.println("\n... M8AX - ARRANCANDO - M8AX ...\n\n... M8AX - SALUDO EN MORSE - M8AX ...\n");
   for (int i = 0; i < morseLength; i++)
   {
     const char *letra = morse[i];

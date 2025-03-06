@@ -28,7 +28,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6215 Líneas De Código
+ *                     Tmp. De Programación 14H - 6240 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -203,7 +203,7 @@ moonPhase mymoonPhase;
 
 unsigned long lastTelegramEpochTime = 0;       // Guarda el tiempo de la última ejecución (en segundos desde Epoch)
 unsigned long startTime = 0;                   // Para guardar Epoch de inicio
-const unsigned long interval = 2 * 60 * 60;    // 2 horas en segundos (2 horas * 60 minutos * 60 segundos)
+const unsigned long interval = 60 * 2 * 60;    // 2 horas en segundos (2 horas * 60 minutos * 60 segundos)
 const unsigned long minStartupTime = interval; // Segundos para que no envíe mensaje a telegram si esta configurado, nada más arrancar
 
 typedef struct
@@ -747,7 +747,9 @@ void enviarMensajeATelegram(String mensaje)
   WiFiClientSecure client;
   client.setInsecure();
   String mensajeCodificado = urlEncode(mensaje); // Mirar función
+  mensajeCodificado.reserve(mensajeCodificado.length() + 100);
   mensaje = "";
+  mensaje.reserve(0);
 
   // Reemplazar los saltos de línea con %0A
 
@@ -756,7 +758,9 @@ void enviarMensajeATelegram(String mensaje)
   Serial.println("M8AX - Enviando Mensaje A Telegram...");
 
   String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + mensajeCodificado;
+  url.reserve(url.length() + 50);
   mensajeCodificado = "";
+  mensajeCodificado.reserve(0);
 
   if (client.connect("api.telegram.org", 443))
   {
@@ -766,12 +770,16 @@ void enviarMensajeATelegram(String mensaje)
     client.flush();
     client.stop();
     sumatele += 1;
+    url = "";
+    url.reserve(0);
   }
   else
   {
     Serial.println("M8AX - Error De Conexión, Mensaje A Telegram Falló...");
     client.flush();
     client.stop();
+    url = "";
+    url.reserve(0);
   }
 }
 
@@ -807,12 +815,24 @@ void recopilaTelegram()
 
   std::string quediase = obtenerDiaSemana(std::string(fechaFormateada));
   String telrb = monedilla.remainingBlocks;
-  String cadenaEnvio = F("------------------------------------------------------------------------------------------------\n");
+  String cadenaEnvio;
+  cadenaEnvio.reserve(5000);
+  cadenaEnvio = "";
+  cadenaEnvio = F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "------------------------ M8AX - NerdMinerV2-" + String(u4digits) + " DATOS DE MINERÍA - M8AX -----------------------\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "----------------------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " ----------------------------------\n";
   cadenaEnvio += F("------------------------------------------------------------------------------------------------\n");
-  cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
+  quediase.clear();
+  quediase.shrink_to_fit();
+  if (sumatele <= 3999)
+  {
+    cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
+  }
+  else
+  {
+    cadenaEnvio += "Mensaje Número - " + String(sumatele) + "\n";
+  }
   cadenaEnvio += "Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
   cadenaEnvio += "HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
   cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " )\n";
@@ -856,6 +876,7 @@ void recopilaTelegram()
   cadenaEnvio += F("\n------------------------------------------------------------------------------------------------");
   enviarMensajeATelegram(cadenaEnvio);
   cadenaEnvio = "";
+  cadenaEnvio.reserve(0);
 }
 
 // Función para imprimir datos en pantalla en formato texto plano, todo seguido con información
@@ -873,8 +894,9 @@ void datosPantallaTextoPlano()
   int minutitos = timeinfo->tm_min;                    // Minutos
   int segundos = timeinfo->tm_sec;                     // Segundos
   String telrb = monedilla.remainingBlocks;
-  String cadenaEnvio2 = "";
-
+  String cadenaEnvio2;
+  cadenaEnvio2.reserve(5000);
+  cadenaEnvio2 = "";
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
   cadenaEnvio2 += ". WiFi RSSI " + String(WiFi.RSSI());
   cadenaEnvio2 += ". Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
@@ -915,6 +937,7 @@ void datosPantallaTextoPlano()
   tft.setTextColor(colors[colorIndex]);
   tft.print(quitarAcentos(cadenaEnvio2));
   cadenaEnvio2 = "";
+  cadenaEnvio2.reserve(0);
 }
 
 // Función para obterner la ciudad y la temperatura mediante la IP pública
@@ -939,6 +962,8 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
     // Parsear el JSON para obtener la ciudad y coordenadas
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload);
+    payload = "";
+    payload.reserve(0);
     if (error)
     {
       Serial.println("M8AX - Error Al Parsear JSON De Geolocalización");
@@ -966,6 +991,7 @@ std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
     String urlTemp = "https://wttr.in/" + latitud + "," + longitud + "?format=%t"; // Solicitar temperatura con coordenadas
     http.begin(client, urlTemp);                                                   // Iniciar la solicitud HTTPS
     httpCode = http.GET();
+    urlTemp.reserve(0);
 
     if (httpCode > 0)
     {
@@ -5670,7 +5696,6 @@ void RelojDeNumeros(unsigned long mElapsed)
   int minutis2 = minutos % 10;   // Segundo dígito de los minutos
   int segundis1 = segundos / 10; // Primer dígito de los segundos
   int segundis2 = segundos % 10; // Segundo dígito de los segundos
-
   if (segundos % 59 == 0)
   {
     actualizarc = 0;
