@@ -198,7 +198,7 @@ void init_WifiManager()
     wm.addParameter(&brightness_text_box_num);
 #endif
 
-    Serial.println("¡ Todo Hecho !: ");
+    Serial.println("\n¡ Todo Hecho !\n");
     if (forceConfig)
     {
         // Run if we need a configuration

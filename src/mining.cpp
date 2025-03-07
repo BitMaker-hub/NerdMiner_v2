@@ -230,7 +230,7 @@ void runStratumWorker(void *name)
   // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
   Serial.println("");
-  Serial.printf("\nM8AX - [TRABAJADOR] Iniciado. Corriendo %s En Núcleo %d\n", (char *)name, xPortGetCoreID());
+  Serial.printf("M8AX - [TRABAJADOR] Iniciado. Corriendo %s En Núcleo %d\n", (char *)name, xPortGetCoreID());
 
 #ifdef DEBUG_MEMORY
   Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
@@ -608,7 +608,7 @@ void runStratumWorker(void *name)
 void minerWorkerSw(void *task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
-  Serial.printf("[MINERO-M8AX] %d Comenzando Tareas De Minado Por SoftWare!\n", miner_id);
+  Serial.printf("[MINERO-M8AX] - %d - ¡ Comenzando Tareas De Minado Por SoftWare !\n", miner_id);
 
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
@@ -1059,7 +1059,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256_double()
 void minerWorkerHw(void *task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
-  Serial.printf("[TRABAJADOR] %d ¡Se Ha Iniciado La Tarea MinerWorkerHwEsp32D!\n", miner_id);
+  Serial.printf("[MINERO-M8AX] - %d - ¡ Comenzando Tareas De Minado Por HardWare !\n", miner_id);
 
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
@@ -1304,7 +1304,6 @@ void runMonitor(void *name)
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);
-
     vTaskDelay(DELAY / portTICK_PERIOD_MS);
     frame++;
   }
