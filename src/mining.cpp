@@ -22,7 +22,7 @@
 // 10 Jobs per second
 #define NONCE_PER_JOB_SW 4096
 #define NONCE_PER_JOB_HW 16 * 1024
-
+// #define I2C_SLAVE
 // #define SHA256_VALIDATE
 // #define RANDOM_NONCE
 #define RANDOM_NONCE_MASK 0xFFFFC000
@@ -39,7 +39,6 @@
 #endif
 
 nvs_handle_t stat_handle;
-
 uint32_t templates = 0;
 uint32_t hashes = 0;
 uint32_t Mhashes = 0;
@@ -82,13 +81,13 @@ bool checkPoolConnection(void)
 
   isMinerSuscribed = false;
 
-  Serial.println("M8AX - Cliente No Conectado, Intentando Conectar");
+  Serial.println("M8AX - Cliente No Conectado, Intentando Conectar...");
 
   // Resolve first time pool DNS and save IP
   if (serverIP == IPAddress(1, 1, 1, 1))
   {
     WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("M8AX - DNS Resuelto Y IP Guardada (Primera Vez) Obtenida: %s\n", serverIP.toString());
+    Serial.printf("M8AX - DNS Resuelto E IP Guardada (Primera Vez) Obtenida: %s\n", serverIP.toString());
   }
 
   // Try connecting pool IP
@@ -231,19 +230,20 @@ void runStratumWorker(void *name)
   // TEST: https://bitcoin.stackexchange.com/questions/22929/full-example-data-for-scrypt-stratum-client
 
   Serial.println("");
-  Serial.printf("M8AX - [TRABAJADOR] Iniciado. Corriendo %s En Núcleo %d\n", (char *)name, xPortGetCoreID());
+  Serial.printf("\nM8AX - [TRABAJADOR] Iniciado. Corriendo %s En Núcleo %d\n", (char *)name, xPortGetCoreID());
 
 #ifdef DEBUG_MEMORY
   Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
 #endif
 
-  std::vector<uint8_t> i2c_slave_vector;
   std::map<uint32_t, std::shared_ptr<Submition>> s_submition_map;
+
+#ifdef I2C_SLAVE
+  std::vector<uint8_t> i2c_slave_vector;
 
   // scan for i2c slaves
   if (i2c_master_start() == 0)
     i2c_slave_vector = i2c_master_scan(0x0, 0x80);
-
   Serial.printf("M8AX - Encontrados %d Trabajadores Esclavos\n", i2c_slave_vector.size());
   if (!i2c_slave_vector.empty())
   {
@@ -252,6 +252,7 @@ void runStratumWorker(void *name)
       Serial.printf("0x%02X,", (uint32_t)i2c_slave_vector[n]);
     Serial.println("");
   }
+#endif
 
   // connect to pool
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
@@ -398,10 +399,12 @@ void runStratumWorker(void *name)
 #ifdef RANDOM_NONCE
           nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
 #else
-          if (i2c_slave_vector.empty())
-            nonce_pool = 0xDA54E700; // nonce 0x00000000 is not possible, start from some random nonce
-          else
+#ifdef I2C_SLAVE
+          if (!i2c_slave_vector.empty())
             nonce_pool = 0x10000000;
+          else
+#endif
+            nonce_pool = 0xDA54E700; // nonce 0x00000000 is not possible, start from some random nonce
 #endif
 
           {
@@ -430,9 +433,11 @@ void runStratumWorker(void *name)
 #endif
             }
           }
+#ifdef I2C_SLAVE
           // Nonce for nonce_pool starts from 0x10000000
           // For i2c slave we give nonces from 0x20000000, that is 0x10000000 nonces per slave
           i2c_feed_slaves(i2c_slave_vector, job_pool & 0xFF, 0x20, currentPoolDifficulty, mMiner.bytearray_blockheader);
+#endif
         }
         else
         {
@@ -482,6 +487,7 @@ void runStratumWorker(void *name)
     }
 
     std::list<std::shared_ptr<JobResult>> job_result_list;
+#ifdef I2C_SLAVE
     if (i2c_slave_vector.empty() || job_pool == 0xFFFFFFFF)
     {
       vTaskDelay(50 / portTICK_PERIOD_MS); // Small delay
@@ -519,6 +525,9 @@ void runStratumWorker(void *name)
       else
         vTaskDelay(40 / portTICK_PERIOD_MS);
     }
+#else
+    vTaskDelay(50 / portTICK_PERIOD_MS); // Small delay
+#endif
 
     if (job_pool != 0xFFFFFFFF)
     {
@@ -576,7 +585,6 @@ void runStratumWorker(void *name)
           Serial.printf("%02x", res->hash[i]);
         Serial.println("");
         mLastTXtoPool = millis();
-
         std::shared_ptr<Submition> submition = std::make_shared<Submition>();
         submition->diff = res->difficulty;
         submition->is32bit = (res->hash[29] == 0 && res->hash[28] == 0);
@@ -612,7 +620,8 @@ void minerWorkerSw(void *task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        s_job_result_list.push_back(result);
+        if (s_job_result_list.size() < 16)
+          s_job_result_list.push_back(result);
         result.reset();
       }
       if (!s_job_request_list_sw.empty())
@@ -819,7 +828,8 @@ void minerWorkerHw(void *task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        s_job_result_list.push_back(result);
+        if (s_job_result_list.size() < 16)
+          s_job_result_list.push_back(result);
         result.reset();
       }
       if (!s_job_request_list_hw.empty())
@@ -875,7 +885,7 @@ void minerWorkerHw(void *task_id)
           {
             if (hash[i] != doubleHash[i])
             {
-              Serial.println("***HW sha256 esp32s3 bug detected***");
+              Serial.println("***HW Sha256 Esp32s3 Error Detectado***");
               break;
             }
           }
@@ -884,9 +894,12 @@ void minerWorkerHw(void *task_id)
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
-            result->difficulty = diff_hash;
-            result->nonce = n;
-            memcpy(result->hash, hash, sizeof(hash));
+            if (isSha256Valid(hash))
+            {
+              result->difficulty = diff_hash;
+              result->nonce = n;
+              memcpy(result->hash, hash, sizeof(hash));
+            }
           }
         }
         if (
@@ -1046,7 +1059,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256_double()
 void minerWorkerHw(void *task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
-  Serial.printf("[MINER] %d Started minerWorkerHwEsp32D Task!\n", miner_id);
+  Serial.printf("[TRABAJADOR] %d ¡Se Ha Iniciado La Tarea MinerWorkerHwEsp32D!\n", miner_id);
 
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
@@ -1059,7 +1072,8 @@ void minerWorkerHw(void *task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        s_job_result_list.push_back(result);
+        if (s_job_result_list.size() < 16)
+          s_job_result_list.push_back(result);
         result.reset();
       }
       if (!s_job_request_list_hw.empty())
@@ -1111,9 +1125,12 @@ void minerWorkerHw(void *task_id)
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
-            result->difficulty = diff_hash;
-            result->nonce = job->nonce_start + n;
-            memcpy(result->hash, hash, sizeof(hash));
+            if (isSha256Valid(hash))
+            {
+              result->difficulty = diff_hash;
+              result->nonce = job->nonce_start + n;
+              memcpy(result->hash, hash, sizeof(hash));
+            }
           }
         }
         if (

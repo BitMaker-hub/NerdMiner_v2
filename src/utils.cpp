@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include "utils.h"
 #include "mining.h"
@@ -61,7 +60,7 @@ void swap_endian_words(const char *hex_words, uint8_t *output)
     size_t hex_length = strlen(hex_words);
     if (hex_length % 8 != 0)
     {
-        fprintf(stderr, "Must be 4-byte word aligned\n");
+        fprintf(stderr, "Debe Estar Alineado En Palabras De 4 Bytes\n");
         exit(EXIT_FAILURE);
     }
 
@@ -121,6 +120,16 @@ double diff_from_target(void *target)
     return d64 / dcut64;
 }
 
+bool isSha256Valid(const void *sha256)
+{
+    for (uint8_t i = 0; i < 8; ++i)
+    {
+        if (((const uint32_t *)sha256)[i] != 0)
+            return true;
+    }
+    return false;
+}
+
 /****************** PREMINING CALCULATIONS ********************/
 
 bool checkValid(unsigned char *hash, unsigned char *target)
@@ -143,7 +152,7 @@ bool checkValid(unsigned char *hash, unsigned char *target)
 #ifdef DEBUG_MINING
     if (valid)
     {
-        Serial.print("\tvalid : ");
+        Serial.print("\tValido : ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x ", hash[i]);
         Serial.println();
@@ -155,6 +164,7 @@ bool checkValid(unsigned char *hash, unsigned char *target)
 /**
  * get random extranonce2
  */
+
 void getRandomExtranonce2(int extranonce2_size, char *extranonce2)
 {
     uint8_t b0, b1, b2, b3;
@@ -175,6 +185,7 @@ void getRandomExtranonce2(int extranonce2_size, char *extranonce2)
 /**
  * get linear extranonce2
  */
+
 void getNextExtranonce2(int extranonce2_size, char *extranonce2)
 {
     unsigned long extranonce2_number = strtoul(extranonce2, NULL, 10);
@@ -243,15 +254,14 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
     Serial.println(coinbase);
     size_t str_len = coinbase.length() / 2;
     uint8_t bytearray[str_len];
-
     size_t res = to_byte_array(coinbase.c_str(), str_len * 2, bytearray);
 
 #ifdef DEBUG_MINING
-    Serial.print("    extranonce2: ");
+    Serial.print("    Extranonce2: ");
     Serial.println(mWorker.extranonce2);
-    Serial.print("    coinbase: ");
+    Serial.print("    Transacción Coinbase: ");
     Serial.println(coinbase);
-    Serial.print("    coinbase bytes - size: ");
+    Serial.print("    Transacción Coinbase Bytes - Tamaño:");
     Serial.println(res);
     for (size_t i = 0; i < res; i++)
         Serial.printf("%02x", bytearray[i]);
@@ -260,7 +270,6 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
 
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
-
     byte interResult[32]; // 256 bit
     byte shaResult[32];   // 256 bit
 
@@ -274,7 +283,7 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
     mbedtls_sha256_free(&ctx);
 
 #ifdef DEBUG_MINING
-    Serial.print("    coinbase double sha: ");
+    Serial.print("    Coinbase Double Sha: ");
     for (size_t i = 0; i < 32; i++)
         Serial.printf("%02x", shaResult[i]);
     Serial.println("");
@@ -282,7 +291,6 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
 
     // copy coinbase hash
     memcpy(mMiner.merkle_result, shaResult, sizeof(shaResult));
-
     byte merkle_concatenated[32 * 2];
     for (size_t k = 0; k < mJob.merkle_branch.size(); k++)
     {
@@ -291,7 +299,7 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
         size_t res = to_byte_array(merkle_element, 64, bytearray);
 
 #ifdef DEBUG_MINING
-        Serial.print("    merkle element    ");
+        Serial.print("    Elemento Merkle    ");
         Serial.print(k);
         Serial.print(": ");
         Serial.println(merkle_element);
@@ -303,11 +311,11 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
         }
 
 #ifdef DEBUG_MINING
-        Serial.print("    merkle element    ");
+        Serial.print("    Elemento Merkle    ");
         Serial.print(k);
         Serial.print(": ");
         Serial.println(merkle_element);
-        Serial.print("    merkle concatenated: ");
+        Serial.print("    Merkle Concatenado: ");
         for (size_t i = 0; i < 64; i++)
             Serial.printf("%02x", merkle_concatenated[i]);
         Serial.println("");
@@ -325,7 +333,7 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
         mbedtls_sha256_free(&ctx);
 
 #ifdef DEBUG_MINING
-        Serial.print("    merkle sha         : ");
+        Serial.print("    Merkle Sha         : ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", mMiner.merkle_result[i]);
         Serial.println("");
@@ -352,9 +360,9 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
     res = to_byte_array(blockheader.c_str(), str_len * 2, mMiner.bytearray_blockheader);
 
 #ifdef DEBUG_MINING
-    Serial.println("    blockheader: ");
+    Serial.println("    Encabezado De Bloque: ");
     Serial.print(blockheader);
-    Serial.println("    blockheader bytes ");
+    Serial.println("    Encabezado De Bloque - Bytes ");
     Serial.print(str_len);
     Serial.print(" -> ");
 #endif
@@ -401,6 +409,7 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
         }
     */
     // reverse ntime
+
     boffset = 68;
     bsize = 4;
     for (size_t j = boffset; j < boffset + (bsize / 2); j++)
@@ -461,6 +470,7 @@ miner_data calculateMiningData(mining_subscribe &mWorker, mining_job mJob)
 
 /* Convert a double value into a truncated string for displaying with its
  * associated suitable for Mega, Giga etc. Buf array needs to be long enough */
+
 void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 {
     const double kilo = 1000;
@@ -537,7 +547,6 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
         else
             frac = 4;
     }
-
     if (!sigdigits)
     {
         if (decimal)
@@ -558,8 +567,8 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
     {
         /* Always show sigdigits + 1, padded on right with zeroes
          * followed by suffix */
-        int ndigits = sigdigits - 1 - (dval > 0.0 ? floor(log10(dval)) : 0);
 
+        int ndigits = sigdigits - 1 - (dval > 0.0 ? floor(log10(dval)) : 0);
         snprintf(buf, bufsiz, "%*.*f%s", sigdigits + 1, ndigits, dval, suffix);
     }
 }

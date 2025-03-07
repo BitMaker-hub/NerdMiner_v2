@@ -105,7 +105,8 @@ String BOT_TOKEN;
 String CHAT_ID;
 String enviados;
 String ipPublica = "";
-String subebaja = "... ESPERANDO 2H ...";
+String subebaja = "... ESPERANDO ...";
+String subebaja2 = "... ESPERANDO ...";
 const int morseLength = sizeof(morse) / sizeof(morse[0]);
 int sumatele = 1;
 int maxtemp = 0;
@@ -114,6 +115,7 @@ int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
 int sumacalen = 0;
+int cuenta24h = 0;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
 uint32_t rndnumero = 0;
@@ -129,6 +131,7 @@ float distanciadiamsol = 1390900;
 float circumluna = 10921;
 float precioDeBTC = 0.0;
 float anterBTC = 0.0;
+float anterBTC2 = 0.0;
 const unsigned long interval = 60 * 2 * 60;
 const unsigned long minStartupTime = interval;
 unsigned long lastTelegramEpochTime = 0;
@@ -986,7 +989,7 @@ void recopilaTelegram()
   cadenaEnvio += String("IP Local - ((( --- ") + WiFi.localIP().toString() + " --- )))\n";
   cadenaEnvio += "Modelo Del Chip - " + String(ESP.getChipModel()) + ", " + String(ESP.getCpuFreqMHz()) + " Mhz, " + String(ESP.getChipCores()) + " Núcleos\n";
   cadenaEnvio += "Memoria RAM Libre - " + String(ESP.getFreeHeap()) + " Bytes\n";
-  cadenaEnvio += "Precio De BTC - " + String(precioDeBTC, 2) + " USD - En 2H -> " + subebaja + "\n";
+  cadenaEnvio += "Precio De BTC - " + String(precioDeBTC, 2) + " USD - | En 2H -> " + subebaja + " | En 24H -> " + subebaja2 + " |\n";
   char output[50];
   convertirTiempo(data.timeMining.c_str(), output);
   cadenaEnvio += "Tiempo Minando - " + String(output) + "\n";
@@ -1088,10 +1091,6 @@ void recopilaTelegram()
   cadenaEnvio += "Factorización De Número - 2 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
   rndnumero = esp_random();
   cadenaEnvio += "Factorización De Número - 3 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
-  rndnumero = esp_random();
-  cadenaEnvio += "Factorización De Número - 4 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
-  rndnumero = esp_random();
-  cadenaEnvio += "Factorización De Número - 5 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n";
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   int numeritos[6];
   int destino = 1 + (esp_random() % 1000);
@@ -1154,6 +1153,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     startTime = epochTime;
     precioDeBTC = getPrecioBTC();
     anterBTC = precioDeBTC;
+    anterBTC2 = precioDeBTC;
     BOT_TOKEN = Settings.botTelegram;
     CHAT_ID = Settings.ChanelIDTelegram;
   }
@@ -1250,7 +1250,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - IP Local - ((( --- %s --- )))\n", WiFi.localIP().toString());
     Serial.printf(">>> M8AX - Modelo Del Chip - %s, %d MHz, %d Núcleos\n", String(ESP.getChipModel()), ESP.getCpuFreqMHz(), ESP.getChipCores());
     Serial.printf(">>> M8AX - Memoria RAM Libre - %d Bytes\n", ESP.getFreeHeap());
-    Serial.printf(">>> M8AX - Precio De BTC - %.2f USD - En 2H -> %s\n", precioDeBTC, subebaja.c_str());
+    Serial.printf(">>> M8AX - Precio De BTC - %.2f USD - | En 2H -> %s | En 24H -> %s |\n", precioDeBTC, subebaja.c_str(), subebaja2.c_str());
     Serial.printf(">>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
     Serial.printf(">>> M8AX - Plantillas De Bloques - %s\n", data.templates.c_str());
     Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada - %s\n", data.bestDiff.c_str());
@@ -1335,10 +1335,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print(">>> M8AX - Factorización De Número - 2 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - Factorización De Número - 3 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
-    rndnumero = esp_random();
-    Serial.print(">>> M8AX - Factorización De Número - 4 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
-    rndnumero = esp_random();
-    Serial.print(">>> M8AX - Factorización De Número - 5 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     Serial.print("-------------------------------------------------------------------------------------------------------------\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - El Número - 1 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
@@ -1346,10 +1342,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.print(">>> M8AX - El Número - 2 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - El Número - 3 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
-    rndnumero = esp_random();
-    Serial.print(">>> M8AX - El Número - 4 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
-    rndnumero = esp_random();
-    Serial.print(">>> M8AX - El Número - 5 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
     Serial.print("-------------------------------------------------------------------------------------------------------------\n");
     Serial.print(">>> M8AX - Juego De Cifras Número - " + String(totalci) + "\n");
     Serial.print(">>> M8AX - Aciertos - " + String(aciertos) + " | Fallos - " + String(fallos) + "\n");
@@ -1375,7 +1367,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     }
     Serial.print("\n");
     sumacalen++;
-    Serial.print("-------------------------------------------KH/S-HASHRATE-ASCII-----------------------------------------------\n\n");
+    Serial.print("---------------------------------------------KH/S-HASHRATE-ASCII---------------------------------------------\n\n");
     Serial.print(arteASCII(parteEntera));
     Serial.print("\n       PUNTO       \n\n");
     Serial.print(arteASCII(parteDecimal));
@@ -1433,14 +1425,22 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   }
   if (epochTime - startTime >= minStartupTime && epochTime - lastTelegramEpochTime >= interval)
   {
+    cuenta24h++;
     sincronizarTiempo();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(250));
     ipPublica = getPublicIP();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(250));
     precioDeBTC = getPrecioBTC();
-    float variacion = ((precioDeBTC - anterBTC) / anterBTC) * 100;
-    subebaja = (variacion >= 0) ? "+" : "-";
-    subebaja += String(fabs(variacion), 5) + "%";
+    vTaskDelay(pdMS_TO_TICKS(250));
+    float variacion = (anterBTC > 0) ? ((precioDeBTC - anterBTC) / anterBTC) * 100 : 0;
+    subebaja = (anterBTC > 0 && precioDeBTC > 0) ? ((variacion >= 0) ? "+" : "-") + String(fabs(variacion), 5) + "%" : "... ERROR ...";
+    if (cuenta24h >= 12)
+    {
+      cuenta24h = 0;
+      float variacion2 = (anterBTC2 > 0) ? ((precioDeBTC - anterBTC2) / anterBTC2) * 100 : 0;
+      subebaja2 = (anterBTC2 > 0 && precioDeBTC > 0) ? ((variacion2 >= 0) ? "+" : "-") + String(fabs(variacion2), 5) + "%" : "... ERROR ...";
+      anterBTC2 = precioDeBTC;
+    }
     if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
     {
       digitalWrite(m8ax, HIGH);
