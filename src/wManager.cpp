@@ -39,7 +39,7 @@ void saveConfigCallback()
 /* void saveParamsCallback()
 // Callback notifying us of the need to save configuration
 {
-    Serial.println("Should save config");
+    Serial.println("M8AX - Debería Guardar Configuración");
     shouldSaveConfig = true;
     nvMem.saveConfig(&Settings);
 } */

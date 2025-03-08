@@ -21,14 +21,16 @@
  *   si lo has configurado, sino, no te preocupes, no pasa nada, todo seguirá funcionando y
  *   minando como siempre.
  *
+ *
  *           Un minero de Bitcoin es un dispositivo o software que realiza cálculos
  *           matemáticos complejos para verificar y validar transacciones en la red.
  *           Los mineros compiten para resolver estos problemas y añadir un bloque
  *           a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
  *
+ *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6240 Líneas De Código
+ *                     Tmp. De Programación 14H - 6260 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -117,6 +119,8 @@ int abortar = 0;
 int alertatemp = 0;
 int maxtemp = 0;
 int mintemp = 1000;
+int diadecambios;
+float anterBTC = 0.0;
 float maxkh = 0.00;
 float minkh = 1000.00;
 float porcentaje = 0.00;
@@ -183,6 +187,7 @@ String ciudad = "";
 String tempciudad = "";
 String BOT_TOKEN;
 String CHAT_ID;
+String subebaja = ". ESPERANDO .";
 uint32_t rndnumero = 0;
 uint32_t rndnumero2 = 0;
 uint32_t actualizarcalen = 0;
@@ -842,7 +847,7 @@ void recopilaTelegram()
   cadenaEnvio += "Dificultad De La Red - " + monedilla.netwrokDifficulty + "\n";
   cadenaEnvio += "Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )\n";
   cadenaEnvio += "HR Global - " + monedilla.globalHashRate + " EH/s\n";
-  cadenaEnvio += "Precio De BTC - " + monedilla.btcPrice + "\n";
+  cadenaEnvio += "Precio De BTC - " + monedilla.btcPrice + " | En 24H -> " + subebaja + " |\n";
   cadenaEnvio += "FEE Promedio Por TX - " + monedilla.halfHourFee + "\n";
   cadenaEnvio += "Altura De Bloque - " + relojete.blockHeight + "\n";
   telrb.replace("BLOCKS", "");
@@ -908,7 +913,7 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
   cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )";
   cadenaEnvio2 += ". HR Global - " + monedilla.globalHashRate + " EH/s";
-  cadenaEnvio2 += ". Precio De BTC - " + monedilla.btcPrice;
+  cadenaEnvio2 += ". Precio De BTC - " + monedilla.btcPrice + " | En 24H -> " + subebaja + " |\n";
   cadenaEnvio2 += ". FEE Promedio Por TX - " + monedilla.halfHourFee;
   cadenaEnvio2 += ". Altura De Bloque - " + relojete.blockHeight;
   telrb.replace("BLOCKS", "");
@@ -3349,12 +3354,12 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   if (horiac >= 22 || horiac < 8)
   {
     render.setFontColor(TFT_BLACK);
-    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_BLACK);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 131, TFT_BLACK);
   }
   else
   {
     render.setFontColor(TFT_WHITE);
-    render.rdrawString(data.currentHashRate.c_str(), 94, 133, TFT_WHITE);
+    render.rdrawString(data.currentHashRate.c_str(), 94, 131, TFT_WHITE);
   }
   // Print BlockHeight
   render.setFontSize(18);
@@ -3403,6 +3408,8 @@ void tDisplay_BTCprice(unsigned long mElapsed)
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
   tft.print("+ " + String(maxkh) + " - " + String(minkh));
+  tft.setCursor(4, 162);
+  tft.print("BTC 24H - " + subebaja);
 }
 
 /*
@@ -5423,7 +5430,6 @@ void tDisplay_m8axScreen18(unsigned long mElapsed)
     Serial.print(" ");          // Imprime un espacio
   }
   Serial.println();
-  // Imprime el objetivo
   Serial.print("M8AX - Objetivo: ");
   Serial.println("M8AX . " + String(destino));
 
@@ -5624,7 +5630,6 @@ void tDisplay_m8axvida(unsigned long mElapsed)
     initGrid();
     genCount = MAX_GEN_COUNT;
     drawGrid();
-    // Computar Generaciones
     for (int gen = 0; gen < genCount; gen++)
     {
       computeCA();
@@ -6171,6 +6176,21 @@ void analiCadaSegundo(unsigned long frame)
     BOT_TOKEN = Settings.botTelegram;    // Bot De Telegram
     CHAT_ID = Settings.ChanelIDTelegram; // ID Del Canal De Telegram
     startTime = epochTime;               // Guardar el tiempo de inicio cuando el dispositivo arranca
+    diadecambios = dia;
+    anterBTC = monedilla.btcPrice.toFloat();
+  }
+
+  if (anterBTC <= 0.0)
+  {
+    anterBTC = monedilla.btcPrice.toFloat();
+  }
+
+  if (dia != diadecambios)
+  {
+    diadecambios = dia;
+    float variacion = (anterBTC > 0) ? ((monedilla.btcPrice.toFloat() - anterBTC) / anterBTC) * 100 : 0;
+    subebaja = (anterBTC > 0 && monedilla.btcPrice.toFloat() > 0) ? ((variacion >= 0) ? "+" : "-") + String(fabs(variacion), 5) + "%" : ". ERROR .";
+    anterBTC = monedilla.btcPrice.toFloat();
   }
 
   // Si ya ha pasado el tiempo de arranque mínimo (por ejemplo, 10 minutos) y han pasado 2 horas desde el último mensaje

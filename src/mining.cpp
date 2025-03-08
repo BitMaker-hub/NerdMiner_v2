@@ -87,7 +87,7 @@ bool checkPoolConnection(void)
   if (serverIP == IPAddress(1, 1, 1, 1))
   {
     WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("M8AX - DNS Resuelto E IP Guardada (Primera Vez) Obtenida: %s\n", serverIP.toString());
+    Serial.printf("M8AX - DNS Resuelto E IP Guardada ( Primera Vez ) Obtenida: %s\n", serverIP.toString());
   }
 
   // Try connecting pool IP
@@ -462,7 +462,7 @@ void runStratumWorker(void *name)
             shares++;
           if (itt->second->isValid)
           {
-            Serial.println("M8AX - FELICIDADES!!! BLOQUE VÁLIDO ENCONTRADO...");
+            Serial.println("M8AX - !!! FELICIDADES !!! BLOQUE VÁLIDO ENCONTRADO...");
             valids++;
           }
           s_submition_map.erase(itt);
@@ -806,7 +806,7 @@ static inline void nerd_sha_hal_wait_idle()
 void minerWorkerHw(void *task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
-  Serial.printf("[MINERO-MVIIIAX] %d Comenzando Tareas De Minado Por Hardware!\n", miner_id);
+  Serial.printf("[MINERO-MVIIIAX] - %d - ¡ Comenzando Tareas De Minado Por HardWare !\n", miner_id);
 
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
