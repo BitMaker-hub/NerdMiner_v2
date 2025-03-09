@@ -2,13 +2,13 @@ SET(SOURCES screens/ui_SplashScreen.c
     screens/ui_HomeScreen.c
     screens/ui_StatsScreen.c
     screens/ui_ClockScreen.c
+    screens/ui_SettingsScreen.c
     ui.c
     components/ui_comp_hook.c
     ui_helpers.c
-    ui_events.c
-    images/ui_img_sky_png.c
+    images/ui_img_back_splash_png.c
+    images/ui_img_back_back_png.c
     images/ui_img_1552732429.c
-    images/ui_img_metal2_png.c
     fonts/ui_font_calculator128.c
     fonts/ui_font_calculator16.c
     fonts/ui_font_calculator24.c
