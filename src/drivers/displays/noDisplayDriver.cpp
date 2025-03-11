@@ -25,16 +25,15 @@
  *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DARME ALGO COÑO !
  *   - ¡ A MINAR ! NOTA - Si Temperatura A Más De 80°C, El Dispositivo Entra En Deep Sleep 10Min, Pasados Los 10Min, Rearrancará.
  *
- *
  *                             Un minero de Bitcoin es un dispositivo o software que realiza cálculos
  *                             matemáticos complejos para verificar y validar transacciones en la red.
  *                             Los mineros compiten para resolver estos problemas y añadir un bloque
  *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
  *
- *
  *   - /// Minimizando código, maximizando funcionalidad. Solo 1530 líneas de código en 5h. ///
  *
  *                                                     .M8AX Corp. - ¡A Minar!
+ *
  *                                                           FEBRERO 2025
  *
  ***********************************************************************************************************************************/
@@ -115,7 +114,7 @@ int aciertos = 0;
 int fallos = 0;
 int totalci = 0;
 int sumacalen = 0;
-int cuenta24h = 0;
+int cambioDeDia = 0;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
 uint32_t rndnumero = 0;
@@ -1157,6 +1156,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     BOT_TOKEN = Settings.botTelegram;
     CHAT_ID = Settings.ChanelIDTelegram;
   }
+  cambioDeDia = (cambioDeDia == 0 && cuenta == 7) ? dia : cambioDeDia;
   if (cuenta > 25)
   {
     if (hhashrate > maxkh)
@@ -1423,9 +1423,16 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       esp_deep_sleep_start();
     }
   }
+  if (cambioDeDia != dia && cuenta > 10)
+  {
+    precioDeBTC = getPrecioBTC();
+    cambioDeDia = dia;
+    float variacion2 = (anterBTC2 > 0) ? ((precioDeBTC - anterBTC2) / anterBTC2) * 100 : 0;
+    subebaja2 = (anterBTC2 > 0 && precioDeBTC > 0) ? ((variacion2 >= 0) ? "+" : "-") + String(fabs(variacion2), 5) + "%" : "... ERROR ...";
+    anterBTC2 = precioDeBTC;
+  }
   if (epochTime - startTime >= minStartupTime && epochTime - lastTelegramEpochTime >= interval)
   {
-    cuenta24h++;
     sincronizarTiempo();
     vTaskDelay(pdMS_TO_TICKS(250));
     ipPublica = getPublicIP();
@@ -1434,13 +1441,6 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     vTaskDelay(pdMS_TO_TICKS(250));
     float variacion = (anterBTC > 0) ? ((precioDeBTC - anterBTC) / anterBTC) * 100 : 0;
     subebaja = (anterBTC > 0 && precioDeBTC > 0) ? ((variacion >= 0) ? "+" : "-") + String(fabs(variacion), 5) + "%" : "... ERROR ...";
-    if (cuenta24h >= 12)
-    {
-      cuenta24h = 0;
-      float variacion2 = (anterBTC2 > 0) ? ((precioDeBTC - anterBTC2) / anterBTC2) * 100 : 0;
-      subebaja2 = (anterBTC2 > 0 && precioDeBTC > 0) ? ((variacion2 >= 0) ? "+" : "-") + String(fabs(variacion2), 5) + "%" : "... ERROR ...";
-      anterBTC2 = precioDeBTC;
-    }
     if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
     {
       digitalWrite(m8ax, HIGH);
