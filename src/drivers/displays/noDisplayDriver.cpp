@@ -11,31 +11,43 @@
  *   Comportamiento del LED:
  *   -----------------------
  *
- *   - **Al arrancar** → "Hola M8AX" en código Morse con el LED.
- *   - **Led encendido constante tras ligeros parpadeos rápidos** → Modo Configuración
- *   - **Sincronización de hora exitosa al arrancar** → Parpadeo super rápido del LED.
- *   - **Parpadeo fuerte 2 ticks + 2 ticks** → Minando a más de 350 KH/s - ( de 8h a 19h )
- *   - **Parpadeo tenue 2 ticks + 2 ticks** → Minando a más de 350 KH/s - ( de 20h a 7h )
- *   - **Parpadeo fuerte tick medio largo y uno más corto** → Minando a menos de 350 KH/s.
- *   - **Sin LED azul** → No está minando.
- *   - **LED encendiéndose y apagándose a lo loco no simétricos** → ¡Has minado un bloque! ¡ERES RICO!
- *   - **Parpadeo estilo "pi pi" de reloj Casio** → Es una hora en punto.
- *   - **Encendido corto "pi"** → Son y media.
- *   - **Encendido largo (~2s)** → Enviando mensaje a Telegram con estadísticas y datos Nerd. ( si está configurado )
- *   - **Parpadeos largos** → Temperatura superior a 75°C.
- *   - **Share enviado a la pool** → 5 ticks rapidos del LED.
- *   - NOTA - Si La Temperatura Pasa De 80°C, El Dispositivo Entrará En Deep Sleep 10Min, Pasados Los 10Min, Rearrancará.
- *   - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DADME ALGO COÑO !
- *   - ¡ A MINAR !
+ *   I     - **Al arrancar** → "Hola M8AX" en código Morse con el LED.
+ *   II    - **Led encendido constante tras ligeros parpadeos rápidos** → Modo Configuración
+ *   III   - **Sincronización de hora exitosa al arrancar** → Parpadeo super rápido del LED.
+ *   IV    - **Parpadeo fuerte 2 ticks + 2 ticks** → Minando a más de 350 KH/s - ( de 8h a 19h )
+ *   V     - **Parpadeo tenue 2 ticks + 2 ticks** → Minando a más de 350 KH/s - ( de 20h a 7h )
+ *   VI    - **Parpadeo fuerte tick medio largo y uno más corto** → Minando a menos de 350 KH/s.
+ *   VII   - **Sin LED azul** → No está minando.
+ *   VIII  - **LED encendiéndose y apagándose a lo loco no simétricos** → ¡Has minado un bloque! ¡ERES RICO!
+ *   IX    - **Parpadeo estilo "pi pi" de reloj Casio** → Es una hora en punto.
+ *   X     - **Encendido corto "pi"** → Son y media.
+ *   XI    - **Encendido largo (~2s)** → Enviando mensaje a Telegram con estadísticas y datos Nerd. ( si está configurado )
+ *   XII   - **Parpadeo rápido corto después de enviar mensaje a Telegram** → Mensaje enviado correctamente.
+ *   XIII  - **Parpadeo rápido corto + pausa 2s + parpadeo rápido corto después de enviar mensaje a Telegram** → Error En Envío :(
+ *   XIV   - **Parpadeos largos** → Temperatura superior a 75°C.
+ *   XV    - **Share enviado a la pool** → 5 ticks rapidos del LED.
+ *   XVI   - NOTA - Si La Temperatura Pasa De 80°C, El Dispositivo Entrará En Deep Sleep 10Min, Pasados Los 10Min, Rearrancará.
+ *   XVII  - ESPERO QUE OS GUSTE Y MINEIS UN BLOQUE Y SI ES ASÍ ¡ DADME ALGO COÑO !
+ *   XVIII - ¡ A MINAR !
  *
  *
- *                             Un minero de Bitcoin es un dispositivo o software que realiza cálculos
- *                             matemáticos complejos para verificar y validar transacciones en la red.
- *                             Los mineros compiten para resolver estos problemas y añadir un bloque
- *                             a la cadena. A cambio, reciben bitcoins recién creados como recompensa.
+ *   Blockchain es una base de datos descentralizada que almacena registros de transacciones en bloques enlazados.
+ *   Cada bloque tiene información sobre las transacciones, un hash único y el hash del bloque anterior.
+ *   La blockchain es pública y transparente, permitiendo a cualquier persona verificar las transacciones.
+ *   Los bloques son añadidos mediante un proceso llamado minería, que asegura la integridad de la cadena.
+ *   Minería es el proceso de resolver complejas ecuaciones matemáticas mediante poder computacional.
+ *   Hashrate es la medida de la capacidad de procesamiento de un minero, cuántos intentos de hash puede hacer por segundo.
+ *   Un minero de Bitcoin es un dispositivo o programa que participa en la minería de Bitcoin.
+ *   Los mineros validan y agrupan transacciones en bloques, resolviendo un problema matemático complejo.
+ *   El primer minero en resolver el problema obtiene una recompensa en bitcoins por su trabajo.
+ *   Bitcoin mining se basa en el algoritmo SHA-256 para resolver estos problemas de hash.
+ *   Los mineros también validan que las transacciones sean legítimas antes de añadirlas a la blockchain.
+ *   El proceso de minería es competitivo, ya que varios mineros intentan resolver el problema al mismo tiempo.
+ *   Cuanto mayor sea el hashrate, más probabilidades tiene un minero de ganar la recompensa.
+ *   Los mineros ayudan a mantener la seguridad y el funcionamiento descentralizado de la red de Bitcoin.
  *
  *
- *   - /// Minimizando código, maximizando funcionalidad. Solo 1670 líneas de código en 5h. ///
+ *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 1735 líneas de código en 5h --- ///\\\
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *
@@ -119,6 +131,7 @@ int fallos = 0;
 int totalci = 0;
 int sumacalen = 0;
 int cambioDeDia = 0;
+int solouna = 0;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
 uint32_t rndnumero = 0;
@@ -137,11 +150,14 @@ float circumluna = 10921;
 float precioDeBTC = 0.0;
 float anterBTC = 0.0;
 float anterBTC2 = 0.0;
+double parpadeosPorSegundo = 1.0;
 const unsigned long interval = 60 * 2 * 60;
 const unsigned long minStartupTime = interval;
 unsigned long lastTelegramEpochTime = 0;
 unsigned long startTime = 0;
 unsigned long epochTime;
+unsigned long tiempoInicio;
+unsigned long tiempoTranscurrido;
 mining_data data;
 moonPhase mymoonPhase;
 
@@ -559,6 +575,34 @@ void sincroLED()
   enviados = data.completedShares;
 }
 
+void sincroLED2()
+{
+  for (int i = 0; i <= 20; i++)
+  {
+    digitalWrite(m8ax, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(25));
+    digitalWrite(m8ax, LOW);
+    vTaskDelay(pdMS_TO_TICKS(25));
+    totalparpadeosled++;
+  }
+}
+
+void sincroLED3()
+{
+  for (int i = 0; i <= 20; i++)
+  {
+    if (i == 10)
+    {
+      vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+    digitalWrite(m8ax, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(25));
+    digitalWrite(m8ax, LOW);
+    vTaskDelay(pdMS_TO_TICKS(25));
+    totalparpadeosled++;
+  }
+}
+
 double calcularKilometrosPorSegundo(double hashrateKH)
 {
   const double caracteresPorHash = 64.0;
@@ -706,7 +750,7 @@ String generarCalendario(int annio, int mes)
     calendario += String(diasSemana[i]) + "\t";
   }
   calendario += "\n";
-  for (int i = 0; i <= diaInicio; i++)
+  for (int i = 0; i < diaInicio; i++)
   {
     calendario += "\t";
   }
@@ -714,12 +758,13 @@ String generarCalendario(int annio, int mes)
   {
     calendario += String(dia) + "\t";
     diaInicio++;
-    if (diaInicio > 6)
+    if (diaInicio == 7)
     {
-      diaInicio = 0;
       calendario += "\n";
+      diaInicio = 0;
     }
   }
+  calendario += (diaInicio != 0) ? "\n" : "";
   return calendario;
 }
 
@@ -1005,6 +1050,7 @@ void enviarMensajeATelegram(String mensaje)
     sumatele += 1;
     url = "";
     url.reserve(0);
+    sincroLED2();
   }
   else
   {
@@ -1013,6 +1059,7 @@ void enviarMensajeATelegram(String mensaje)
     client.stop();
     url = "";
     url.reserve(0);
+    sincroLED3();
   }
 }
 
@@ -1030,6 +1077,7 @@ void recopilaTelegram()
   dia = timeinfo.tm_mday;
   mes = timeinfo.tm_mon + 1;
   anio = timeinfo.tm_year + 1900;
+  tiempoTranscurrido = millis() - tiempoInicio;
   char horaFormateada[9];
   char fechaFormateada[11];
   sprintf(horaFormateada, "%02d:%02d:%02d", horas, minutos, segundos);
@@ -1044,27 +1092,25 @@ void recopilaTelegram()
   cadenaEnvio = "";
   cadenaEnvio = F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "--------------------- M8AX - PLACA-WROOM-ESP32D-" + String(u4digits) + " DATOS DE MINERÍA - M8AX ---------------------\n";
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "---------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " - % Luna Visible - " + String(porcentajeTexto) + " ----------------------\n";
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   quediase.clear();
   quediase.shrink_to_fit();
+  String numdesemana = convertirARomanos(numSemana(now));
   if (sumatele <= 3999)
   {
-    cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
+    cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + " | Semana Del Año Número - " + numdesemana + "\n";
   }
   else
   {
-    cadenaEnvio += "Mensaje Número - " + String(sumatele) + "\n";
+    cadenaEnvio += "Mensaje Número - " + String(sumatele) + " | Semana Del Año Número - " + numdesemana + "\n";
   }
   String horaFinal = horaEnIngles(horas, minutos, segundos);
   cadenaEnvio += "Hora En Inglés - " + horaFinal + "\n";
   horaFinal = "";
   horaFinal.reserve(0);
-  String numdesemana = convertirARomanos(numSemana(now));
-  cadenaEnvio += "Semana Del Año Número - " + numdesemana + "\n";
   numdesemana.reserve(0);
-  cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm -> ( " + evaluarRSSI(String(WiFi.RSSI())) + " ) | ";
+  cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm -> ( " + evaluarRSSI(String(WiFi.RSSI())) + " ) -> ";
   cadenaEnvio += "Canal WiFi - " + String(WiFi.channel()) + "\n";
   char *hostname = strdup(WiFi.getHostname());
   cadenaEnvio += String("HostName - ((( --- ") + strupr(hostname) + " --- )))\n";
@@ -1076,9 +1122,13 @@ void recopilaTelegram()
   char tbuffer[10];
   dtostrf(Tops, 8, 6, tbuffer);
   cadenaEnvio += "Modelo Del Chip - " + String(ESP.getChipModel()) + ", " + String(ESP.getCpuFreqMHz()) + " Mhz, " + String(ESP.getChipCores()) + " Núcleos, ((( " + String(tbuffer) + " RT.TOPS )))\n";
+  if (tiempoTranscurrido > 0)
+  {
+    parpadeosPorSegundo = (double)totalparpadeosled / ((double)tiempoTranscurrido / 1000.0);
+  }
   cadenaEnvio += "M.RAM Libre - " + String(ESP.getFreeHeap()) + " Bytes\n";
-  cadenaEnvio += "Parpadeos Del Led - " + String(totalparpadeosled) + "\n";
-  cadenaEnvio += "Precio De BTC - " + String(precioDeBTC, 2) + " USD - | En 2H -> " + subebaja + " | En 24H -> " + subebaja2 + " |\n";
+  cadenaEnvio += "Parpadeos Del Led - " + String(totalparpadeosled) + " | Media De Parpadeos/s - " + String(parpadeosPorSegundo, 4) + "\n";
+  cadenaEnvio += "Precio De BTC - " + String(precioDeBTC, 2) + " USD | En 2H -> " + subebaja + " | En 24H -> " + subebaja2 + "\n";
   char output[50];
   convertirTiempo(data.timeMining.c_str(), output);
   cadenaEnvio += "Tiempo Minando - " + String(output) + "\n";
@@ -1138,6 +1188,8 @@ void recopilaTelegram()
     cadenaEnvio += (String(convertirTiempoNoMinando(tiempoDiaSolSegundos)).c_str());
     cadenaEnvio += "\nSi Cada Carácter De Un Hash, Fuera Una Gota De Agua - ";
     cadenaEnvio += String(litrostotales) + " Litros/s";
+    cadenaEnvio += "\nLlenaríamos Una Piscina Olímpica En - ";
+    cadenaEnvio += (String(convertirTiempoNoMinando((uint32_t)(2500000 / litrostotales))).c_str());
     cadenaEnvio += "\nSi Cada KH/s, Fuera Un Paso, Andarías A - ";
     cadenaEnvio += String(kmandando, 5) + " Km/s | " + String(kmandando * 3600.0, 5) + " Km/h";
     cadenaEnvio += "\nLibros Del Quijote Escritos - ";
@@ -1296,11 +1348,11 @@ void noDisplay_NoScreen(unsigned long mElapsed)
           else
           {
             digitalWrite(m8ax, HIGH);
-            vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 10 : 20));
+            vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 25 : 50));
             digitalWrite(m8ax, LOW);
             vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 200 : 100));
             digitalWrite(m8ax, HIGH);
-            vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 10 : 20));
+            vTaskDelay(pdMS_TO_TICKS((cuenta % 2 == 0) ? 25 : 50));
             digitalWrite(m8ax, LOW);
             totalparpadeosled += 2;
           }
@@ -1344,6 +1396,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     costo_mensual = consumo * (24 * 30 / 1000.0f) * 0.15;
     float eficiencia_redondeada = round(eficiencia * 1000) / 1000;
     String numdesemana = convertirARomanos(numSemana(now));
+    tiempoTranscurrido = millis() - tiempoInicio;
     Serial.print("\n-------------------------------------------------------------------------------------------------------------");
     Serial.printf("\n>>> M8AX - Datos Serial Número - %s | PLACA-WROOM-ESP32D-%s\n", String(sumacalen + 1), String(u4digits));
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s | Semana Del Año Número - %s | %% Luna Visible - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana, String(porcentajeTexto).c_str());
@@ -1351,8 +1404,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     Serial.printf(">>> M8AX - Hora En Inglés - %s\n", horaFinal.c_str());
     horaFinal = "";
     horaFinal.reserve(0);
-    Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %d dBm -> ( %s )\n", WiFi.RSSI(), String(evaluarRSSI(String(WiFi.RSSI()))).c_str());
-    Serial.printf(">>> M8AX - Canal WiFi - %s\n", String(WiFi.channel()));
+    Serial.printf(">>> M8AX - Señal WiFi ( RSSI ) -> %d dBm -> ( %s ) -> Canal WiFi - %s\n", WiFi.RSSI(), String(evaluarRSSI(String(WiFi.RSSI()))).c_str(), String(WiFi.channel()));
     quediase.clear();
     quediase.shrink_to_fit();
     char *hostname = strdup(WiFi.getHostname());
@@ -1365,8 +1417,12 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     char tbuffer[10];
     dtostrf(Tops, 8, 6, tbuffer);
     Serial.printf(">>> M8AX - Modelo Del Chip - %s, %d MHz, %d Núcleos, ((( %s RT.TOPS )))\n", String(ESP.getChipModel()), ESP.getCpuFreqMHz(), ESP.getChipCores(), String(tbuffer));
-    Serial.printf(">>> M8AX - M.RAM Libre - %d Bytes | Parpadeos Del Led - %u\n", ESP.getFreeHeap(), totalparpadeosled);
-    Serial.printf(">>> M8AX - Precio De BTC - %.2f USD - | En 2H -> %s | En 24H -> %s |\n", precioDeBTC, subebaja.c_str(), subebaja2.c_str());
+    if (tiempoTranscurrido > 0)
+    {
+      parpadeosPorSegundo = (double)totalparpadeosled / ((double)tiempoTranscurrido / 1000.0);
+    }
+    Serial.printf(">>> M8AX - M.RAM Libre - %d Bytes | Parpadeos Del Led - %u | Media De Parpadeos/s - %.4f\n", ESP.getFreeHeap(), totalparpadeosled, parpadeosPorSegundo);
+    Serial.printf(">>> M8AX - Precio De BTC - %.2f USD | En 2H -> %s | En 24H -> %s\n", precioDeBTC, subebaja.c_str(), subebaja2.c_str());
     Serial.printf(">>> M8AX - Bloques Válidos - %s\n", data.valids.c_str());
     Serial.printf(">>> M8AX - Plantillas De Bloques - %s\n", data.templates.c_str());
     Serial.printf(">>> M8AX - Mejor Dificultad Alcanzada - %s\n", data.bestDiff.c_str());
@@ -1422,6 +1478,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       Serial.printf(">>> M8AX - Al Sol Llegaríamos En - %s\n", String(convertirTiempoNoMinando(tiempoSolSegundos)).c_str());
       Serial.printf(">>> M8AX - Recorreríamos El Diámetro Del Sol En - %s\n", String(convertirTiempoNoMinando(tiempoDiaSolSegundos)).c_str());
       Serial.printf(">>> M8AX - Si Cada Carácter De Un Hash, Fuera Una Gota De Agua - %s Litros/s\n", String(litrostotales).c_str());
+      Serial.printf(">>> M8AX - Llenaríamos Una Piscina Olímpica En - %s\n", (String(convertirTiempoNoMinando((uint32_t)(2500000 / litrostotales))).c_str()));
       Serial.printf(">>> M8AX - Si Cada KH/s, Fuera Un Paso, Andarías A - %s Km/s | %s Km/h\n", String(kmandando, 5).c_str(), String(kmandando * 3600.0, 5).c_str());
       Serial.printf(">>> M8AX - Libros Del Quijote Escritos - %.2f QJS/s\n", quijoteseg);
       Serial.printf(">>> M8AX - Si Grabamos Hashes En TxT, La Velocidad Sería - %.2f MB/s - %.2f TB/Día\n", mbteseg, tbdia);
@@ -1565,7 +1622,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       digitalWrite(m8ax, HIGH);
       totalparpadeosled++;
       vTaskDelay(pdMS_TO_TICKS(2000));
-      recopilaTelegram();
+      if (cuenta > 30)
+      {
+        recopilaTelegram();
+      }
       lastTelegramEpochTime = epochTime;
     }
     anterBTC = precioDeBTC;
@@ -1575,6 +1635,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
 void noDisplay_LoadingScreen(void)
 {
   pinMode(m8ax, OUTPUT);
+  tiempoInicio = millis();
   Serial.println("\n... M8AX - ARRANCANDO - M8AX ...\n\n... M8AX - SALUDO EN MORSE - M8AX ...\n");
   for (int i = 0; i < morseLength; i++)
   {
@@ -1614,20 +1675,24 @@ void noDisplay_LoadingScreen(void)
 
 void noDisplay_SetupScreen(void)
 {
-  Serial.println("-----------------------------------------------------------------");
-  Serial.println("... M8AX - PANTALLA DE CONFIGURACIÓN ...");
-  Serial.println("-----------------------------------------------------------------");
-  Serial.println("... M8AX - GRÁCIAS POR USAR MI FIRMWARE ...");
-  Serial.println("... M8AX - NO TE OLVIDES DE VISITAR MI CANAL DE YOUTUBE ...");
-  Serial.println("... M8AX - HTTPS://YOUTUBE.COM/M8AX ...");
-  Serial.println("-----------------------------------------------------------------");
-  for (int i = 1; i <= 30; i++)
+  if (solouna == 0)
   {
-    digitalWrite(m8ax, HIGH);
-    vTaskDelay(pdMS_TO_TICKS((esp_random() % 50) + 1));
-    digitalWrite(m8ax, LOW);
-    vTaskDelay(pdMS_TO_TICKS((esp_random() % 200) + 1));
-    totalparpadeosled++;
+    solouna++;
+    Serial.println("-----------------------------------------------------------------");
+    Serial.println("... M8AX - PANTALLA DE CONFIGURACIÓN ...");
+    Serial.println("-----------------------------------------------------------------");
+    Serial.println("... M8AX - GRÁCIAS POR USAR MI FIRMWARE ...");
+    Serial.println("... M8AX - NO TE OLVIDES DE VISITAR MI CANAL DE YOUTUBE ...");
+    Serial.println("... M8AX - HTTPS://YOUTUBE.COM/M8AX ...");
+    Serial.println("-----------------------------------------------------------------");
+    for (int i = 1; i <= 30; i++)
+    {
+      digitalWrite(m8ax, HIGH);
+      vTaskDelay(pdMS_TO_TICKS((esp_random() % 50) + 1));
+      digitalWrite(m8ax, LOW);
+      vTaskDelay(pdMS_TO_TICKS((esp_random() % 200) + 1));
+      totalparpadeosled++;
+    }
   }
   digitalWrite(m8ax, HIGH);
   totalparpadeosled++;
@@ -1661,10 +1726,10 @@ DisplayDriver noDisplayDriver = {
 
 /***********************************************************************************************************************************
  *
- *
  *                                                  F   I   N          D   E
  *
  *                                                P   R   O   G   R   A   M   A
  *
+ *                                       ¡   H   A   S   T   A          O   T   R   A   !
  *
  ***********************************************************************************************************************************/

@@ -127,7 +127,7 @@ const char HTTP_STYLE[]            PROGMEM = "<style>"
 
 #ifndef WM_NOHELP
 const char HTTP_HELP[]             PROGMEM =
- "<br/><h3>Páginas Disponibles</h3><hr>"
+ "<br/><h3>M8AX - Páginas Disponibles - M8AX</h3><hr>"
  "<table class='table'>"
  "<thead><tr><th>Página</th><th>Función</th></tr></thead><tbody>"
  "<tr><td><a href='/'>/</a></td>"

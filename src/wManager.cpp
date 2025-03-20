@@ -160,7 +160,7 @@ void init_WifiManager()
     sprintf(charZone, "%d", Settings.Timezone);
     WiFiManagerParameter time_text_box_num("TimeZone", "Zona Horaria Desde UTC (-12/+12)", charZone, 3);
 
-    WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Nuevas Funcionalidades</label>");
+    WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">M8AX - Nuevas Funcionalidades - M8AX</label>");
 
     char checkboxParams[24] = "type=\"checkbox\"";
     if (Settings.saveStats)
