@@ -331,7 +331,7 @@ String getPoolAPIUrl(void) {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "nerdminers.org") {
+        if (Settings.PoolAddress == "pool.nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
