@@ -31,6 +31,7 @@
  *   XVIII - ¡ A MINAR !
  *
  *
+ *
  *   Blockchain es una base de datos descentralizada que almacena registros de transacciones en bloques enlazados.
  *   Cada bloque tiene información sobre las transacciones, un hash único y el hash del bloque anterior.
  *   La blockchain es pública y transparente, permitiendo a cualquier persona verificar las transacciones.
@@ -45,13 +46,29 @@
  *   El proceso de minería es competitivo, ya que varios mineros intentan resolver el problema al mismo tiempo.
  *   Cuanto mayor sea el hashrate, más probabilidades tiene un minero de ganar la recompensa.
  *   Los mineros ayudan a mantener la seguridad y el funcionamiento descentralizado de la red de Bitcoin.
+ *   1 - "Bitcoin es la mejor reserva de valor del siglo XXI." – Michael Saylor, CEO de MicroStrategy.
+ *   2 - "Creo que Bitcoin es un refugio seguro contra la inflación y un activo para el futuro." – Tim Draper, inversionista.
+ *   3 - "La tecnología de Bitcoin es una revolución que cambiará el sistema financiero global." – Jack Dorsey, CEO de Block.
+ *   4 - "Bitcoin es la libertad financiera que todos esperaban." – Winklevoss Twins, fundadores de Gemini.
+ *   5 - "Forma de almacenar valor que no depende de gobiernos ni instituciones." – Barry Silbert, CEO de Digital Currency Group.
  *
  *
- *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 1735 líneas de código en 5h --- ///\\\
+ *
+ *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 2000 líneas de código en 6h --- ///\\\
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *
  *                                                            MARZO 2025
+ *
+ *                        ===============================================================================
+ *                                         ___  ___   _     _   _   _   _       ___  __    __
+ *                                        /   |/   | | |   / / | | | | | |     /   | \ \  / /
+ *                                       / /|   /| | | |  / /  | | | | | |    / /| |  \ \/ /
+ *                                      / / |__/ | | | | / /   | | | | | |   / / | |   )  (
+ *                                     / /       | | | |/ /    | | | | | |  / / -| |  / /\ \
+ *                                    /_/        |_| |___/     |_| |_| |_| /_/   |_| /_/  \_\
+ *
+ *                        ===============================================================================
  *
  ***********************************************************************************************************************************/
 
@@ -66,6 +83,7 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
+#include <clientntp.h>
 #include <ArduinoJson.h>
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
@@ -122,6 +140,8 @@ String CHAT_ID;
 String enviados;
 String ipPublica = "";
 String subebaja = "... ESPERANDO ...", subebaja2 = "... ESPERANDO ...";
+String salidaypuesta;
+std::pair<String, String> Tresultado;
 const int morseLength = sizeof(morse) / sizeof(morse[0]);
 int sumatele = 1;
 int maxtemp = 0;
@@ -131,7 +151,7 @@ int fallos = 0;
 int totalci = 0;
 int sumacalen = 0;
 int cambioDeDia = 0;
-int solouna = 0;
+int solouna = 0, zonilla;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
 uint32_t rndnumero = 0;
@@ -177,6 +197,204 @@ void noDisplay_AlternateScreenState(void)
 
 void noDisplay_AlternateRotation(void)
 {
+}
+
+int obtenerUltimoDomingo(int mes, int anio)
+{
+  struct tm tiempo = {};
+  tiempo.tm_year = anio - 1900;
+  tiempo.tm_mon = mes - 1;
+  tiempo.tm_mday = 1;
+  mktime(&tiempo);
+  int diaSemana = tiempo.tm_wday;
+  int ultimoDomingo = 31 - (diaSemana + 1) % 7;
+  return ultimoDomingo;
+}
+
+bool esHorarioDeVerano(int mes, int dia, int anio)
+{
+  int ultimoDomingoMarzo = obtenerUltimoDomingo(3, anio);
+  int ultimoDomingoOctubre = obtenerUltimoDomingo(10, anio);
+  if (mes > 3 && mes < 10)
+  {
+    return true;
+  }
+  else if (mes == 3 && dia >= ultimoDomingoMarzo)
+  {
+    return true;
+  }
+  else if (mes == 10 && dia <= ultimoDomingoOctubre)
+  {
+    return true;
+  }
+  return false;
+}
+
+int obtenerZonaHoraria()
+{
+  time_t now = time(0);
+  struct tm t;
+  localtime_r(&now, &t);
+  int mes = t.tm_mon + 1;
+  int dia = t.tm_mday;
+  int anio = t.tm_year + 1900;
+  if (esHorarioDeVerano(mes, dia, anio))
+  {
+    return 2;
+  }
+  else
+  {
+    return 1;
+  }
+}
+
+double degToRad(double degrees)
+{
+  return degrees * (PI / 180.0);
+}
+
+double radToDeg(double radians)
+{
+  return radians * (180.0 / PI);
+}
+
+void calculateSunTimes(int year, int month, int day, double lat, double lng, double &sunrise, double &sunset)
+{
+  int N = (int)(367 * year - floor((7 * (year + floor((month + 9) / 12.0))) / 4) + floor((275 * month) / 9) + day - 730531.5);
+  double M = fmod(356.0470 + 0.9856002585 * N, 360);
+  double C = 1.9148 * sin(degToRad(M)) + 0.0200 * sin(degToRad(2 * M)) + 0.0003 * sin(degToRad(3 * M));
+  double lambda = fmod(M + C + 282.634, 360);
+  double delta = asin(sin(degToRad(lambda)) * sin(degToRad(23.44)));
+  double cosH = (sin(degToRad(-0.83)) - sin(degToRad(lat)) * sin(delta)) / (cos(degToRad(lat)) * cos(delta));
+  if (cosH > 1)
+  {
+    sunrise = -1;
+    sunset = -1;
+    return;
+  }
+  else if (cosH < -1)
+  {
+    sunrise = 0;
+    sunset = 24;
+    return;
+  }
+  double H = radToDeg(acos(cosH)) / 15.0;
+  double solarNoon = fmod(720 - 4 * lng, 1440) / 60.0;
+  sunrise = solarNoon - H;
+  sunset = solarNoon + H;
+}
+
+String getSunriseSunset(double latitude, double longitude)
+{
+  int year, month, day;
+  time_t epochTime = time(nullptr);
+  struct tm timeinfo;
+  localtime_r(&epochTime, &timeinfo);
+  day = timeinfo.tm_mday;
+  month = timeinfo.tm_mon + 1;
+  year = timeinfo.tm_year + 1900;
+  double sunriseUTC, sunsetUTC;
+  calculateSunTimes(year, month, day, latitude, longitude, sunriseUTC, sunsetUTC);
+  double timezoneOffset = Settings.Timezone;
+  double sunriseLocal = sunriseUTC + timezoneOffset;
+  double sunsetLocal = sunsetUTC + timezoneOffset;
+  if (sunriseLocal < 0 || sunsetLocal < 0)
+  {
+    return "El Sol No Sale Ni Se Pone ( Noche Polar )";
+  }
+  if (sunriseLocal > 24 || sunsetLocal > 24)
+  {
+    return "El Sol Es Visible Todo El Día ( Día Polar )";
+  }
+  char buffer[50];
+  snprintf(buffer, sizeof(buffer), "Sol ^ - %.2f | Sol v - %.2f", sunriseLocal, sunsetLocal);
+  Serial.println("M8AX - Obtenida Salida Y Puesta De Sol");
+  return String(buffer);
+}
+
+std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
+{
+  String ciudad = "ERROR";
+  String temperatura = "ERROR";
+  String latitud = "";
+  String longitud = "";
+  HTTPClient http;
+  String urlGeo = "http://ip-api.com/json/" + ip + "?fields=city,lat,lon";
+  http.begin(urlGeo);
+  int httpCode = http.GET();
+  if (httpCode > 0)
+  {
+    String payload = http.getString();
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, payload);
+    payload = "";
+    payload.reserve(0);
+    if (error)
+    {
+      Serial.println("M8AX - Error Al Parsear JSON De Geolocalización");
+      return std::make_pair(ciudad, temperatura);
+    }
+    ciudad = doc["city"].as<String>();
+    latitud = String(doc["lat"].as<float>(), 6);
+    longitud = String(doc["lon"].as<float>(), 6);
+    salidaypuesta = getSunriseSunset(latitud.toDouble(), longitud.toDouble());
+    Serial.println("M8AX - Obtenida Ciudad");
+  }
+  else
+  {
+    Serial.println("M8AX - Error Al Obtener Datos De Geolocalización");
+    return std::make_pair(ciudad, temperatura);
+  }
+  http.end();
+  if (latitud != "" && longitud != "")
+  {
+    WiFiClientSecure client;
+    client.setInsecure();
+    String urlTemp = "https://wttr.in/" + latitud + "," + longitud + "?format=%t";
+    http.begin(client, urlTemp);
+    httpCode = http.GET();
+    urlTemp.reserve(0);
+    if (httpCode > 0)
+    {
+      temperatura = http.getString();
+      Serial.println("M8AX - Obtenida Temperatura");
+    }
+    else
+    {
+      Serial.println("M8AX - Error Al Obtener Temperatura");
+    }
+    http.end();
+  }
+  else
+  {
+    Serial.println("M8AX - Coordenadas No Encontradas Para La IP");
+  }
+  return std::make_pair(ciudad, temperatura);
+}
+
+uint32_t floatToUint32(float num)
+{
+  if (num < 0)
+    return 0;
+  if (num > UINT32_MAX)
+    return UINT32_MAX;
+  return static_cast<uint32_t>(round(num));
+}
+
+float calcularDiferenciaDias()
+{
+  struct tm compileTime = {0};
+  char fechaHoraCompilacion[25];
+  snprintf(fechaHoraCompilacion, sizeof(fechaHoraCompilacion), "%s %s", __DATE__, __TIME__);
+  strptime(fechaHoraCompilacion, "%b %d %Y %H:%M:%S", &compileTime);
+  time_t compiledEpoch = mktime(&compileTime);
+  time_t now;
+  struct tm timeinfo;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  time_t currentEpoch = mktime(&timeinfo);
+  float diferenciaDias = (float)(currentEpoch - compiledEpoch) / (60 * 60 * 24);
+  return diferenciaDias;
 }
 
 String horaEnIngles(int hora, int minutos, int segundos)
@@ -915,7 +1133,20 @@ std::string obtenerDiaSemana(const std::string &fecha)
 
 void sincronizarTiempo()
 {
+  if (Settings.Timezone == 1 || Settings.Timezone == 2)
+  {
+    zonilla = obtenerZonaHoraria();
+    if (zonilla == 1)
+    {
+      Settings.Timezone = 1;
+    }
+    else if (zonilla == 2)
+    {
+      Settings.Timezone = 2;
+    }
+  }
   int offset = Settings.Timezone * 3600;
+  timeClient.setTimeOffset(3600 * Settings.Timezone);
   configTime(offset, 0, "pool.ntp.org", "time.nist.gov");
   Serial.println("M8AX - Esperando Sincronización Con NTP...");
   time_t now;
@@ -1105,6 +1336,8 @@ void recopilaTelegram()
   {
     cadenaEnvio += "Mensaje Número - " + String(sumatele) + " | Semana Del Año Número - " + numdesemana + "\n";
   }
+  cadenaEnvio += "F.C.FW - " + String(__DATE__) + " A Las " + String(__TIME__) + " | Hace - " + String(convertirTiempoNoMinando(floatToUint32(calcularDiferenciaDias() * 86400))).c_str() + "\n";
+  cadenaEnvio += Tresultado.first + ", " + Tresultado.second + " | " + salidaypuesta.c_str() + " | UTC " + ((zonilla >= 0) ? "+" : "") + String(zonilla) + "\n";
   String horaFinal = horaEnIngles(horas, minutos, segundos);
   cadenaEnvio += "Hora En Inglés - " + horaFinal + "\n";
   horaFinal = "";
@@ -1113,15 +1346,15 @@ void recopilaTelegram()
   cadenaEnvio += "Señal WiFi ( RSSI ) -> " + String(WiFi.RSSI()) + " dBm -> ( " + evaluarRSSI(String(WiFi.RSSI())) + " ) -> ";
   cadenaEnvio += "Canal WiFi - " + String(WiFi.channel()) + "\n";
   char *hostname = strdup(WiFi.getHostname());
-  cadenaEnvio += String("HostName - ((( --- ") + strupr(hostname) + " --- )))\n";
+  cadenaEnvio += String("HostName - ") + strupr(hostname) + "\n";
   free(hostname);
-  cadenaEnvio += String("Dir.MAC - ((( --- ") + WiFi.macAddress().c_str() + " --- )))\n";
-  cadenaEnvio += String("IP Pública - ((( --- ") + ipPublica + " --- )))\n";
-  cadenaEnvio += String("IP Local - ((( --- ") + WiFi.localIP().toString() + " --- )))\n";
+  cadenaEnvio += String("Dir.MAC - ") + WiFi.macAddress().c_str() + "\n";
+  cadenaEnvio += String("IP Pública - ") + ipPublica + "\n";
+  cadenaEnvio += String("IP Local - ") + WiFi.localIP().toString() + "\n";
   float Tops = ((data.currentHashRate.toFloat() * 1000) * 2560) / 1000000000;
   char tbuffer[10];
   dtostrf(Tops, 8, 6, tbuffer);
-  cadenaEnvio += "Modelo Del Chip - " + String(ESP.getChipModel()) + ", " + String(ESP.getCpuFreqMHz()) + " Mhz, " + String(ESP.getChipCores()) + " Núcleos, ((( " + String(tbuffer) + " RT.TOPS )))\n";
+  cadenaEnvio += "Modelo Del Chip - " + String(ESP.getChipModel()) + ", " + String(ESP.getCpuFreqMHz()) + " Mhz, " + String(ESP.getChipCores()) + " Núcleos, ( " + String(tbuffer) + " RT.TOPS )\n";
   if (tiempoTranscurrido > 0)
   {
     parpadeosPorSegundo = (double)totalparpadeosled / ((double)tiempoTranscurrido / 1000.0);
@@ -1213,7 +1446,6 @@ void recopilaTelegram()
   cadenaEnvio += "Pool De Minería - " + Settings.PoolAddress + "\n";
   cadenaEnvio += "Puerto Del Pool - " + String(Settings.PoolPort) + "\n";
   cadenaEnvio += "Tu Wallet De BTC - " + String(Settings.BtcWallet) + "\n";
-  cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += urlsm8ax[indice];
   cadenaEnvio += F("\n--------------------------------------------------------------------------------------------------\n");
   if (data.valids.toInt() == 1)
@@ -1294,8 +1526,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     epochTime = time(nullptr);
     startTime = epochTime;
     precioDeBTC = getPrecioBTC();
+    Tresultado = obtenerCiudadYTemperatura(ipPublica);
     anterBTC = precioDeBTC;
     anterBTC2 = precioDeBTC;
+    zonilla = Settings.Timezone;
     BOT_TOKEN = Settings.botTelegram;
     CHAT_ID = Settings.ChanelIDTelegram;
   }
@@ -1381,6 +1615,10 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     }
     fiestaLED();
   }
+  if (cuenta == 15)
+  {
+    sincronizarTiempo();
+  }
   if (cuenta % 30 == 0)
   {
     uint8_t mac[6];
@@ -1397,9 +1635,21 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     float eficiencia_redondeada = round(eficiencia * 1000) / 1000;
     String numdesemana = convertirARomanos(numSemana(now));
     tiempoTranscurrido = millis() - tiempoInicio;
+    if (cuenta % 1800 == 0)
+    {
+      Tresultado.first = "";
+      Tresultado.second = "";
+      salidaypuesta.clear();
+      salidaypuesta.reserve(0);
+      Tresultado.first.reserve(0);
+      Tresultado.second.reserve(0);
+      Tresultado = obtenerCiudadYTemperatura(ipPublica);
+    }
     Serial.print("\n-------------------------------------------------------------------------------------------------------------");
     Serial.printf("\n>>> M8AX - Datos Serial Número - %s | PLACA-WROOM-ESP32D-%s\n", String(sumacalen + 1), String(u4digits));
+    Serial.printf(">>> M8AX - F.C.FW - %s A Las %s | Hace %s\n", __DATE__, __TIME__, String(convertirTiempoNoMinando(floatToUint32(calcularDiferenciaDias() * 86400))).c_str());
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s | Semana Del Año Número - %s | %% Luna Visible - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana, String(porcentajeTexto).c_str());
+    Serial.printf(">>> M8AX - %s, %s | %s | UTC %s%d\n", Tresultado.first.c_str(), Tresultado.second.c_str(), salidaypuesta.c_str(), (zonilla >= 0) ? "+" : "", zonilla);
     String horaFinal = horaEnIngles(horas, minutos, segundos);
     Serial.printf(">>> M8AX - Hora En Inglés - %s\n", horaFinal.c_str());
     horaFinal = "";
@@ -1408,15 +1658,15 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     quediase.clear();
     quediase.shrink_to_fit();
     char *hostname = strdup(WiFi.getHostname());
-    Serial.printf(">>> M8AX - HostName - ((( --- %s --- )))\n", strupr(hostname));
+    Serial.printf(">>> M8AX - HostName - %s\n", strupr(hostname));
     free(hostname);
-    Serial.printf(">>> M8AX - Dir.MAC - ((( --- %s --- )))\n", WiFi.macAddress().c_str());
-    Serial.printf(">>> M8AX - IP Pública - ((( --- %s --- )))\n", ipPublica);
-    Serial.printf(">>> M8AX - IP Local - ((( --- %s --- )))\n", WiFi.localIP().toString());
+    Serial.printf(">>> M8AX - Dir.MAC - %s\n", WiFi.macAddress().c_str());
+    Serial.printf(">>> M8AX - IP Pública - %s\n", ipPublica);
+    Serial.printf(">>> M8AX - IP Local - %s\n", WiFi.localIP().toString());
     float Tops = ((data.currentHashRate.toFloat() * 1000) * 2560) / 1000000000;
     char tbuffer[10];
     dtostrf(Tops, 8, 6, tbuffer);
-    Serial.printf(">>> M8AX - Modelo Del Chip - %s, %d MHz, %d Núcleos, ((( %s RT.TOPS )))\n", String(ESP.getChipModel()), ESP.getCpuFreqMHz(), ESP.getChipCores(), String(tbuffer));
+    Serial.printf(">>> M8AX - Modelo Del Chip - %s, %d MHz, %d Núcleos, ( %s RT.TOPS )\n", String(ESP.getChipModel()), ESP.getCpuFreqMHz(), ESP.getChipCores(), String(tbuffer));
     if (tiempoTranscurrido > 0)
     {
       parpadeosPorSegundo = (double)totalparpadeosled / ((double)tiempoTranscurrido / 1000.0);
@@ -1615,6 +1865,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     vTaskDelay(pdMS_TO_TICKS(250));
     precioDeBTC = getPrecioBTC();
     vTaskDelay(pdMS_TO_TICKS(250));
+    Tresultado = obtenerCiudadYTemperatura(ipPublica);
     float variacion = (anterBTC > 0) ? ((precioDeBTC - anterBTC) / anterBTC) * 100 : 0;
     subebaja = (anterBTC > 0 && precioDeBTC > 0) ? ((variacion >= 0) ? "+" : "-") + String(fabs(variacion), 5) + "%" : "... ERROR ...";
     if (BOT_TOKEN != "NO CONFIGURADO" && CHAT_ID != "NO CONFIGURADO")
@@ -1726,10 +1977,24 @@ DisplayDriver noDisplayDriver = {
 
 /***********************************************************************************************************************************
  *
+ *                        ===============================================================================
+ *
  *                                                  F   I   N          D   E
  *
  *                                                P   R   O   G   R   A   M   A
  *
+ *                        ===============================================================================
+ *
  *                                       ¡   H   A   S   T   A          O   T   R   A   !
+ *
+ *                        ===============================================================================
+ *                                         ___  ___   _     _   _   _   _       ___  __    __
+ *                                        /   |/   | | |   / / | | | | | |     /   | \ \  / /
+ *                                       / /|   /| | | |  / /  | | | | | |    / /| |  \ \/ /
+ *                                      / / |__/ | | | | / /   | | | | | |   / / | |   )  (
+ *                                     / /       | | | |/ /    | | | | | |  / / -| |  / /\ \
+ *                                    /_/        |_| |___/     |_| |_| |_| /_/   |_| /_/  \_\
+ *
+ *                        ===============================================================================
  *
  ***********************************************************************************************************************************/

@@ -30,7 +30,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 14H - 6260 Líneas De Código
+ *                     Tmp. De Programación 15H - 6345 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -120,6 +120,7 @@ int alertatemp = 0;
 int maxtemp = 0;
 int mintemp = 1000;
 int diadecambios;
+int zonilla;
 float anterBTC = 0.0;
 float maxkh = 0.00;
 float minkh = 1000.00;
@@ -233,7 +234,6 @@ void tDisplay_Init(void)
   pinMode(PIN_ENABLE5V, OUTPUT);
   digitalWrite(PIN_ENABLE5V, HIGH);
 #endif
-
   tft.init();
 #ifdef LILYGO_S3_T_EMBED
   tft.setRotation(ROTATION_270);
@@ -270,6 +270,75 @@ void tDisplay_AlternateScreenState(void)
 void tDisplay_AlternateRotation(void)
 {
   tft.setRotation(flipRotation(tft.getRotation()));
+}
+
+// Esta función calcula y retorna el día del último domingo del mes
+// para un año y mes dados. Utiliza la función mktime para obtener
+// el día de la semana del primer día del mes y luego calcula la
+// fecha del último domingo correspondiente. La función toma como
+// parámetros el mes (1 a 12) y el año (en formato de 4 dígitos),
+// y devuelve el día del mes en el que ocurre el último domingo.
+
+int obtenerUltimoDomingo(int mes, int anio)
+{
+  struct tm tiempo = {};
+  tiempo.tm_year = anio - 1900;
+  tiempo.tm_mon = mes - 1;
+  tiempo.tm_mday = 1;
+  mktime(&tiempo);
+  int diaSemana = tiempo.tm_wday;
+  int ultimoDomingo = 31 - (diaSemana + 1) % 7;
+  return ultimoDomingo;
+}
+
+// Esta función determina si una fecha dada (mes, día, año) corresponde al horario de verano.
+// Utiliza la función obtenerUltimoDomingo para encontrar el último domingo de marzo y octubre,
+// que son los límites del horario de verano en muchos países. Si la fecha está entre estos dos
+// límites (excluyendo el primer domingo de marzo y el último domingo de octubre), o si está en
+// marzo después del último domingo o en octubre antes del último domingo, retorna verdadero.
+// En caso contrario, retorna falso.
+
+bool esHorarioDeVerano(int mes, int dia, int anio)
+{
+  int ultimoDomingoMarzo = obtenerUltimoDomingo(3, anio);
+  int ultimoDomingoOctubre = obtenerUltimoDomingo(10, anio);
+  if (mes > 3 && mes < 10)
+  {
+    return true;
+  }
+  else if (mes == 3 && dia >= ultimoDomingoMarzo)
+  {
+    return true;
+  }
+  else if (mes == 10 && dia <= ultimoDomingoOctubre)
+  {
+    return true;
+  }
+  return false;
+}
+
+// Esta función determina la zona horaria en función del horario de verano.
+// Utiliza la función esHorarioDeVerano para verificar si la fecha actual
+// se encuentra dentro del periodo de horario de verano. Si es así, retorna 2
+// (indicando la zona horaria de verano, generalmente UTC+2). Si no está en
+// horario de verano, retorna 1 (indicando la zona horaria estándar, generalmente UTC+1).
+
+int obtenerZonaHoraria()
+{
+  time_t now = time(0);
+  struct tm t;
+  localtime_r(&now, &t);
+  int mes = t.tm_mon + 1;
+  int dia = t.tm_mday;
+  int anio = t.tm_year + 1900;
+  if (esHorarioDeVerano(mes, dia, anio))
+  {
+    return 2;
+  }
+  else
+  {
+    return 1;
+  }
 }
 
 /**
@@ -6220,6 +6289,22 @@ void tDisplay_AnimateCurrentScreen(unsigned long frame)
   if (ContadorEspecial % 5 == 0)
   {
     analiCadaSegundo(frame);
+  }
+  if (ContadorEspecial % 600 == 0)
+  {
+    if (Settings.Timezone == 1 || Settings.Timezone == 2)
+    {
+      zonilla = obtenerZonaHoraria();
+      if (zonilla == 1)
+      {
+        Settings.Timezone = 1;
+      }
+      else if (zonilla == 2)
+      {
+        Settings.Timezone = 2;
+      }
+    }
+    timeClient.setTimeOffset(3600 * Settings.Timezone);
   }
 }
 
