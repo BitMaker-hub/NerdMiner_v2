@@ -54,7 +54,7 @@
  *
  *
  *
- *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 2000 líneas de código en 6h --- ///\\\
+ *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 2010 líneas de código en 6h --- ///\\\
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *
@@ -87,6 +87,7 @@
 #include <ArduinoJson.h>
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
+#include "drivers/storage/nvMemory.h"
 #include <urlencode.h>
 #include <string>
 #include "mbedtls/sha256.h"
@@ -147,10 +148,8 @@ int sumatele = 1;
 int maxtemp = 0;
 int mintemp = 1000;
 int aciertos = 0;
-int fallos = 0;
-int totalci = 0;
-int sumacalen = 0;
-int cambioDeDia = 0;
+int fallos = 0, totalci = 0;
+int sumacalen = 0, cambioDeDia = 0;
 int solouna = 0, zonilla;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
@@ -180,6 +179,7 @@ unsigned long tiempoInicio;
 unsigned long tiempoTranscurrido;
 mining_data data;
 moonPhase mymoonPhase;
+extern nvMemory nvMem;
 
 typedef struct
 {
@@ -1135,14 +1135,24 @@ void sincronizarTiempo()
 {
   if (Settings.Timezone == 1 || Settings.Timezone == 2)
   {
-    zonilla = obtenerZonaHoraria();
+    int zonilla = obtenerZonaHoraria();
     if (zonilla == 1)
     {
-      Settings.Timezone = 1;
+      if (Settings.Timezone != zonilla)
+      {
+        Settings.Timezone = 1;
+        nvMem.saveConfig(&Settings);
+        Serial.println("M8AX - Cambiando TimeZone A Horario De Invierno... Que Actualmente Es UTC +" + String(Settings.Timezone));
+      }
     }
     else if (zonilla == 2)
     {
-      Settings.Timezone = 2;
+      if (Settings.Timezone != zonilla)
+      {
+        Settings.Timezone = 2;
+        nvMem.saveConfig(&Settings);
+        Serial.println("M8AX - Cambiando TimeZone A Horario De Verano... Que Actualmente Es UTC +" + String(Settings.Timezone));
+      }
     }
   }
   int offset = Settings.Timezone * 3600;
