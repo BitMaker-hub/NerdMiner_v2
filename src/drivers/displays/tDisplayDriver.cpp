@@ -32,7 +32,7 @@
  *
  *                              PARA MÁS INFORMACIÓN LEER PDF
  *
- *                     Tmp. De Programación 15H - 6535 Líneas De Código
+ *                     Tmp. De Programación 15H - 6395 Líneas De Código
  *                     ------------------------------------------------
  *
  ********************************************************************************************/
@@ -64,7 +64,6 @@
 #include <math.h>
 #include "time.h"
 #include <SPI.h>
-#include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <esp_system.h>
 #include <stdlib.h>
@@ -277,117 +276,17 @@ void tDisplay_AlternateRotation(void)
   tft.setRotation(flipRotation(tft.getRotation()));
 }
 
-// Convierte un tiempo dado en segundos a un formato legible "DDd HHh MMm SSs" y lo devuelve como una cadena estática.
-
-const char *convertirTiempo(uint32_t segundos)
-{
-  uint32_t dias, horas, minutos, segs;
-  dias = segundos / 86400;
-  segundos %= 86400;
-  horas = segundos / 3600;
-  segundos %= 3600;
-  minutos = segundos / 60;
-  segs = segundos % 60;
-  static char buffer[20];
-  snprintf(buffer, sizeof(buffer), "%02lud %02luh %02lum %02lus", (unsigned long)dias, (unsigned long)horas, (unsigned long)minutos, (unsigned long)segs);
-  return buffer;
-}
-
-// Convierte un número de punto flotante a uint32_t, asegurando que esté dentro del rango válido.
-
-uint32_t floatToUint32(float num)
-{
-  if (num < 0)
-    return 0;
-  if (num > UINT32_MAX)
-    return UINT32_MAX;
-  return static_cast<uint32_t>(round(num));
-}
-
-// Calcula la diferencia en días entre la fecha y hora de compilación del programa y la fecha y hora actuales.
-
-float calcularDiferenciaDias()
-{
-  struct tm compileTime = {0};
-  char fechaHoraCompilacion[25];
-  snprintf(fechaHoraCompilacion, sizeof(fechaHoraCompilacion), "%s %s", __DATE__, __TIME__);
-  strptime(fechaHoraCompilacion, "%b %d %Y %H:%M:%S", &compileTime);
-  time_t compiledEpoch = mktime(&compileTime);
-  unsigned long epochTime = timeClient.getEpochTime();
-  time_t epoch = (time_t)epochTime;
-  struct tm *timeinfo = localtime(&epoch);
-  time_t currentEpoch = mktime(timeinfo);
-  float diferenciaDias = (float)(currentEpoch - compiledEpoch) / (60 * 60 * 24);
-  return diferenciaDias;
-}
-
-// Esta función calcula y retorna el día del último domingo del mes
-// para un año y mes dados. Utiliza la función mktime para obtener
-// el día de la semana del primer día del mes y luego calcula la
-// fecha del último domingo correspondiente. La función toma como
-// parámetros el mes (1 a 12) y el año (en formato de 4 dígitos),
-// y devuelve el día del mes en el que ocurre el último domingo.
-
-int obtenerUltimoDomingo(int mes, int anio)
-{
-  struct tm tiempo = {};
-  tiempo.tm_year = anio - 1900;
-  tiempo.tm_mon = mes - 1;
-  tiempo.tm_mday = 1;
-  mktime(&tiempo);
-  int diaSemana = tiempo.tm_wday;
-  int ultimoDomingo = 31 - (diaSemana + 1) % 7;
-  return ultimoDomingo;
-}
-
-// Esta función determina si una fecha dada (mes, día, año) corresponde al horario de verano.
-// Utiliza la función obtenerUltimoDomingo para encontrar el último domingo de marzo y octubre,
-// que son los límites del horario de verano en muchos países. Si la fecha está entre estos dos
-// límites (excluyendo el primer domingo de marzo y el último domingo de octubre), o si está en
-// marzo después del último domingo o en octubre antes del último domingo, retorna verdadero.
-// En caso contrario, retorna falso.
-
-bool esHorarioDeVerano(int mes, int dia, int anio)
-{
-  int ultimoDomingoMarzo = obtenerUltimoDomingo(3, anio);
-  int ultimoDomingoOctubre = obtenerUltimoDomingo(10, anio);
-  if (mes > 3 && mes < 10)
-  {
-    return true;
-  }
-  else if (mes == 3 && dia >= ultimoDomingoMarzo)
-  {
-    return true;
-  }
-  else if (mes == 10 && dia <= ultimoDomingoOctubre)
-  {
-    return true;
-  }
-  return false;
-}
-
-// Esta función determina la zona horaria en función del horario de verano.
-// Utiliza la función esHorarioDeVerano para verificar si la fecha actual
-// se encuentra dentro del periodo de horario de verano. Si es así, retorna 2
-// (indicando la zona horaria de verano, generalmente UTC+2). Si no está en
-// horario de verano, retorna 1 (indicando la zona horaria estándar, generalmente UTC+1).
+// Esta función obtiene la zona horaria actual basada en el horario de verano del sistema.
+// Retorna 1 si está en horario estándar y 2 si está en horario de verano,
+// utilizando la variable tm_isdst de la estructura tm, que es gestionada automáticamente
+// por localtime_r() según la configuración del sistema.
 
 int obtenerZonaHoraria()
 {
-  time_t now = time(0);
-  struct tm t;
-  localtime_r(&now, &t);
-  int mes = t.tm_mon + 1;
-  int dia = t.tm_mday;
-  int anio = t.tm_year + 1900;
-  if (esHorarioDeVerano(mes, dia, anio))
-  {
-    return 2;
-  }
-  else
-  {
-    return 1;
-  }
+  time_t now = timeClient.getEpochTime();
+  struct tm timeinfo;
+  localtime_r(&now, &timeinfo);
+  return (timeinfo.tm_isdst > 0) ? 1 : 2;
 }
 
 /**
@@ -403,30 +302,18 @@ int obtenerZonaHoraria()
 
 void ajustarZonaHoraria()
 {
-  if (Settings.Timezone == 1 || Settings.Timezone == 2)
-  {
-    int zonilla = obtenerZonaHoraria();
-    if (zonilla == 1)
-    {
-      if (Settings.Timezone != zonilla)
-      {
-        Settings.Timezone = 1;
-        nvMem.saveConfig(&Settings);
-        timeClient.setTimeOffset(3600 * Settings.Timezone);
-        Serial.println("M8AX - Cambiando TimeZone A Horario De Invierno... Que Actualmente Es UTC +" + String(Settings.Timezone));
-      }
-    }
-    else if (zonilla == 2)
-    {
-      if (Settings.Timezone != zonilla)
-      {
-        Settings.Timezone = 2;
-        nvMem.saveConfig(&Settings);
-        timeClient.setTimeOffset(3600 * Settings.Timezone);
-        Serial.println("M8AX - Cambiando TimeZone A Horario De Verano... Que Actualmente Es UTC +" + String(Settings.Timezone));
-      }
-    }
-  }
+  if (Settings.Timezone < 1 || Settings.Timezone > 2)
+    return;
+  int zonilla = obtenerZonaHoraria();
+  if (Settings.Timezone == zonilla)
+    return;
+  Settings.Timezone = zonilla;
+  nvMem.saveConfig(&Settings);
+  timeClient.setTimeOffset(3600 * Settings.Timezone);
+  Serial.print("M8AX - Cambiando TimeZone A ");
+  Serial.print(zonilla == 1 ? "Horario De Invierno" : "Horario De Verano");
+  Serial.print(" UTC+");
+  Serial.println(Settings.Timezone);
 }
 
 /**
@@ -988,15 +875,15 @@ void recopilaTelegram()
   quediase.shrink_to_fit();
   if (sumatele <= 3999)
   {
-    cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + " | F.C.FW - " + String(__DATE__) + " A Las " + String(__TIME__) + " | Hace - " + String(convertirTiempo(floatToUint32(calcularDiferenciaDias() * 86400))).c_str() + "\n";
+    cadenaEnvio += "Mensaje Número - " + convertirARomanos(sumatele) + "\n";
   }
   else
   {
-    cadenaEnvio += "Mensaje Número - " + String(sumatele) + " | F.C.FW - " + String(__DATE__) + " A Las " + String(__TIME__) + " | Hace - " + String(convertirTiempo(floatToUint32(calcularDiferenciaDias() * 86400))).c_str() + "\n";
+    cadenaEnvio += "Mensaje Número - " + String(sumatele) + "\n";
   }
   cadenaEnvio += "Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1) + "\n";
   cadenaEnvio += "HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )\n";
-  cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " ) | M.RAM Libre - " + String(ESP.getFreeHeap()) + " Bytes\n";
+  cadenaEnvio += "Temp. De CPU - " + mineria.temp + "° ( MAX - " + String(maxtemp) + "° | MIN - " + String(mintemp) + "° | TMP>70° - " + String(alertatemp) + " )\n";
   cadenaEnvio += "Plantillas De Bloque - " + mineria.templates + "\n";
   cadenaEnvio += "Shares Enviados A La Pool - " + mineria.completedShares + "\n";
   cadenaEnvio += "Mejor Dificultad Alcanzada - " + mineria.bestDiff + "\n";
@@ -1059,12 +946,10 @@ void datosPantallaTextoPlano()
   cadenaEnvio2.reserve(5000);
   cadenaEnvio2 = "";
   cadenaEnvio2 += relojete.currentDate + " - " + relojete.currentTime;
-  cadenaEnvio2 += ". F.C.FW - " + String(__DATE__) + " A Las " + String(__TIME__) + " | Hace - " + String(convertirTiempo(floatToUint32(calcularDiferenciaDias() * 86400))).c_str();
   cadenaEnvio2 += ". WiFi RSSI " + String(WiFi.RSSI());
   cadenaEnvio2 += ". Tiempo Minando - " + (mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")).length() == 1 ? "0" + mineria.timeMining.substring(0, mineria.timeMining.indexOf(" ")) : mineria.timeMining.substring(0, mineria.timeMining.indexOf(" "))) + " Días" + mineria.timeMining.substring(mineria.timeMining.indexOf(" ") + 1);
   cadenaEnvio2 += ". HR Actual - " + mineria.currentHashRate + " KH/s ( MAX - " + String(maxkh) + " | MIN - " + String(minkh) + " )";
   cadenaEnvio2 += ". Temp. De CPU - " + mineria.temp + "g ( MAX - " + String(maxtemp) + "g | MIN - " + String(mintemp) + "g | TMP>70° - " + String(alertatemp) + " )";
-  cadenaEnvio2 += ". M.RAM Libre - " + String(ESP.getFreeHeap()) + " Bytes";
   cadenaEnvio2 += ". Plantillas De Bloque - " + mineria.templates;
   cadenaEnvio2 += ". Shares Enviados A La Pool - " + mineria.completedShares;
   cadenaEnvio2 += ". Mejor Dificultad Alcanzada - " + mineria.bestDiff;
@@ -3770,11 +3655,7 @@ void tDisplay_m8axScreen2(unsigned long mElapsed)
   relojete = getClockData(mElapsed);
   mineria = getMiningData(mElapsed);
   incrementCounter();
-  actualizarcalen = 0;
-  actualizarc = 0;
-  actual = 0;
-  actuanot = 0;
-  correccion = 0;
+  actualizarcalen = 0, actualizarc = 0, actual = 0, actuanot = 0, correccion = 0;
   background.pushSprite(0, 0);
   background.pushImage(0, 0, ImagenM8AXWidth, ImagenM8AXHeight, ImagenM8AX);
   Serial.printf("M8AX - >>> Completados %s Share(s), %s Khashes, Prom. Hashrate %s KH/s %s°\n",
@@ -6286,47 +6167,49 @@ void tDisplay_SetupScreen(void)
 
 void analiCadaSegundo(unsigned long frame)
 {
-  unsigned long epochTime = timeClient.getEpochTime(); // Obtener segundos desde 1970
-  time_t epoch = (time_t)epochTime;                    // Convertir a time_t
-  struct tm *timeinfo = localtime(&epoch);             // Convertir a una estructura de tiempo local
-  int dia = timeinfo->tm_mday;                         // Día del mes (1 a 31)
-  int mes = timeinfo->tm_mon + 1;                      // Mes (1 a 12)
-  int anio = timeinfo->tm_year + 1900;                 // Año (por defecto es desde 1900)
-  int horita = timeinfo->tm_hour;                      // Hora
-  int minutitos = timeinfo->tm_min;                    // Minutos
-  int segundos = timeinfo->tm_sec;                     // Segundos
+  unsigned long epochTime = timeClient.getEpochTime();
+  struct tm *t = localtime((time_t *)&epochTime);
+  int dia = t->tm_mday;
+  int mes = t->tm_mon + 1;
+  int anio = t->tm_year + 1900;
+  int horita = t->tm_hour;
+  int minutitos = t->tm_min;
+  int segundos = t->tm_sec;
 
   if (startTime > 0 && uncontadormas > 50)
   {
-    if (mineria.currentHashRate.toFloat() > maxkh)
+    int temp = mineria.temp.toInt();
+    float hashRate = mineria.currentHashRate.toFloat();
+
+    if (hashRate > maxkh)
     {
-      maxkh = mineria.currentHashRate.toFloat(); // Actualiza el máximo de kh/s
+      maxkh = hashRate;
     }
 
-    if (mineria.currentHashRate.toFloat() < minkh)
+    if (hashRate < minkh)
     {
-      minkh = mineria.currentHashRate.toFloat(); // Actualiza el mínimo de kh/s
+      minkh = hashRate;
     }
 
-    if (mineria.temp.toInt() > maxtemp)
+    if (temp > maxtemp)
     {
-      maxtemp = mineria.temp.toInt(); // Actualiza el máximo de temperatura
+      maxtemp = temp;
     }
 
-    if (mineria.temp.toInt() < mintemp)
+    if (temp < mintemp)
     {
-      mintemp = mineria.temp.toInt(); // Actualiza el mínimo de temperatura
+      mintemp = temp;
     }
 
-    if (ContadorEspecial % 300 == 0 && mineria.temp.toInt() > 70)
+    if (ContadorEspecial % 300 == 0 && temp > 70)
     {
       Serial.println("M8AX - Temperatura De CPU, Ha Superado Los 70°C...");
       alertatemp++;
     }
 
-    if (ContadorEspecial % 30 == 0 && mineria.temp.toInt() > 80)
+    if (ContadorEspecial % 30 == 0 && temp > 80)
     {
-      Serial.println("M8AX - ¡ Temperatura Muy Alta ! 80°C Superados. Entrando En Deep Sleep Por 10 Minutos Para Enfriar La CPU...");
+      Serial.println("M8AX - ¡ Temperatura Muy Alta ! 80°C Superados. Entrando En Deep Sleep Por 10 Minutos, Para Enfriar La CPU...");
       esp_sleep_enable_timer_wakeup(600e6);
       esp_deep_sleep_start();
     }
@@ -6334,99 +6217,52 @@ void analiCadaSegundo(unsigned long frame)
 
   // Felicitar La Navidad O El Año Nuevo
 
-  if (((mes == 12 && dia >= 20) || (mes == 1 && dia <= 6)) && anio != 1970)
+  if (anio != 1970 && ((mes == 12 && dia >= 20) || (mes == 1 && dia <= 6)))
   {
-    if (minutitos == 30 && ((horita >= 8 && horita <= 15) || (horita >= 19 && horita <= 23) || (horita >= 0 && horita <= 2)) && (horita % 2 == 0))
+    if (minutitos == 30 && (horita % 2 == 0) &&
+        ((horita >= 8 && horita <= 15) || (horita >= 19 && horita <= 23) || (horita <= 2)) &&
+        segundos == 0 && dia % 2 == 0)
     {
-      if (segundos == 0 && dia % 2 == 0)
+      if (mes == 12)
       {
-        if (mes == 12)
-        {
-          nevar();
-          Serial.println("M8AX - Felicitando La Navidad...");
-          ContadorEspecial = 0;
-        }
-        else if (mes == 1)
-        {
-          nevar2();
-          Serial.println("M8AX - Felicitando El Año Nuevo...");
-          ContadorEspecial = 0;
-        }
-        return;
+        nevar();
+        Serial.println("M8AX - Felicitando La Navidad...");
       }
+      else if (mes == 1)
+      {
+        nevar2();
+        Serial.println("M8AX - Felicitando El Año Nuevo...");
+      }
+      ContadorEspecial = 0;
     }
-  }
-
-  rndnumero = esp_random();
-  if (rndnumero <= 10031977 && segundos <= 20 && segundos % 2 == 0 && dia % 2 == 0)
-  {
-    Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
-    actualizarcalen = 0;
-    actualizarc = 0;
-    actual = 0;
-    actuanot = 0;
-    uncontadormas = 51;
-    ContadorEspecial = 0;
-    correccion = 0;
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(colors[colorIndex]);
-    tft.setTextSize(3);
-    tft.setCursor(0, 0);
-    if (rndnumero % 2 == 0)
-    {
-      tft.println("La Esperanza Es");
-      tft.println("Lo Ultimo Que");
-      tft.println("Se Pierde...");
-      tft.println("Lo Conseguiremos!");
-      tft.println("");
-      tft.println("     VAMOS !");
-      tft.setTextSize(1);
-      tft.println("");
-      tft.setTextSize(2);
-      tft.setTextColor(TFT_WHITE);
-      tft.println("     ... By M8AX ...");
-    }
-    else
-    {
-      tft.println("Hope Is The Last");
-      tft.println("Thing To Lose, We");
-      tft.println("Will Archieve It!");
-      tft.println("");
-      tft.println("    COME ON !");
-      tft.setTextSize(2);
-      tft.setTextColor(TFT_WHITE);
-      tft.println("");
-      tft.println("");
-      tft.println("     ... By M8AX ...");
-    }
-    delay(3000);
   }
 
   if (startTime == 0)
   {
-    BOT_TOKEN = Settings.botTelegram;        // Bot De Telegram
-    CHAT_ID = Settings.ChanelIDTelegram;     // ID Del Canal De Telegram
-    startTime = epochTime;                   // Guardar el tiempo de inicio cuando el dispositivo arranca
-    diadecambios = dia;                      // Guardar el día actual
-    anterBTC = monedilla.btcPrice.toFloat(); // Guardar el valor de BTC
+    BOT_TOKEN = Settings.botTelegram;
+    CHAT_ID = Settings.ChanelIDTelegram;
+    startTime = epochTime;
+    diadecambios = dia;
+    anterBTC = monedilla.btcPrice.toFloat();
   }
-  else if (segundos == 0 && !mensajeEnviado)
+  else
   {
-    Serial.println("M8AX - " + String((dia < 10) ? "0" + String(dia) : String(dia)) + "/" +
-                   String((mes < 10) ? "0" + String(mes) : String(mes)) + "/" +
-                   String(anio) + " " +
-                   String((horita < 10) ? "0" + String(horita) : String(horita)) + ":" +
-                   String((minutitos < 10) ? "0" + String(minutitos) : String(minutitos)) + ":" +
-                   String((segundos < 10) ? "0" + String(segundos) : String(segundos)) + " - M8AX");
-    mensajeEnviado = true;
-    if ((millis() - arrankito <= 300000))
+    if (segundos == 0 && !mensajeEnviado)
     {
-      ajustarZonaHoraria();
+      char buffer[50];
+      sprintf(buffer, "M8AX - %02d/%02d/%d %02d:%02d:%02d - M8AX",
+              dia, mes, anio, horita, minutitos, segundos);
+      Serial.println(buffer);
+      mensajeEnviado = true;
+      if (millis() - arrankito <= 300000)
+      {
+        ajustarZonaHoraria();
+      }
     }
-  }
-  else if (segundos != 0)
-  {
-    mensajeEnviado = false;
+    else if (segundos != 0)
+    {
+      mensajeEnviado = false;
+    }
   }
 
   if (anterBTC <= 0.0)
@@ -6453,6 +6289,30 @@ void analiCadaSegundo(unsigned long frame)
       recopilaTelegram();                // Envia el mensaje a Telegram
       lastTelegramEpochTime = epochTime; // Actualiza el tiempo de la última ejecución
     }
+  }
+
+  // Dando Esperanzas Al Dueño Del NerdminerV2
+  // Lo Conseguirás... Ostia!!! xD
+
+  rndnumero = esp_random();
+  if (rndnumero <= 10031977 && segundos <= 20 && segundos % 2 == 0 && dia % 2 == 0)
+  {
+    Serial.printf(">>> M8AX-NerdMinerV2 Dando Ánimos Y Esperanza Al Usuario...\n");
+    actualizarcalen = actualizarc = actual = actuanot = 0;
+    uncontadormas = 51;
+    ContadorEspecial = correccion = 0;
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(colors[colorIndex]);
+    tft.setTextSize(3);
+    tft.setCursor(0, 0);
+    const char *mensaje1 = (rndnumero % 2 == 0) ? "La Esperanza Es\nLo Ultimo Que\nSe Pierde...\nLo Conseguiremos!\n\n     VAMOS !" : "Hope Is The Last\nThing To Lose, We\nWill Archieve It!\n\n    COME ON !";
+    tft.println(mensaje1);
+    tft.setTextSize(1);
+    tft.println("");
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_WHITE);
+    tft.println("     ... By M8AX ...");
+    delay(3000);
   }
 }
 

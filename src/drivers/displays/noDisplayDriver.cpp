@@ -54,7 +54,7 @@
  *
  *
  *
- *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 2010 líneas de código en 6h --- ///\\\
+ *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 1970 líneas de código en 6h --- ///\\\
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *
@@ -199,53 +199,13 @@ void noDisplay_AlternateRotation(void)
 {
 }
 
-int obtenerUltimoDomingo(int mes, int anio)
-{
-  struct tm tiempo = {};
-  tiempo.tm_year = anio - 1900;
-  tiempo.tm_mon = mes - 1;
-  tiempo.tm_mday = 1;
-  mktime(&tiempo);
-  int diaSemana = tiempo.tm_wday;
-  int ultimoDomingo = 31 - (diaSemana + 1) % 7;
-  return ultimoDomingo;
-}
-
-bool esHorarioDeVerano(int mes, int dia, int anio)
-{
-  int ultimoDomingoMarzo = obtenerUltimoDomingo(3, anio);
-  int ultimoDomingoOctubre = obtenerUltimoDomingo(10, anio);
-  if (mes > 3 && mes < 10)
-  {
-    return true;
-  }
-  else if (mes == 3 && dia >= ultimoDomingoMarzo)
-  {
-    return true;
-  }
-  else if (mes == 10 && dia <= ultimoDomingoOctubre)
-  {
-    return true;
-  }
-  return false;
-}
-
 int obtenerZonaHoraria()
 {
-  time_t now = time(0);
-  struct tm t;
-  localtime_r(&now, &t);
-  int mes = t.tm_mon + 1;
-  int dia = t.tm_mday;
-  int anio = t.tm_year + 1900;
-  if (esHorarioDeVerano(mes, dia, anio))
-  {
-    return 2;
-  }
-  else
-  {
-    return 1;
-  }
+  time_t now;
+  struct tm timeinfo;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  return (timeinfo.tm_isdst > 0) ? 1 : 2;
 }
 
 double degToRad(double degrees)
@@ -1333,7 +1293,7 @@ void recopilaTelegram()
   cadenaEnvio = "";
   cadenaEnvio = F("--------------------------------------------------------------------------------------------------\n");
   cadenaEnvio += "--------------------- M8AX - PLACA-WROOM-ESP32D-" + String(u4digits) + " DATOS DE MINERÍA - M8AX ---------------------\n";
-  cadenaEnvio += "---------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " - % Luna Visible - " + String(porcentajeTexto) + " ----------------------\n";
+  cadenaEnvio += "--------------------- " + String(fechaFormateada) + " " + quediase.c_str() + " - " + horaFormateada + " - % Luna Visible - " + String(porcentajeTexto) + " ----------------------\n";
   cadenaEnvio += F("--------------------------------------------------------------------------------------------------\n");
   quediase.clear();
   quediase.shrink_to_fit();
@@ -1521,7 +1481,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   time_t cadenaDeTiempo = mktime(&timeinfo);
   moon = mymoonPhase.getPhase(cadenaDeTiempo);
   double porcentajeIluminado = moon.percentLit * 100;
-  snprintf(porcentajeTexto, sizeof(porcentajeTexto), "%.3f%%", porcentajeIluminado);
+  snprintf(porcentajeTexto, sizeof(porcentajeTexto), "%07.3f%%", porcentajeIluminado);
   horas = timeinfo.tm_hour;
   minutos = timeinfo.tm_min;
   segundos = timeinfo.tm_sec;
@@ -1655,7 +1615,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
       Tresultado.second.reserve(0);
       Tresultado = obtenerCiudadYTemperatura(ipPublica);
     }
-    Serial.print("\n-------------------------------------------------------------------------------------------------------------");
+    Serial.print("\n--------------------------------------------------------------------------------------------------------------");
     Serial.printf("\n>>> M8AX - Datos Serial Número - %s | PLACA-WROOM-ESP32D-%s\n", String(sumacalen + 1), String(u4digits));
     Serial.printf(">>> M8AX - F.C.FW - %s A Las %s | Hace %s\n", __DATE__, __TIME__, String(convertirTiempoNoMinando(floatToUint32(calcularDiferenciaDias() * 86400))).c_str());
     Serial.printf(">>> M8AX - Fecha - %s %s | Hora - %s | Semana Del Año Número - %s | %% Luna Visible - %s\n", String(fechaFormateada), quediase.c_str(), horaFormateada, numdesemana, String(porcentajeTexto).c_str());
@@ -1759,23 +1719,23 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     int numeritos[6];
     int destino = 1 + (esp_random() % 1000);
     generate_random_numbers(numeritos, 6, 1, 100);
-    Serial.print("-------------------------------------------------------------------------------------------------------------\n");
+    Serial.print("--------------------------------------------------------------------------------------------------------------\n");
     Serial.print(">>> M8AX - MEGA NERD - M8AX\n");
-    Serial.print("-------------------------------------------------------------------------------------------------------------\n");
+    Serial.print("--------------------------------------------------------------------------------------------------------------\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - Factorización De Número - 1 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - Factorización De Número - 2 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - Factorización De Número - 3 - " + String(rndnumero) + " -> " + FactorizaM8AX(rndnumero) + "\n");
-    Serial.print("-------------------------------------------------------------------------------------------------------------\n");
+    Serial.print("--------------------------------------------------------------------------------------------------------------\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - El Número - 1 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - El Número - 2 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
     rndnumero = esp_random();
     Serial.print(">>> M8AX - El Número - 3 - " + String(rndnumero) + " -> " + abinyprimo(rndnumero) + "\n");
-    Serial.print("-------------------------------------------------------------------------------------------------------------\n");
+    Serial.print("--------------------------------------------------------------------------------------------------------------\n");
     Serial.print(">>> M8AX - Juego De Cifras Número - " + String(totalci) + "\n");
     Serial.print(">>> M8AX - Aciertos - " + String(aciertos) + " | Fallos - " + String(fallos) + "\n");
     Serial.print(">>> M8AX - Números - ");
@@ -1789,23 +1749,23 @@ void noDisplay_NoScreen(unsigned long mElapsed)
     calculate_operations(numeritos, destino, result);
     Serial.print(">>> M8AX - " + String(result) + "\n");
     memset(result, 0, sizeof(result));
-    Serial.print("-------------------------------------------------------------------------------------------------------------\n");
+    Serial.print("--------------------------------------------------------------------------------------------------------------\n");
     for (int i = 1; i <= 12; i++)
     {
       String calendario = generarCalendario(anio + sumacalen, i);
       Serial.println(calendario);
-      Serial.print("\n-------------------------------------------------------------------------------------------------------------\n");
+      Serial.print("\n--------------------------------------------------------------------------------------------------------------\n");
       calendario.clear();
       calendario.reserve(0);
     }
     Serial.print("\n");
     sumacalen++;
-    Serial.print("---------------------------------------------KH/S-HASHRATE-ASCII---------------------------------------------\n\n");
+    Serial.print("---------------------------------------------KH/S-HASHRATE-ASCII----------------------------------------------\n\n");
     Serial.print(arteASCII(parteEntera));
     Serial.print("\n       PUNTO       \n\n");
     Serial.print(arteASCII(parteDecimal));
-    Serial.print("\n-------------------------------------------------------------------------------------------------------------");
-    Serial.print("\n\n-------------------------------------------------------------------------------------------------------------\n\n");
+    Serial.print("\n--------------------------------------------------------------------------------------------------------------");
+    Serial.print("\n\n--------------------------------------------------------------------------------------------------------------\n\n");
   }
   String fechaHora = String(timeinfo.tm_hour < 10 ? "0" : "") + String(timeinfo.tm_hour) + ":" +
                      String(timeinfo.tm_min < 10 ? "0" : "") + String(timeinfo.tm_min) + ":" +
