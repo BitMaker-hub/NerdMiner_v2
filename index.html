@@ -7,146 +7,146 @@
 	<script type="module" src="https://unpkg.com/esp-web-tools@10.1.0/dist/web/install-button.js?module"></script>
 	<style>
 		.button-container {
-		            display: flex;
-		            gap: 80px; /* Espacio entre botones */
-		            justify-content: center; /* Centra los botones en la página */
-		            align-items: center; /* Alinea verticalmente */
-		            margin-top: -16px; /* Espacio superior */
-		        }
-		h1 {
-		    margin-bottom: 16px; /* Reduce el espacio debajo del título */
-		}
-		
-		p.note {
-		    margin-top: 7px; /* Reduce el espacio arriba del párrafo */
-		}
+				            display: flex;
+				            gap: 80px; /* Espacio entre botones */
+				            justify-content: center; /* Centra los botones en la página */
+				            align-items: center; /* Alinea verticalmente */
+				            margin-top: -16px; /* Espacio superior */
+				        }
+				h1 {
+				    margin-bottom: 16px; /* Reduce el espacio debajo del título */
+				}
 				
+				p.note {
+				    margin-top: 7px; /* Reduce el espacio arriba del párrafo */
+				}
+						
+		
 	</style>
 	<style>
 		body {
-						            font-family: Arial, sans-serif;
-						            text-align: center;
-						            background-color: #1a1a1a;
-						            display: flex;
-						            flex-direction: column;
-						            justify-content: center;
-						            align-items: center;
-						            height: 100vh;
-						            margin: 0;
-						            overflow: hidden;
-						            position: relative;
-						        }
-						        h1 {
-						            color: #00000;
-						        }
-						        .container {
-						            background: rgba(255, 255, 255, 0.9);
-						            padding: 20px;
-						            border-radius: 10px;
-						            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.5);
-						            width: 80%;
-						            max-width: 500px;
-						            display: flex;
-						            flex-direction: column;
-						            justify-content: flex-start;
-						            position: relative;
-						            z-index: 1;
-						        }
-						        .note {
-						            color: blue;
-						            font-weight: bold;
-						            margin-bottom: 15px;
-						        }
-						        span {
-						            display: block;
-						            margin-top: 10px;
-						        }
-						        .header-image {
-						            margin-bottom: 20px;
-						            text-align: center;
-						        }
-						        .header-image img {
-						            max-width: 100%;
-						            height: auto;
-						        }
-						        .footer-image {
-						            margin-top: 20px;
-						            text-align: center;
-						        }
-						        .footer-image img {
-						            max-width: 100%;
-						            height: auto;
-						        }
-						        /* Estilos para el fondo de partículas */
-						        #particles-js {
-						            position: absolute;
-						            top: 0;
-						            left: 0;
-						            width: 100%;
-						            height: 100%;
-						            z-index: 0;
-						        }
-						        /* Estilos para la imagen en la esquina inferior izquierda */
-						        .corner-image {
-						            position: fixed;
-						            bottom: 10px;
-						            left: 10px;
-						            width: 100px;
-						            height: 100px;
-						            z-index: 2;
-						            border-radius: 10px;
-						            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
-						        }
-						        .corner-image img {
-						            width: 100%;
-						            height: 100%;
-						            object-fit: cover;
-						            border-radius: 10px;
-						        }
-						/* Imagen para donaciones BTC */
-						.btc-donation {
-						    position: fixed;
-						    top: 151px;  /* 4 cm lower from the top */
-						    right: 250px;  /* 3 cm more to the left */
-						    width: 150px;
-						    height: 150px;
-						    z-index: 3;
-						    border-radius: 10px;
-						    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
-						    text-align: center; /* Center the text under the image */
-						}
-						.btc-donation img {
-						    width: 100%;
-						    height: 100%;
-						    object-fit: cover;
-						    border-radius: 5px;
-						}
-						/* Imagen para donaciones BTC */
-						.btcc-donation {
-						    position: fixed;
-						    top: 151px;  /* 4 cm lower from the top */
-						    right: 1500px;  /* 3 cm more to the left */
-						    width: 150px;
-						    height: 150px;
-						    z-index: 3;
-						    border-radius: 10px;
-						    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
-						    text-align: center; /* Center the text under the image */
-						}
-						.btcc-donation img {
-						    width: 100%;
-						    height: 100%;
-						    object-fit: cover;
-						    border-radius: 5px;
-						}
-						.donation-text {
-						    margin-top: 10px;  /* Space between image and text */
-						    font-size: 12px;  /* Adjust the font size as needed */
-						    color: #fff;  /* White text color */
-						    font-weight: bold;  /* Make the text bold */
-						    text-align: center;  /* Center the text */
-						}
-				
+								            font-family: Arial, sans-serif;
+								            text-align: center;
+								            background-color: #1a1a1a;
+								            display: flex;
+								            flex-direction: column;
+								            justify-content: center;
+								            align-items: center;
+								            height: 100vh;
+								            margin: 0;
+								            overflow: hidden;
+								            position: relative;
+								        }
+								        h1 {
+								            color: #00000;
+								        }
+								        .container {
+								            background: rgba(255, 255, 255, 0.9);
+								            padding: 20px;
+								            border-radius: 10px;
+								            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.5);
+								            width: 80%;
+								            max-width: 500px;
+								            display: flex;
+								            flex-direction: column;
+								            justify-content: flex-start;
+								            position: relative;
+								            z-index: 1;
+								        }
+								        .note {
+								            color: blue;
+								            font-weight: bold;
+								            margin-bottom: 15px;
+								        }
+								        span {
+								            display: block;
+								            margin-top: 10px;
+								        }
+								        .header-image {
+								            margin-bottom: 20px;
+								            text-align: center;
+								        }
+								        .header-image img {
+								            max-width: 100%;
+								            height: auto;
+								        }
+								        .footer-image {
+								            margin-top: 20px;
+								            text-align: center;
+								        }
+								        .footer-image img {
+								            max-width: 100%;
+								            height: auto;
+								        }
+								        /* Estilos para el fondo de partículas */
+								        #particles-js {
+								            position: absolute;
+								            top: 0;
+								            left: 0;
+								            width: 100%;
+								            height: 100%;
+								            z-index: 0;
+								        }
+								        /* Estilos para la imagen en la esquina inferior izquierda */
+								        .corner-image {
+								            position: fixed;
+								            bottom: 10px;
+								            left: 10px;
+								            width: 100px;
+								            height: 100px;
+								            z-index: 2;
+								            border-radius: 10px;
+								            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+								        }
+								        .corner-image img {
+								            width: 100%;
+								            height: 100%;
+								            object-fit: cover;
+								            border-radius: 10px;
+								        }
+								/* Imagen para donaciones BTC */
+								.btc-donation {
+								    position: fixed;
+								    top: 151px;  /* 4 cm lower from the top */
+								    right: 250px;  /* 3 cm more to the left */
+								    width: 150px;
+								    height: 150px;
+								    z-index: 3;
+								    border-radius: 10px;
+								    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+								    text-align: center; /* Center the text under the image */
+								}
+								.btc-donation img {
+								    width: 100%;
+								    height: 100%;
+								    object-fit: cover;
+								    border-radius: 5px;
+								}
+								/* Imagen para donaciones BTC */
+								.btcc-donation {
+								    position: fixed;
+								    top: 151px;  /* 4 cm lower from the top */
+								    right: 1500px;  /* 3 cm more to the left */
+								    width: 150px;
+								    height: 150px;
+								    z-index: 3;
+								    border-radius: 10px;
+								    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+								    text-align: center; /* Center the text under the image */
+								}
+								.btcc-donation img {
+								    width: 100%;
+								    height: 100%;
+								    object-fit: cover;
+								    border-radius: 5px;
+								}
+								.donation-text {
+								    margin-top: 10px;  /* Space between image and text */
+								    font-size: 12px;  /* Adjust the font size as needed */
+								    color: #fff;  /* White text color */
+								    font-weight: bold;  /* Make the text bold */
+								    text-align: center;  /* Center the text */
+								}
 		
 	</style>
 </head>
@@ -191,19 +191,19 @@
 		<button id="playButton">Reproducir Canción: M8AX - NerdMinerV2 - M8AX</button>
 		<script>
 			document.getElementById('playButton').addEventListener('click', function() {
-									                const audio = document.getElementById('backgroundAudio');
-									                audio.play();  // Reproducir el audio cuando el usuario haga clic
-									                audio.volume = 0.5;  // Ajustar volumen si es necesario
-									                this.style.display = 'none';  // Ocultar el botón después de hacer clic
-									            });
-						
+												                const audio = document.getElementById('backgroundAudio');
+												                audio.play();  // Reproducir el audio cuando el usuario haga clic
+												                audio.volume = 0.5;  // Ajustar volumen si es necesario
+												                this.style.display = 'none';  // Ocultar el botón después de hacer clic
+												            });
 			
 		</script>
 		<h1><a href="https://github.com/m8ax/MvIiIaX-NerdMiner_V2-DeV" target="_blank" title="Haz Clic Para Visitar El Repositorio Del Firmware M8AX NerdMinerV2 En GitHub.">M8AX - Firmware NerdMinerV2</a></h1>
 		<p class="note">Si No Funciona, Activa El Modo Programación: Pulsa El Botón 1 (Abajo), Conéctalo Por USB Y Suéltalo Tras 2 Segundos.
 			<span style="color: red; font-weight: bold; font-size: 14px;">
-    NOTA: Asegúrate De Cerrar Cualquier Programa Que Esté Usando El Puerto COM De Tu Dispositivo ( Por Ejemplo, El Monitor Serie ).
-</span> </p><br>
+    NOTA: Asegúrate De Cerrar Cualquier Programa Que Esté Usando El Puerto COM De Tu Dispositivo ( Por Ejemplo, El Monitor Serie ).<span style="color: green; display: inline;"><br><br>SSID Config: M8AX-Minero | Clave: MinaTuPasta</span>
+			</span>
+		</p><br>
 		<div class="button-container">
 			<div>
 				<img src="webflash/nmv2.png" alt="NerdMiner V2" title="NerdMiner V2" style="width: 100px; height: 50px; display: block; margin: 0 auto;">
@@ -232,113 +232,112 @@
 	<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 	<script>
 		// Función para generar un color hexadecimal aleatorio
-				    function getRandomColor() {
-				        return '#' + Math.floor(Math.random() * 16777215).toString(16);
-				    }
-				
-				    // Configuración del fondo de partículas
-				    particlesJS("particles-js", {
-				        particles: {
-				            number: {
-				                value: 80,
-				                density: {
-				                    enable: true,
-				                    value_area: 800
-				                }
-				            },
-				            color: {
-				                value: "#ffffff"
-				            },
-				            shape: {
-				                type: "circle",
-				                stroke: {
-				                    width: 0,
-				                    color: "#000000"
-				                },
-				                polygon: {
-				                    nb_sides: 5
-				                }
-				            },
-				            opacity: {
-				                value: 0.5,
-				                random: true,
-				                anim: {
-				                    enable: true,
-				                    speed: 1,
-				                    opacity_min: 0.1,
-				                    sync: false
-				                }
-				            },
-				            size: {
-				                value: 3,
-				                random: true,
-				                anim: {
-				                    enable: true,
-				                    speed: 2,
-				                    size_min: 0.1,
-				                    sync: false
-				                }
-				            },
-				            line_linked: {
-				                enable: true,
-				                distance: 150,
-				                color: getRandomColor(), // Asignar color aleatorio
-				                opacity: 0.4,
-				                width: 1
-				            },
-				            move: {
-				                enable: true,
-				                speed: 3,
-				                direction: "none",
-				                random: true,
-				                straight: false,
-				                out_mode: "bounce",
-				                bounce: true,
-				                attract: {
-				                    enable: false,
-				                    rotateX: 600,
-				                    rotateY: 1200
-				                }
-				            }
-				        },
-				        interactivity: {
-				            detect_on: "canvas",
-				            events: {
-				                onhover: {
-				                    enable: true,
-				                    mode: "bubble"
-				                },
-				                onclick: {
-				                    enable: true,
-				                    mode: "push"
-				                },
-				                resize: true
-				            },
-				            modes: {
-				                bubble: {
-				                    distance: 200,
-				                    size: 6,
-				                    duration: 2,
-				                    opacity: 0.8,
-				                    speed: 3
-				                },
-				                push: {
-				                    particles_nb: 4
-				                }
-				            }
-				        },
-				        retina_detect: true
-				    });
-				
-				    // Verificar compatibilidad con la API Web Serial
-				    if (navigator.serial) {
-				        document.getElementById("notSupported").style.display = 'none';
-				        document.getElementById("main").style.display = 'block';
-				    } else {
-				        document.getElementById("notSupported").style.display = 'block';
-				        document.getElementById("main").style.display = 'none';
-				    }
-				
+						    function getRandomColor() {
+						        return '#' + Math.floor(Math.random() * 16777215).toString(16);
+						    }
+						
+						    // Configuración del fondo de partículas
+						    particlesJS("particles-js", {
+						        particles: {
+						            number: {
+						                value: 80,
+						                density: {
+						                    enable: true,
+						                    value_area: 800
+						                }
+						            },
+						            color: {
+						                value: "#ffffff"
+						            },
+						            shape: {
+						                type: "circle",
+						                stroke: {
+						                    width: 0,
+						                    color: "#000000"
+						                },
+						                polygon: {
+						                    nb_sides: 5
+						                }
+						            },
+						            opacity: {
+						                value: 0.5,
+						                random: true,
+						                anim: {
+						                    enable: true,
+						                    speed: 1,
+						                    opacity_min: 0.1,
+						                    sync: false
+						                }
+						            },
+						            size: {
+						                value: 3,
+						                random: true,
+						                anim: {
+						                    enable: true,
+						                    speed: 2,
+						                    size_min: 0.1,
+						                    sync: false
+						                }
+						            },
+						            line_linked: {
+						                enable: true,
+						                distance: 150,
+						                color: getRandomColor(), // Asignar color aleatorio
+						                opacity: 0.4,
+						                width: 1
+						            },
+						            move: {
+						                enable: true,
+						                speed: 3,
+						                direction: "none",
+						                random: true,
+						                straight: false,
+						                out_mode: "bounce",
+						                bounce: true,
+						                attract: {
+						                    enable: false,
+						                    rotateX: 600,
+						                    rotateY: 1200
+						                }
+						            }
+						        },
+						        interactivity: {
+						            detect_on: "canvas",
+						            events: {
+						                onhover: {
+						                    enable: true,
+						                    mode: "bubble"
+						                },
+						                onclick: {
+						                    enable: true,
+						                    mode: "push"
+						                },
+						                resize: true
+						            },
+						            modes: {
+						                bubble: {
+						                    distance: 200,
+						                    size: 6,
+						                    duration: 2,
+						                    opacity: 0.8,
+						                    speed: 3
+						                },
+						                push: {
+						                    particles_nb: 4
+						                }
+						            }
+						        },
+						        retina_detect: true
+						    });
+						
+						    // Verificar compatibilidad con la API Web Serial
+						    if (navigator.serial) {
+						        document.getElementById("notSupported").style.display = 'none';
+						        document.getElementById("main").style.display = 'block';
+						    } else {
+						        document.getElementById("notSupported").style.display = 'block';
+						        document.getElementById("main").style.display = 'none';
+						    }
 		
 	</script>
 	<!-- Audio de fondo que se repite constantemente -->
@@ -349,6 +348,7 @@
 	<!-- Opcional: Control de volumen con JavaScript -->
 	<script>
 		document.getElementById('backgroundAudio').volume = 0.5; // 50% de volumen
+						
 				
 		
 	</script>
@@ -365,27 +365,26 @@
 	</div>
 	<script>
 		async function getCryptoPrices() {
-						            const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,ripple,litecoin,cardano,doge,polkadot,uniswap,binancecoin,solana,chainlink,vechain,shiba,inuyasha,terra,monero,ethereum-classic,stellar,usd-coin,wrapped-bitcoin&order=market_cap_desc&per_page=20&page=1&sparkline=false";
-						            try {
-						                const response = await fetch(url);
-						                const data = await response.json();
-						                let tickerHtml = "Precios De Criptomonedas: ";
-						                data.forEach(crypto => {
-						                    tickerHtml += `${crypto.name}: $${crypto.current_price} | `;
-						                });
-						                // Remove the last " | "
-						                tickerHtml = tickerHtml.slice(0, -3);
-						                document.getElementById('crypto-ticker').innerHTML = tickerHtml;
-						            } catch (error) {
-						                document.getElementById('crypto-ticker').innerHTML = "Error al cargar los precios.";
-						                console.error("Error fetching data: ", error);
-						            }
-						        }
-						        // Llamar a la función para cargar los precios
-						        getCryptoPrices();
-						        // Actualizar cada 60 segundos
-						        setInterval(getCryptoPrices, 60000);
-				
+								            const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,ripple,litecoin,cardano,doge,polkadot,uniswap,binancecoin,solana,chainlink,vechain,shiba,inuyasha,terra,monero,ethereum-classic,stellar,usd-coin,wrapped-bitcoin&order=market_cap_desc&per_page=20&page=1&sparkline=false";
+								            try {
+								                const response = await fetch(url);
+								                const data = await response.json();
+								                let tickerHtml = "Precios De Criptomonedas: ";
+								                data.forEach(crypto => {
+								                    tickerHtml += `${crypto.name}: $${crypto.current_price} | `;
+								                });
+								                // Remove the last " | "
+								                tickerHtml = tickerHtml.slice(0, -3);
+								                document.getElementById('crypto-ticker').innerHTML = tickerHtml;
+								            } catch (error) {
+								                document.getElementById('crypto-ticker').innerHTML = "Error al cargar los precios.";
+								                console.error("Error fetching data: ", error);
+								            }
+								        }
+								        // Llamar a la función para cargar los precios
+								        getCryptoPrices();
+								        // Actualizar cada 60 segundos
+								        setInterval(getCryptoPrices, 60000);
 		
 	</script>
 </body>
