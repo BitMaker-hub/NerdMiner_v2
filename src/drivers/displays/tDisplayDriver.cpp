@@ -956,7 +956,7 @@ void datosPantallaTextoPlano()
   cadenaEnvio2 += ". Dificultad De La Red - " + monedilla.netwrokDifficulty;
   cadenaEnvio2 += ". Cómputo Total - " + mineria.totalKHashes + " KH - ( " + String(atof(mineria.totalKHashes.c_str()) / 1000, 3) + " MH )";
   cadenaEnvio2 += ". HR Global - " + monedilla.globalHashRate + " EH/s";
-  cadenaEnvio2 += ". Precio De BTC - " + monedilla.btcPrice + " | En 24H -> " + subebaja + " |\n";
+  cadenaEnvio2 += ". Precio De BTC - " + monedilla.btcPrice + " | En 24H -> " + subebaja + " |";
   cadenaEnvio2 += ". FEE Promedio Por TX - " + monedilla.halfHourFee;
   cadenaEnvio2 += ". Altura De Bloque - " + relojete.blockHeight;
   telrb.replace("BLOCKS", "");

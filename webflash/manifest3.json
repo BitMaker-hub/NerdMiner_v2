@@ -1,0 +1,15 @@
+{
+  "name": "M8AX - NerdMiner Placa WROOM ( CH140 ) - M8AX Firmware UPDATE",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "M8AX-ESP32-D/ota_data_initial.bin", "offset": 57344 },
+        { "path": "M8AX-ESP32-D/M8AX-FirmWare-ESP32-D.bin", "offset": 65536 },
+        { "path": "M8AX-ESP32-D/partition-table.bin", "offset": 32768 },
+        { "path": "M8AX-ESP32-D/bootloader.bin", "offset": 4096 }
+      ]
+    }
+  ]
+}

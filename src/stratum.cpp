@@ -9,6 +9,9 @@
 #include "lwip/sockets.h"
 #include "utils.h"
 #include "version.h"
+#include "drivers/storage/nvMemory.h"
+
+extern TSettings Settings;
 
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
 unsigned long id = 1;
@@ -59,10 +62,37 @@ bool tx_mining_subscribe(WiFiClient &client, mining_subscribe &mSubscribe)
 
     // Subscribe
     id = 1; // Initialize id messages
+
 #ifndef HAN
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
+    if (Settings.PoolAddress != "public-pool.io")
+    {
+        sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+        Serial.println("M8AX - Minando En La Pool - " + Settings.PoolAddress + ", Nombre Del Minero - NerdMinerV2," + " Puerto - " + Settings.PoolPort);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+    }
+    else
+    {
+        sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+        Serial.println("M8AX - Minando En La Pool - " + Settings.PoolAddress + ", Nombre Del Minero - MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax," + " Puerto - " + Settings.PoolPort);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+    }
 #else
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
+    if (Settings.PoolAddress != "public-pool.io")
+    {
+        sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+        Serial.println("M8AX - Minando En La Pool - " + Settings.PoolAddress + ", Nombre Del Minero - NerdMinerV2," + " Puerto - " + Settings.PoolPort);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+    }
+    else
+    {
+        sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax/%s\"]}\n", id, CURRENT_VERSION);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+        Serial.println("M8AX - Minando En La Pool - " + Settings.PoolAddress + ", Nombre Del Minero - MvIiIaX_NerdMineR_M8AX__youtube.com_m8ax," + " Puerto - " + Settings.PoolPort);
+        Serial.println("------------------------------------------------------------------------------------------------------------------------------------");
+    }
 #endif
 
     Serial.printf("[TRABAJADOR] ==> Suscripción A La Minería\n");

@@ -1,0 +1,15 @@
+{
+  "name": "M8AX - NerdMinerV2 - M8AX Firmware UPDATE",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "M8AX-NerdMinerV2/ota_data_initial.bin", "offset": 57344 },
+        { "path": "M8AX-NerdMinerV2/M8AX-FirmWare-NerdMinerV2.bin", "offset": 65536 },
+        { "path": "M8AX-NerdMinerV2/partition-table.bin", "offset": 32768 },
+        { "path": "M8AX-NerdMinerV2/bootloader.bin", "offset": 0 }
+      ]
+    }
+  ]
+}

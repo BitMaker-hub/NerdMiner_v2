@@ -54,7 +54,7 @@
  *
  *
  *
- *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 1970 líneas de código en 6h --- ///\\\
+ *              ///\\\ --- Minimizando código, maximizando funcionalidad. Solo 1985 líneas de código en 6h --- ///\\\
  *
  *                                                     .M8AX Corp. - ¡A Minar!
  *
@@ -147,9 +147,9 @@ const int morseLength = sizeof(morse) / sizeof(morse[0]);
 int sumatele = 1;
 int maxtemp = 0;
 int mintemp = 1000;
-int aciertos = 0;
-int fallos = 0, totalci = 0;
-int sumacalen = 0, cambioDeDia = 0;
+int sumacalen = 0;
+int fallos = 0, aciertos = 0;
+int totalci = 0, cambioDeDia = 0;
 int solouna = 0, zonilla;
 uint32_t nominando = 0;
 uint32_t cuenta = 0;
@@ -260,16 +260,31 @@ String getSunriseSunset(double latitude, double longitude)
   double sunsetLocal = sunsetUTC + timezoneOffset;
   if (sunriseLocal < 0 || sunsetLocal < 0)
   {
-    return "El Sol No Sale Ni Se Pone ( Noche Polar )";
+    return "El Sol No Sale Hoy ( Noche Polar )";
   }
-  if (sunriseLocal > 24 || sunsetLocal > 24)
+  if (sunriseLocal >= 24 || sunsetLocal >= 24)
   {
-    return "El Sol Es Visible Todo El Día ( Día Polar )";
+    return "Sol Todo El Día ( Día Polar )";
   }
-  char buffer[50];
-  snprintf(buffer, sizeof(buffer), "Sol ^ - %.2f | Sol v - %.2f", sunriseLocal, sunsetLocal);
-  Serial.println("M8AX - Obtenida Salida Y Puesta De Sol");
-  return String(buffer);
+  auto formatTime = [](double time) -> String
+  {
+    time = fmod(time, 24);
+    int hours = (int)time;
+    int minutes = (int)((time - hours) * 60 + 0.5);
+    if (minutes >= 60)
+    {
+      minutes = 0;
+      hours++;
+      if (hours >= 24)
+        hours = 0;
+    }
+    char buffer[6];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", hours, minutes);
+    return String(buffer);
+  };
+  String output = "Sol ^ - " + formatTime(sunriseLocal) + " | Sol v - " + formatTime(sunsetLocal);
+  Serial.println("M8AX - Horas De Salida Y Puesta De Sol Calculadas");
+  return output;
 }
 
 std::pair<String, String> obtenerCiudadYTemperatura(const String &ip)
