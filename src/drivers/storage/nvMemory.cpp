@@ -91,8 +91,15 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 if (!error)
                 {
                     Settings->PoolAddress = json[JSON_SPIFFS_KEY_POOLURL] | Settings->PoolAddress;
-                    strcpy(Settings->PoolPassword, json[JSON_SPIFFS_KEY_POOLPASS] | Settings->PoolPassword);
-                    strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
+                    // Safely copy PoolPassword
+                    const char* poolPasswordSource = json[JSON_SPIFFS_KEY_POOLPASS] | Settings->PoolPassword;
+                    strncpy(Settings->PoolPassword, poolPasswordSource, sizeof(Settings->PoolPassword) - 1);
+                    Settings->PoolPassword[sizeof(Settings->PoolPassword) - 1] = '\0'; // Ensure null termination
+
+                    // Safely copy BtcWallet
+                    const char* btcWalletSource = json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet;
+                    strncpy(Settings->BtcWallet, btcWalletSource, sizeof(Settings->BtcWallet) - 1);
+                    Settings->BtcWallet[sizeof(Settings->BtcWallet) - 1] = '\0'; // Ensure null termination
                     if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
