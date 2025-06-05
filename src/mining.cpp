@@ -4,6 +4,7 @@
 #include <esp_task_wdt.h>
 #include <nvs_flash.h>
 #include <nvs.h>
+#include "mbedtls/sha256.h" // Added for nerdSHA256_context typedef
 //#include "ShaTests/nerdSHA256.h"
 #include "ShaTests/nerdSHA256plus.h"
 #include "stratum.h"

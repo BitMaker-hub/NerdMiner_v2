@@ -17,12 +17,14 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "mbedtls/sha256.h" // Include Mbed TLS SHA256 header
 
 
-struct nerdSHA256_context {
-    uint8_t buffer[64];
-    uint32_t digest[8];
-};
+// struct nerdSHA256_context {
+//     uint8_t buffer[64];
+//     uint32_t digest[8];
+// };
+typedef mbedtls_sha256_context nerdSHA256_context; // Typedef for Mbed TLS context
 
 /* Calculate midstate */
 IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, uint8_t* dataIn);

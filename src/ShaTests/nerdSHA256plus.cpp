@@ -24,6 +24,10 @@
 #include <math.h>
 #include <string.h>
 
+#include "mbedtls/sha256.h"
+#include "mbedtls/platform_util.h" // For mbedtls_platform_zeroize if needed
+
+/*
 #define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
 
 #ifndef PUT_UINT32_BE
@@ -99,300 +103,78 @@ void ByteReverseWords(uint32_t* out, const uint32_t* in, uint32_t byteCount)
     count = byteCount/(uint32_t)sizeof(uint32_t);
     for (i = 0; i < count; i++)  out[i] = ByteReverseWord32(in[i]);
 }
-
+*/
 
 IRAM_ATTR void nerd_mids(nerdSHA256_context* midstate, uint8_t* dataIn)
 {
-    uint32_t A[8] = { 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
-
-    uint32_t temp1, temp2, W[64];
-    uint8_t i;
-
-    W[0] = GET_UINT32_BE(dataIn, 0);
-    W[1] = GET_UINT32_BE(dataIn, 4);
-    W[2] = GET_UINT32_BE(dataIn, 8);
-    W[3] = GET_UINT32_BE(dataIn, 12);
-    W[4] = GET_UINT32_BE(dataIn, 16);
-    W[5] = GET_UINT32_BE(dataIn, 20);
-    W[6] = GET_UINT32_BE(dataIn, 24);
-    W[7] = GET_UINT32_BE(dataIn, 28);
-    W[8] = GET_UINT32_BE(dataIn, 32);
-    W[9] = GET_UINT32_BE(dataIn, 36);
-    W[10] = GET_UINT32_BE(dataIn, 40);
-    W[11] = GET_UINT32_BE(dataIn, 44);
-    W[12] = GET_UINT32_BE(dataIn, 48);
-    W[13] = GET_UINT32_BE(dataIn, 52);
-    W[14] = GET_UINT32_BE(dataIn, 56);
-    W[15] = GET_UINT32_BE(dataIn, 60);
-    
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[3], K[3]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[4], K[4]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[5], K[5]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[6], K[6]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[7], K[7]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[8], K[8]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[9], K[9]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[10], K[10]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[11], K[11]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[12], K[12]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[13], K[13]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[14], K[14]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[15], K[15]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(16), K[16]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(17), K[17]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(18), K[18]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(19), K[19]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(20), K[20]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(21), K[21]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(22), K[22]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(23), K[23]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(24), K[24]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(25), K[25]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(26), K[26]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(27), K[27]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(28), K[28]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(29), K[29]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(30), K[30]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(31), K[31]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(32), K[32]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(33), K[33]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(34), K[34]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(35), K[35]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(36), K[36]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(37), K[37]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(38), K[38]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(39), K[39]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(40), K[40]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(41), K[41]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(42), K[42]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(43), K[43]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(44), K[44]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(45), K[45]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(46), K[46]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(47), K[47]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(48), K[48]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(49), K[49]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(50), K[50]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(51), K[51]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(52), K[52]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(53), K[53]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(54), K[54]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(55), K[55]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(56), K[56]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(57), K[57]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(58), K[58]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(59), K[59]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(60), K[60]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
-
-    midstate->digest[0] = 0x6A09E667 + A[0];
-    midstate->digest[1] = 0xBB67AE85 + A[1];
-    midstate->digest[2] = 0x3C6EF372 + A[2];
-    midstate->digest[3] = 0xA54FF53A + A[3];
-    midstate->digest[4] = 0x510E527F + A[4];
-    midstate->digest[5] = 0x9B05688C + A[5];
-    midstate->digest[6] = 0x1F83D9AB + A[6];
-    midstate->digest[7] = 0x5BE0CD19 + A[7];
-    
+    mbedtls_sha256_init(midstate);
+    // Consider adding error checking for mbedtls_sha256_starts_ret and mbedtls_sha256_update_ret
+    // For now, keeping it simple as per original structure that didn't return errors from nerd_mids
+    if (mbedtls_sha256_starts_ret(midstate, 0) != 0) { // 0 for SHA-256
+        // Handle error, maybe log it or assert, though original function didn't return status
+        ESP_LOGE("nerd_mids", "mbedtls_sha256_starts_ret failed");
+        return; // Or some other error indication if possible
+    }
+    if (mbedtls_sha256_update_ret(midstate, dataIn, 64) != 0) { // Process first 64 bytes
+        // Handle error
+        ESP_LOGE("nerd_mids", "mbedtls_sha256_update_ret failed");
+        // midstate might be in an inconsistent state here
+        return;
+    }
 }
 
 IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8_t* doubleHash)
 {
-    uint32_t temp1, temp2;
-    uint8_t temp3, temp4;
-    uint32_t* buffer32;
-    //*********** Init 1rst SHA ***********
+    mbedtls_sha256_context temp_ctx;
+    uint8_t first_hash_result[32];
 
-    uint32_t W[16] = { GET_UINT32_BE(dataIn, 0), GET_UINT32_BE(dataIn, 4),
-        GET_UINT32_BE(dataIn, 8), GET_UINT32_BE(dataIn, 12), 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 640}; 
+    // First SHA256 round (continues from midstate)
+    mbedtls_sha256_init(&temp_ctx);
+    if (mbedtls_sha256_clone(&temp_ctx, midstate) != 0) {
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_clone failed");
+        mbedtls_sha256_free(&temp_ctx);
+        return false; // Indicate failure
+    }
 
-    uint32_t A[8] = { midstate->digest[0], midstate->digest[1], midstate->digest[2], midstate->digest[3],
-        midstate->digest[4], midstate->digest[5], midstate->digest[6], midstate->digest[7] };
+    if (mbedtls_sha256_update_ret(&temp_ctx, dataIn, 16) != 0) { // Process last 16 bytes of header
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_update_ret (1st hash) failed");
+        mbedtls_sha256_free(&temp_ctx);
+        return false;
+    }
+    if (mbedtls_sha256_finish_ret(&temp_ctx, first_hash_result) != 0) {
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_finish_ret (1st hash) failed");
+        mbedtls_sha256_free(&temp_ctx);
+        return false;
+    }
+    mbedtls_sha256_free(&temp_ctx); // Free after first hash
 
-    union {
-        uint32_t num;
-        uint8_t b[4];
-    } u;
-    uint8_t* p = NULL;
+    // Second SHA256 round
+    mbedtls_sha256_context second_hash_ctx; // Use a new context for the second round
+    mbedtls_sha256_init(&second_hash_ctx);
+    if (mbedtls_sha256_starts_ret(&second_hash_ctx, 0) != 0) { // 0 for SHA-256
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_starts_ret (2nd hash) failed");
+        mbedtls_sha256_free(&second_hash_ctx);
+        return false;
+    }
+    if (mbedtls_sha256_update_ret(&second_hash_ctx, first_hash_result, 32) != 0) {
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_update_ret (2nd hash) failed");
+        mbedtls_sha256_free(&second_hash_ctx);
+        return false;
+    }
+    if (mbedtls_sha256_finish_ret(&second_hash_ctx, doubleHash) != 0) {
+        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_finish_ret (2nd hash) failed");
+        mbedtls_sha256_free(&second_hash_ctx);
+        return false;
+    }
+    mbedtls_sha256_free(&second_hash_ctx);
 
-    uint8_t i;
+    // Maintain original optimization check if needed
+    if (doubleHash[31] != 0 || doubleHash[30] != 0) {
+        // This check was originally an early exit.
+        // Depending on how this function is used, this might still be a valid optimization
+        // to signal that this hash result won't meet difficulty criteria.
+        return false;
+    }
 
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[3], K[3]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[4], K[4]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[5], K[5]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[6], K[6]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[7], K[7]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[8], K[8]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[9], K[9]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[10], K[10]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[11], K[11]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[12], K[12]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[13], K[13]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[14], K[14]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[15], K[15]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(16), K[16]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(17), K[17]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(18), K[18]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(19), K[19]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(20), K[20]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(21), K[21]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(22), K[22]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(23), K[23]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(24), K[24]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(25), K[25]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(26), K[26]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(27), K[27]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(28), K[28]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(29), K[29]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(30), K[30]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(31), K[31]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(32), K[32]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(33), K[33]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(34), K[34]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(35), K[35]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(36), K[36]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(37), K[37]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(38), K[38]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(39), K[39]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(40), K[40]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(41), K[41]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(42), K[42]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(43), K[43]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(44), K[44]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(45), K[45]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(46), K[46]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(47), K[47]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(48), K[48]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(49), K[49]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(50), K[50]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(51), K[51]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(52), K[52]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(53), K[53]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(54), K[54]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(55), K[55]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(56), K[56]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(57), K[57]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(58), K[58]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(59), K[59]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(60), K[60]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
-    
-   //*********** end SHA_finish ***********
-
-    /* Calculate the second hash (double SHA-256) */
- 
-    W[0] = A[0] + midstate->digest[0];
-    W[1] = A[1] + midstate->digest[1];
-    W[2] = A[2] + midstate->digest[2];
-    W[3] = A[3] + midstate->digest[3];
-    W[4] = A[4] + midstate->digest[4];
-    W[5] = A[5] + midstate->digest[5];
-    W[6] = A[6] + midstate->digest[6];
-    W[7] = A[7] + midstate->digest[7];
-    W[8] = 0x80000000;
-    W[9] = 0;
-    W[10] = 0;
-    W[11] = 0;
-    W[12] = 0;
-    W[13] = 0;
-    W[14] = 0;
-    W[15] = 256;
-
-  
-    A[0] = 0x6A09E667;
-    A[1] = 0xBB67AE85;
-    A[2] = 0x3C6EF372;
-    A[3] = 0xA54FF53A;
-    A[4] = 0x510E527F;
-    A[5] = 0x9B05688C;
-    A[6] = 0x1F83D9AB;
-    A[7] = 0x5BE0CD19;
-
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[0], K[0]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[1], K[1]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[2], K[2]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[3], K[3]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[4], K[4]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[5], K[5]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[6], K[6]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[7], K[7]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[8], K[8]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[9], K[9]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[10], K[10]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[11], K[11]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], W[12], K[12]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], W[13], K[13]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], W[14], K[14]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[15], K[15]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(16), K[16]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(17), K[17]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(18), K[18]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(19), K[19]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(20), K[20]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(21), K[21]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(22), K[22]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(23), K[23]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(24), K[24]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(25), K[25]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(26), K[26]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(27), K[27]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(28), K[28]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(29), K[29]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(30), K[30]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(31), K[31]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(32), K[32]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(33), K[33]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(34), K[34]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(35), K[35]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(36), K[36]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(37), K[37]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(38), K[38]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(39), K[39]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(40), K[40]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(41), K[41]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(42), K[42]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(43), K[43]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(44), K[44]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(45), K[45]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(46), K[46]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(47), K[47]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(48), K[48]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(49), K[49]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(50), K[50]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(51), K[51]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(52), K[52]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(53), K[53]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(54), K[54]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(55), K[55]);
-    P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], R(56), K[56]);
-    P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], R(57), K[57]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(58), K[58]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(59), K[59]);
-    P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(60), K[60]);
-    P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(61), K[61]);
-    P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(62), K[62]);
-    P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(63), K[63]);
-    
-    PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
-    if(doubleHash[31] !=0 || doubleHash[30] !=0) return false;
-    PUT_UINT32_BE(0x6A09E667 + A[0], doubleHash, 0);
-    PUT_UINT32_BE(0xBB67AE85 + A[1], doubleHash, 4);
-    PUT_UINT32_BE(0x3C6EF372 + A[2], doubleHash, 8);
-    PUT_UINT32_BE(0xA54FF53A + A[3], doubleHash, 12);
-    PUT_UINT32_BE(0x510E527F + A[4], doubleHash, 16);
-    PUT_UINT32_BE(0x9B05688C + A[5], doubleHash, 20);
-    PUT_UINT32_BE(0x1F83D9AB + A[6], doubleHash, 24);
-
-    return true;
+    return true; // Success
 }
