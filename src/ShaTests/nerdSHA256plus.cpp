@@ -130,11 +130,7 @@ IRAM_ATTR bool nerd_sha256d(nerdSHA256_context* midstate, uint8_t* dataIn, uint8
 
     // First SHA256 round (continues from midstate)
     mbedtls_sha256_init(&temp_ctx);
-    if (mbedtls_sha256_clone(&temp_ctx, midstate) != 0) {
-        ESP_LOGE("nerd_sha256d", "mbedtls_sha256_clone failed");
-        mbedtls_sha256_free(&temp_ctx);
-        return false; // Indicate failure
-    }
+    mbedtls_sha256_clone(&temp_ctx, midstate);
 
     if (mbedtls_sha256_update_ret(&temp_ctx, dataIn, 16) != 0) { // Process last 16 bytes of header
         ESP_LOGE("nerd_sha256d", "mbedtls_sha256_update_ret (1st hash) failed");
