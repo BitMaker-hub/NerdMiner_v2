@@ -339,6 +339,8 @@ String getPoolAPIUrl(void) {
                 case 3333:
                     if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
+                    if (Settings.PoolAddress == "pool.solomining.de")
+                        poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
