@@ -331,7 +331,7 @@ String getPoolAPIUrl(void) {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "nerdminers.org") {
+        if (Settings.PoolAddress == "pool.nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
@@ -339,6 +339,8 @@ String getPoolAPIUrl(void) {
                 case 3333:
                     if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
+                    if (Settings.PoolAddress == "pool.solomining.de")
+                        poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
