@@ -3,7 +3,7 @@ name: Nerdminer Pre-Release
 on:
   push:
     branches:
-      - develop
+      - prerelease
 
 jobs:
   build:
