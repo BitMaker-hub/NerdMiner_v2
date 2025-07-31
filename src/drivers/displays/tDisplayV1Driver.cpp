@@ -67,14 +67,12 @@ void tDisplay_MinerScreen(unsigned long mElapsed)
   render.rdrawString(data.currentHashRate.c_str(), 96, 90, TFT_BLACK);
   // Total hashes
   render.setFontSize(13);
-  render.rdrawString(data.totalMHashes.c_str(), 200, 112, TFT_BLACK);
+  render.rdrawString(data.totalMHashes.c_str(), 200, 106, TFT_BLACK);
   // Block templates
-  render.setFontSize(13);
   render.drawString(data.templates.c_str(), 140, 15, 0xDEDB);
   // Best diff
   render.drawString(data.bestDiff.c_str(), 140, 38, 0xDEDB);
   // 32Bit shares
-  render.setFontSize(13);
   render.drawString(data.completedShares.c_str(), 140, 60, 0xDEDB);
   // Hores
   render.setFontSize(9);

@@ -13,7 +13,9 @@
 #define UPDATE_PERIOD_h   5
 
 //API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
-#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT"
+
+#define getBTCAPI "https://api.coindesk.com/v1/bpi/currentprice.json"
+
 #define UPDATE_BTC_min   1
 
 //API Block height
@@ -127,6 +129,6 @@ coin_data getCoinData(unsigned long mElapsed);
 pool_data getPoolData(void);
 
 clock_data_t getClockData_t(unsigned long mElapsed);
-
+String getPoolAPIUrl(void);
 
 #endif //MONITOR_API_H
