@@ -32,4 +32,7 @@
 #define SDSPI_MOSI  23
 #define SDSPI_MISO  19
 
+// calls api to retrieve worker metrics
+#define SCREEN_WORKERS_ENABLE (1)
+
 #endif

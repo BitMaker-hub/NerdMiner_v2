@@ -1,7 +1,8 @@
 #include "displayDriver.h"
 
 #ifdef T_HMI_DISPLAY
-
+#include <FS.h>
+#include <xpt2046.h> // https://github.com/liangyingy/arduino_xpt2046_library
 #include <TFT_eSPI.h>
 #include <TFT_eTouch.h>
 #include "media/images_320_170.h"
@@ -11,6 +12,11 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
+#ifdef TOUCH_ENABLE
+#include "TouchHandler.h"
+#endif
+#include <Arduino.h>
+#include <esp_adc_cal.h>
 
 #define WIDTH 320
 #define HEIGHT 240
@@ -19,18 +25,47 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
+#ifdef TOUCH_ENABLE
+TouchHandler touchHandler = TouchHandler(tft, ETOUCH_CS, TOUCH_IRQ, SPI);
+#endif
 
-SPIClass hSPI(HSPI);
-TFT_eTouch<TFT_eSPI> touch(tft, ETOUCH_CS, 0xFF, hSPI); 
 bool showbtcprice = false;
 
+unsigned int lowerScreen = 1;
+
+extern void switchToNextScreen();
 extern monitor_data mMonitor;
 extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
 
+void toggleBottomScreen() { lowerScreen = 3 - lowerScreen; }
+
+
+uint32_t readAdcVoltage(int pin) {
+    esp_adc_cal_characteristics_t adc_chars;
+
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+    return esp_adc_cal_raw_to_voltage(analogRead(pin), &adc_chars);
+}
+
+void printBatteryVoltage() {
+    uint32_t voltage = readAdcVoltage(BAT_ADC_PIN) * 2;
+    Serial.print("Battery voltage: ");
+    Serial.println((float)voltage/1000);
+    delay(500);
+}
 
 void t_hmiDisplay_Init(void)
 {
+  pinMode(PWR_ON_PIN, OUTPUT);
+  digitalWrite(PWR_ON_PIN, HIGH);
+
+  delay(10);
+  Serial.println(F("Turn on the main power"));
+
+  pinMode(PWR_EN_PIN, OUTPUT);
+  digitalWrite(PWR_EN_PIN, HIGH);
+
   tft.init();
   tft.setRotation(1);
   tft.setSwapBytes(true);                 // Swap the colour byte order when rendering
@@ -45,20 +80,21 @@ void t_hmiDisplay_Init(void)
     Serial.println("Initialise error");
     return;
   }
-/* XXX - Pass for first version
+
+  #ifdef TOUCH_ENABLE
   Serial.println(F("Initialize the touch screen"));
-  hSPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, ETOUCH_CS);
-  TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
-  touch.setCalibration(calibation);
-*/
-  Serial.println(F("Power on peripherals, such as the LCD backlight"));
-  pinMode(PWR_EN_PIN, OUTPUT);
-  digitalWrite(PWR_EN_PIN, HIGH);
+  touchHandler.begin(HEIGHT, WIDTH);
+  touchHandler.setScreenSwitchCallback(switchToNextScreen);
+  touchHandler.setScreenSwitchAltCallback(toggleBottomScreen);
+  #endif
+
+  Serial.println(F("Turn on the LCD backlight"));
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BK_LIGHT_PIN, OUTPUT);
+  digitalWrite(BK_LIGHT_PIN, BK_LIGHT_LEVEL);
   pData.bestDifficulty = "0";
   pData.workersHash = "0";
   pData.workersCount = 0;
-
 }
 
 void t_hmiDisplay_AlternateScreenState(void)
@@ -72,6 +108,7 @@ void t_hmiDisplay_AlternateRotation(void)
 {
    tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
 }
+
 
 void printPoolData()
 {
@@ -88,6 +125,7 @@ void printPoolData()
   render.setFontSize(18);
   render.drawString(pData.workersHash.c_str(), 216, 170+34, TFT_BLACK);
   render.drawString(pData.bestDifficulty.c_str(), 5, 170+34, TFT_BLACK);
+  // printBatteryVoltage();
 }
 
 
@@ -116,6 +154,7 @@ void printMemPoolFees(unsigned long mElapsed)
   // render.drawChar('<', 245, 170+32, TFT_RED);
   render.drawString(data.minimumFee.c_str(), 250, 170+32, TFT_RED);
   render.drawString(data.fastestFee.c_str(), 30, 170+32, TFT_BLACK);
+  // printBatteryVoltage();
 }
 
 void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
@@ -160,7 +199,11 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.setFontSize(10);
   render.rdrawString(data.currentTime.c_str(), 286, 1, TFT_BLACK);
 
-  printPoolData();
+  if (lowerScreen == 1)
+    printPoolData();
+  else
+    printMemPoolFees(mElapsed);
+
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -198,7 +241,10 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
   background.setTextColor(0xDEDB, TFT_BLACK);
 
   background.drawString(data.currentTime.c_str(), 130, 50, GFXFF);
-  printMemPoolFees(mElapsed);
+  if (lowerScreen == 1)
+    printMemPoolFees(mElapsed);
+  else
+    printPoolData();
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -258,7 +304,11 @@ void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.setTextColor(TFT_BLACK);
   background.drawString(data.remainingBlocks.c_str(), 72, 159, FONT2);
 
-  printMemPoolFees(mElapsed);
+  if (lowerScreen == 1)
+    printMemPoolFees(mElapsed);
+  else
+    printPoolData();
+
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }
@@ -298,7 +348,10 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
   background.setTextSize(1);
   background.setTextColor(0xDEDB, TFT_BLACK);
   background.drawString(data.btcPrice.c_str(), 300, 58, GFXFF);
-  printPoolData();
+  if (lowerScreen == 1)
+    printPoolData();
+  else
+    printMemPoolFees(mElapsed);
   // Push prepared background to screen
   background.pushSprite(0, 0);
 }

@@ -15,6 +15,10 @@
 #include "drivers/storage/SDCard.h"
 #include "timeconst.h"
 
+#ifdef TOUCH_ENABLE
+#include "TouchHandler.h"
+#endif
+
 //3 seconds WDT
 #define WDT_TIMEOUT 3
 //15 minutes WDT for miner task
@@ -28,9 +32,17 @@
   OneButton button2(PIN_BUTTON_2);
 #endif
 
+#ifdef TOUCH_ENABLE
+extern TouchHandler touchHandler;
+#endif
+
 extern monitor_data mMonitor;
 
-SDCard SDCrd = SDCard();
+#ifdef SD_ID
+  SDCard SDCrd = SDCard(SD_ID);
+#else  
+  SDCard SDCrd = SDCard();
+#endif
 
 /**********************⚡ GLOBAL Vars *******************************/
 
@@ -96,7 +108,11 @@ void setup()
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
   doLedStuff(0);
-  
+
+#ifdef SDMMC_1BIT_FIX
+  SDCrd.initSDcard();
+#endif
+
   /******** INIT WIFI ************/
   init_WifiManager();
 
@@ -111,7 +127,7 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
- #ifdef ESP32_2432S028R
+ #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
  // Free a little bit of the heap to the screen
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 3, NULL,1);
  #else
@@ -141,7 +157,7 @@ void app_error_fault_handler(void *arg) {
   char *stack = (char *)arg;
 
   // Print the stack errors in the console
-  esp_log_write(ESP_LOG_ERROR, "APP_ERROR", "Pila de errores:\n%s", stack);
+  esp_log_write(ESP_LOG_ERROR, "APP_ERROR", "Error Stack Code:\n%s", stack);
 
   // restart ESP32
   esp_restart();
@@ -156,7 +172,10 @@ void loop() {
   #ifdef PIN_BUTTON_2
     button2.tick();
   #endif
-  
+
+#ifdef TOUCH_ENABLE
+  touchHandler.isTouched();
+#endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);

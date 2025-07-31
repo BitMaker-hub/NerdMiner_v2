@@ -1,0 +1,16 @@
+{
+  "codename": "calculator32",
+  "ttf_path": "/assets/Calculator.ttf",
+  "bin_path": "/assets/ui_font_calculator32.bin",
+  "c_path": "/assets/ui_font_calculator32.c",
+  "cfg_path": "/assets/ui_font_calculator32.fcfg",
+  "size": 32,
+  "bpp": 1,
+  "letters": 0,
+  "ranges": [
+    "0x20-0x7f"
+  ],
+  "symbols": "",
+  "customparams": "--no-compress --no-prefilter",
+  "uploaded": false
+}

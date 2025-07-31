@@ -1,0 +1,84 @@
+name: Nerdminer Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version_step.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+      - name: Build PlatformIO Project
+        run: pio run
+      - name: Archive built binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binaries-${{ github.sha }}
+          path: .pio/build/*/*.bin
+          if-no-files-found: error
+      - name: Archive bootapp binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootapp-binary-${{ github.sha }}
+          path: ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+          if-no-files-found: error
+      - name: Get version
+        id: version_step
+        run: echo "version=`cat src/version.h | grep CURRENT_VERSION | awk -F\\" '{print $2}'`" >> $GITHUB_OUTPUT
+
+  release:
+    needs: build
+    permissions:
+      contents: write
+      discussions: write
+      issues: write
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: trstringer/manual-approval@v1
+        timeout-minutes: 120
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: BitMaker-hub
+          minimum-approvals: 1
+          issue-title: "Releasing Nerdminer version ${{ needs.build.outputs.version }}"
+          issue-body: "Please approve or deny the release of ${{ needs.build.outputs.version }}."
+          exclude-workflow-initiator-as-approver: false
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/binaries
+          name: built-binaries-${{ github.sha }}
+      - name: Download bootapp binary
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/binaries
+          name: bootapp-binary-${{ github.sha }}
+      - name: Rename built binaries
+        run: find ${{ github.workspace }}/binaries -mindepth 2 -maxdepth 3 -type f -name "*.bin" -exec sh -c 'cp "$0" "${{ github.workspace }}/binaries/$(basename $(dirname "$0"))_$(basename $0)"' {} \;
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: nerdminer-release-${{ needs.build.outputs.version }}
+          tag_name: nerdminer-release-${{ needs.build.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: ${{ github.workspace }}/binaries/*.bin
+
