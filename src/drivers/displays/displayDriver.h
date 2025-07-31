@@ -32,6 +32,7 @@ extern DisplayDriver m5stackDisplayDriver;
 extern DisplayDriver wt32DisplayDriver;
 extern DisplayDriver noDisplayDriver;
 extern DisplayDriver ledDisplayDriver;
+extern DisplayDriver oled042DisplayDriver;
 extern DisplayDriver tDisplayDriver;
 extern DisplayDriver amoledDisplayDriver;
 extern DisplayDriver dongleDisplayDriver;
@@ -39,7 +40,9 @@ extern DisplayDriver esp32_2432S028RDriver;
 extern DisplayDriver t_qtDisplayDriver;
 extern DisplayDriver tDisplayV1Driver;
 extern DisplayDriver m5stickCDriver;
+extern DisplayDriver m5stickCPlusDriver;
 extern DisplayDriver t_hmiDisplayDriver;
+extern DisplayDriver sp_kcDisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 

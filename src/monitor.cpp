@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
+#include "drivers/devices/device.h"
 
 extern uint32_t templates;
 extern uint32_t hashes;
@@ -46,7 +47,7 @@ void setup_monitor(void){
     timeClient.setTimeOffset(3600 * Settings.Timezone);
 
     Serial.println("TimeClient setup done");
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_WORKERS_ENABLE
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
 #endif
@@ -98,7 +99,7 @@ void updateGlobalData(void){
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_FEES_ENABLE
             if (doc.containsKey("fastestFee"))  gData.fastestFee = doc["fastestFee"].as<int>();
             if (doc.containsKey("hourFee"))     gData.hourFee = doc["hourFee"].as<int>();
             if (doc.containsKey("economyFee"))  gData.economyFee = doc["economyFee"].as<int>();
@@ -152,7 +153,7 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) return (String(bitcoin_price) + "$");
+        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
         
         HTTPClient http;
         try {
@@ -164,7 +165,10 @@ String getBTCprice(void){
 
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-            if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
+          
+            if (doc.containsKey("bpi") && doc["bpi"].containsKey("USD")) {
+                bitcoin_price = doc["bpi"]["USD"]["rate_float"].as<unsigned int>();
+            }
 
             doc.clear();
 
@@ -175,9 +179,9 @@ String getBTCprice(void){
         } catch(...) {
           http.end();
         }
-    }
+    }  
   
-  return (String(bitcoin_price) + "$");
+  return "$" + String(bitcoin_price);
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -305,7 +309,7 @@ coin_data getCoinData(unsigned long mElapsed)
   data.currentHashRate = getCurrentHashRate(mElapsed);
   data.btcPrice = getBTCprice();
   data.currentTime = getTime();
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_FEES_ENABLE
   data.hourFee = String(gData.hourFee);
   data.fastestFee = String(gData.fastestFee);
   data.economyFee = String(gData.economyFee);
@@ -330,7 +334,7 @@ String getPoolAPIUrl(void) {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "nerdminers.org") {
+        if (Settings.PoolAddress == "pool.nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
@@ -338,6 +342,8 @@ String getPoolAPIUrl(void) {
                 case 3333:
                     if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
+                    if (Settings.PoolAddress == "pool.solomining.de")
+                        poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
@@ -364,7 +370,7 @@ pool_data getPoolData(void){
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
-#ifdef NERDMINER_T_HMI
+#ifdef SCREEN_WORKERS_ENABLE
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
           http.begin(poolAPIUrl+btcWallet);
 #else

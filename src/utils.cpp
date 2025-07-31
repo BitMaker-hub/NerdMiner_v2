@@ -77,24 +77,25 @@ void reverse_bytes(uint8_t * data, size_t len) {
 
 static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 /* Converts a little endian 256 bit value to a double */
-double le256todouble(const void *target)
+double le256todouble(const void *target) 
 {
-	uint64_t *data64;
-	double dcut64;
+    const uint8_t *byte_target = static_cast<const uint8_t*>(target);  // Convert to byte pointer
+    uint64_t *data64;
+    double dcut64;
 
-	data64 = (uint64_t *)(target + 24);
-	dcut64 = *data64 * 6277101735386680763835789423207666416102355444464034512896.0;
+    data64 = (uint64_t *)(byte_target + 24);
+    dcut64 = *data64 * 6277101735386680763835789423207666416102355444464034512896.0;
 
-	data64 = (uint64_t *)(target + 16);
-	dcut64 += *data64 * 340282366920938463463374607431768211456.0;
+    data64 = (uint64_t *)(byte_target + 16);
+    dcut64 += *data64 * 340282366920938463463374607431768211456.0;
 
-	data64 = (uint64_t *)(target + 8);
-	dcut64 += *data64 * 18446744073709551616.0;
+    data64 = (uint64_t *)(byte_target + 8);
+    dcut64 += *data64 * 18446744073709551616.0;
 
-	data64 = (uint64_t *)(target);
-	dcut64 += *data64;
+    data64 = (uint64_t *)(byte_target);
+    dcut64 += *data64;
 
-	return dcut64;
+    return dcut64;
 }
 
 double diff_from_target(void *target)
