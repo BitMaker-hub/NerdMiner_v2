@@ -1,0 +1,35 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "esp32_out.ld"
+    },
+    "core": "esp32",
+    "extra_flags": "-DARDUINO_M5Stick_C_Plus2",
+    "f_cpu": "240000000L",
+    "f_flash": "40000000L",
+    "flash_mode": "dio",
+    "mcu": "esp32",
+    "variants_dir": "boards/variants",
+    "variant": "m5stick_c_plus2"
+  },
+  "connectivity": [
+    "wifi",
+    "bluetooth",
+    "ethernet",
+    "can"
+  ],
+  "frameworks": [
+    "arduino",
+    "espidf"
+  ],
+  "name": "M5Stick-С-Plus2",
+  "upload": {
+    "flash_size": "8MB",
+    "maximum_ram_size": 2095104,
+    "maximum_size": 8388608,
+    "require_upload_port": true,
+    "speed": 1500000
+  },
+  "url": "https://docs.m5stack.com/en/core/M5StickC%20PLUS2",
+  "vendor": "M5Stack"
+}

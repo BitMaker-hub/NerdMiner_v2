@@ -16,6 +16,10 @@ DisplayDriver *currentDisplayDriver = &wt32DisplayDriver;
 DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 #endif
 
+#ifdef OLED_042_DISPLAY
+DisplayDriver *currentDisplayDriver = &oled042DisplayDriver;
+#endif
+
 #ifdef T_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif
@@ -46,6 +50,10 @@ DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 
 #ifdef M5STICKC_DISPLAY
 DisplayDriver *currentDisplayDriver = &m5stickCDriver;
+#endif
+
+#ifdef M5STICKCPLUS_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stickCPlusDriver;
 #endif
 
 #ifdef T_HMI_DISPLAY

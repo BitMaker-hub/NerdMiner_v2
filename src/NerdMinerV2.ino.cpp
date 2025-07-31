@@ -127,7 +127,7 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   sprintf(name, "(%s)", "Stratum");
- #ifdef ESP32_2432S028R
+ #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
  // Free a little bit of the heap to the screen
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 3, NULL,1);
  #else
@@ -157,7 +157,7 @@ void app_error_fault_handler(void *arg) {
   char *stack = (char *)arg;
 
   // Print the stack errors in the console
-  esp_log_write(ESP_LOG_ERROR, "APP_ERROR", "Pila de errores:\n%s", stack);
+  esp_log_write(ESP_LOG_ERROR, "APP_ERROR", "Error Stack Code:\n%s", stack);
 
   // restart ESP32
   esp_restart();
