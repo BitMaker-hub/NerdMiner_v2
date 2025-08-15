@@ -15,6 +15,8 @@
 #include "esp32C3042OLED.h"
 #elif defined(ESP32_S3_042_OLED)
 #include "esp32S3042OLED.h"
+#elif defined(ESP32_DEV_KIT_091_OLED)
+#include "esp32DevKit091OLED.h"
 #elif defined(TDISPLAY)
 #include "lilygoS3TDisplay.h"
 #elif defined(NERDMINER_S3_AMOLED)
