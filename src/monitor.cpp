@@ -4,6 +4,7 @@
 #include "HTTPClient.h"
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <list>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -238,9 +239,69 @@ String getTime(void){
   return LocalHour;
 }
 
+enum EHashRateScale
+{
+  HashRateScale_99KH,
+  HashRateScale_999KH,
+  HashRateScale_9MH
+};
+
+static EHashRateScale s_hashrate_scale = HashRateScale_99KH;
+static uint32_t s_skip_first = 3;
+static double s_top_hashrate = 0.0;
+
+static std::list<double> s_hashrate_avg_list;
+static double s_hashrate_summ = 0.0;
+static uint8_t s_hashrate_recalc = 0;
+
 String getCurrentHashRate(unsigned long mElapsed)
 {
-  return String((1.0 * (elapsedKHs * 1000)) / mElapsed, 2);
+  double hashrate = (double)elapsedKHs * 1000.0 / (double)mElapsed;
+
+  s_hashrate_summ += hashrate;
+  s_hashrate_avg_list.push_back(hashrate);
+  if (s_hashrate_avg_list.size() > 10)
+  {
+    s_hashrate_summ -= s_hashrate_avg_list.front();
+    s_hashrate_avg_list.pop_front();
+  }
+
+  ++s_hashrate_recalc;
+  if (s_hashrate_recalc == 0)
+  {
+    s_hashrate_summ = 0.0;
+    for (auto itt = s_hashrate_avg_list.begin(); itt != s_hashrate_avg_list.end(); ++itt)
+      s_hashrate_summ += *itt;
+  }
+
+  double avg_hashrate = s_hashrate_summ / (double)s_hashrate_avg_list.size();
+  if (avg_hashrate < 0.0)
+    avg_hashrate = 0.0;
+
+  if (s_skip_first > 0)
+  {
+    s_skip_first--;
+  } else
+  {
+    if (avg_hashrate > s_top_hashrate)
+    {
+      s_top_hashrate = avg_hashrate;
+      if (avg_hashrate > 999.9)
+        s_hashrate_scale = HashRateScale_9MH;
+      else if (avg_hashrate > 99.9)
+        s_hashrate_scale = HashRateScale_999KH;
+    }
+  }
+
+  switch (s_hashrate_scale)
+  {
+    case HashRateScale_99KH:
+      return String(avg_hashrate, 2);
+    case HashRateScale_999KH:
+      return String(avg_hashrate, 1);
+    default:
+      return String((int)avg_hashrate );
+  }
 }
 
 mining_data getMiningData(unsigned long mElapsed)
@@ -251,11 +312,13 @@ mining_data getMiningData(unsigned long mElapsed)
   suffix_string(best_diff, best_diff_string, 16, 0);
 
   char timeMining[15] = {0};
-  uint64_t secElapsed = upTime + (esp_timer_get_time() / 1000000);
-  int days = secElapsed / 86400;
-  int hours = (secElapsed - (days * 86400)) / 3600;               // Number of seconds in an hour
-  int mins = (secElapsed - (days * 86400) - (hours * 3600)) / 60; // Remove the number of hours and calculate the minutes.
-  int secs = secElapsed - (days * 86400) - (hours * 3600) - (mins * 60);
+  uint64_t tm = upTime;
+  int secs = tm % 60;
+  tm /= 60;
+  int mins = tm % 60;
+  tm /= 60;
+  int hours = tm % 24;
+  int days = tm / 24;
   sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
 
   data.completedShares = shares;
