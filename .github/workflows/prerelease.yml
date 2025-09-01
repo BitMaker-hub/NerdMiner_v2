@@ -3,7 +3,7 @@ name: Nerdminer Pre-Release
 on:
   push:
     branches:
-      - dev
+      - pre-release
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
       contents: write
       discussions: write
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/pre-release'
     steps:
       - name: Download firmware files
         uses: actions/download-artifact@v4

@@ -3,7 +3,7 @@ name: Nerdminer Release
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
       discussions: write
       issues: write
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: trstringer/manual-approval@v1
         timeout-minutes: 120
