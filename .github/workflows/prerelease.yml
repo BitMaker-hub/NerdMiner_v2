@@ -3,7 +3,7 @@ name: Nerdminer Pre-Release
 on:
   push:
     branches:
-      - develop
+      - pre-release
 
 jobs:
   build:
@@ -25,17 +25,11 @@ jobs:
         run: pip install --upgrade platformio
       - name: Build PlatformIO Project
         run: pio run
-      - name: Archive built binaries
+      - name: Archive firmware files
         uses: actions/upload-artifact@v4
         with:
-          name: built-binaries-${{ github.sha }}
-          path: .pio/build/*/*.bin
-          if-no-files-found: error
-      - name: Archive bootapp binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: bootapp-binary-${{ github.sha }}
-          path: ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+          name: firmware-files-${{ github.sha }}
+          path: firmware/
           if-no-files-found: error
       - name: Get version
         id: version_step
@@ -47,20 +41,13 @@ jobs:
       contents: write
       discussions: write
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/pre-release'
     steps:
-      - name: Download built binaries
+      - name: Download firmware files
         uses: actions/download-artifact@v4
         with:
-          path: ${{ github.workspace }}/binaries
-          name: built-binaries-${{ github.sha }}
-      - name: Download bootapp binary
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ github.workspace }}/binaries
-          name: bootapp-binary-${{ github.sha }}
-      - name: Rename built binaries
-        run: find ${{ github.workspace }}/binaries -mindepth 2 -maxdepth 3 -type f -name "*.bin" -exec sh -c 'cp "$0" "${{ github.workspace }}/binaries/$(basename $(dirname "$0"))_$(basename $0)"' {} \;
+          path: ${{ github.workspace }}/
+          name: firmware-files-${{ github.sha }}
       - name: Pre-release
         uses: softprops/action-gh-release@v2
         with:
@@ -70,5 +57,5 @@ jobs:
           generate_release_notes: true
           prerelease: true
           fail_on_unmatched_files: true
-          files: ${{ github.workspace }}/binaries/*.bin
+          files: ${{ github.workspace }}/firmware/**/*.bin
 
