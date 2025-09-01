@@ -157,6 +157,8 @@ String getBTCprice(void){
         if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
         
         HTTPClient http;
+        bool priceUpdated = false;
+
         try {
         http.begin(getBTCAPI);
         int httpCode = http.GET();
@@ -167,9 +169,7 @@ String getBTCprice(void){
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
           
-            if (doc.containsKey("bpi") && doc["bpi"].containsKey("USD")) {
-                bitcoin_price = doc["bpi"]["USD"]["rate_float"].as<unsigned int>();
-            }
+            if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
 
             doc.clear();
 
