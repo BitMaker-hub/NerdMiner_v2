@@ -4,7 +4,7 @@
   #define TFT_WIDTH  240
 #endif
 #ifndef TFT_HEIGHT
-  #define TFT_HEIGHT 320
+  #define TFT_HEIGHT 240
 #endif
 
 // Delay between some initialisation commands
@@ -13,6 +13,15 @@
 // Generic commands used by TFT_eSPI.cpp
 #define TFT_NOP     0x00
 #define TFT_SWRST   0x01
+
+#define TFT_SLPIN   0x10
+#define TFT_SLPOUT  0x11
+
+#define TFT_INVOFF  0x20
+#define TFT_INVON   0x21
+
+#define TFT_DISPOFF 0x28
+#define TFT_DISPON  0x29
 
 #define TFT_CASET   0x2A
 #define TFT_PASET   0x2B
@@ -29,6 +38,3 @@
 #define TFT_MAD_BGR 0x08
 #define TFT_MAD_MH  0x04
 #define TFT_MAD_RGB 0x00
-
-#define TFT_INVOFF  0x20
-#define TFT_INVON   0x21

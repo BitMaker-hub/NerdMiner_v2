@@ -77,8 +77,9 @@ void reverse_bytes(uint8_t * data, size_t len) {
 
 static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 /* Converts a little endian 256 bit value to a double */
-double le256todouble(const void *target)
+double le256todouble(const void *target) 
 {
+
 	const uint64_t *data64;
 	double dcut64;
 
@@ -94,7 +95,7 @@ double le256todouble(const void *target)
 	data64 = (const uint64_t *)(target);
 	dcut64 += *data64;
 
-	return dcut64;
+  return dcut64;
 }
 
 double diff_from_target(void *target)
@@ -515,6 +516,7 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 }
 
 
+
 static const uint32_t s_crc32_table[256] =
 {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
@@ -599,3 +601,4 @@ uint32_t crc32_finish(uint32_t crc32)
 {
     return crc32 ^ 0xFFFFFFFF;
 }
+
