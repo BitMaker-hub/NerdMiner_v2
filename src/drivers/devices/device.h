@@ -51,7 +51,8 @@
 #include "waveshareS3Geek.h"
 #elif defined(NERDMINER_T_HMI)
 #include "lilygoT_HMI.h"
-
+#elif defined(SPOTPEAR)
+#include "spotpearKeychain.h"
 
 #else
 #error "No device defined"
