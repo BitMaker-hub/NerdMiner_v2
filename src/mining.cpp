@@ -19,9 +19,9 @@
 #include "mbedtls/sha256.h"
 #include "i2c_master.h"
 
-//10 Jobs per second
-#define NONCE_PER_JOB_SW 4096
-#define NONCE_PER_JOB_HW 16*1024
+//Optimized: Reduce job overhead by increasing nonces per job
+#define NONCE_PER_JOB_SW 8192      // Was 4096 - doubled for better throughput
+#define NONCE_PER_JOB_HW 32*1024   // Was 16*1024 - doubled for better throughput
 
 //#define I2C_SLAVE
 
