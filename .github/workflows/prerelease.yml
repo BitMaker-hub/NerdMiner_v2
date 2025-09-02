@@ -25,6 +25,19 @@ jobs:
         run: pip install --upgrade platformio
       - name: Build PlatformIO Project
         run: pio run
+      - name: Debug - Check generated files
+        run: |
+          echo "=== All .bin files found ==="
+          find . -name "*.bin" -type f
+          echo "=== Directory structure ==="
+          ls -la
+          echo "=== .pio/build contents ==="
+          find .pio/build -name "*.bin" -type f 2>/dev/null || echo "No .pio/build files"
+          echo "=== firmware directory ==="
+          ls -la firmware/ 2>/dev/null || echo "No firmware directory"
+          find firmware -name "*.bin" -type f 2>/dev/null || echo "No firmware .bin files"
+          echo "=== Script check ==="
+          ls -la post_build_merge.py
       - name: Archive firmware files
         uses: actions/upload-artifact@v4
         with:
