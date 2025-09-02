@@ -61,6 +61,15 @@ jobs:
         with:
           path: ${{ github.workspace }}/
           name: firmware-files-${{ github.sha }}
+      - name: Debug - Check downloaded files
+        run: |
+          echo "=== Working directory ==="
+          pwd
+          ls -la
+          echo "=== All .bin files after download ==="
+          find . -name "*.bin" -type f
+          echo "=== firmware directory after download ==="
+          find firmware -type f 2>/dev/null || echo "No firmware directory found"
       - name: Prerelease
         uses: softprops/action-gh-release@v2
         with:
