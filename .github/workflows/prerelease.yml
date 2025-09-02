@@ -79,5 +79,5 @@ jobs:
           generate_release_notes: true
           prerelease: true
           fail_on_unmatched_files: true
-          files: ${{ github.workspace }}/firmware/*/*.bin
+          files: ${{ github.workspace }}/**/*.bin
 
