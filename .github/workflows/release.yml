@@ -67,5 +67,5 @@ jobs:
           generate_release_notes: true
           make_latest: true
           fail_on_unmatched_files: true
-          files: ${{ github.workspace }}/firmware/*/*.bin
+          files: ${{ github.workspace }}/**/*.bin
 
