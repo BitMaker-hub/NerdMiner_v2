@@ -25,17 +25,24 @@ jobs:
         run: pip install --upgrade platformio
       - name: Build PlatformIO Project
         run: pio run
-      - name: Archive built binaries
+      - name: Debug - Check generated files
+        run: |
+          echo "=== All .bin files found ==="
+          find . -name "*.bin" -type f
+          echo "=== Directory structure ==="
+          ls -la
+          echo "=== .pio/build contents ==="
+          find .pio/build -name "*.bin" -type f 2>/dev/null || echo "No .pio/build files"
+          echo "=== firmware directory ==="
+          ls -la firmware/ 2>/dev/null || echo "No firmware directory"
+          find firmware -name "*.bin" -type f 2>/dev/null || echo "No firmware .bin files"
+          echo "=== Script check ==="
+          ls -la post_build_merge.py
+      - name: Archive firmware files
         uses: actions/upload-artifact@v4
         with:
-          name: built-binaries-${{ github.sha }}
-          path: .pio/build/*/*.bin
-          if-no-files-found: error
-      - name: Archive bootapp binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: bootapp-binary-${{ github.sha }}
-          path: ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+          name: firmware-files-${{ github.sha }}
+          path: firmware/
           if-no-files-found: error
       - name: Get version
         id: version_step
@@ -47,21 +54,23 @@ jobs:
       contents: write
       discussions: write
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/prerelease'
     steps:
-      - name: Download built binaries
+      - name: Download firmware files
         uses: actions/download-artifact@v4
         with:
-          path: ${{ github.workspace }}/binaries
-          name: built-binaries-${{ github.sha }}
-      - name: Download bootapp binary
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ github.workspace }}/binaries
-          name: bootapp-binary-${{ github.sha }}
-      - name: Rename built binaries
-        run: find ${{ github.workspace }}/binaries -mindepth 2 -maxdepth 3 -type f -name "*.bin" -exec sh -c 'cp "$0" "${{ github.workspace }}/binaries/$(basename $(dirname "$0"))_$(basename $0)"' {} \;
-      - name: Pre-release
+          path: ${{ github.workspace }}/
+          name: firmware-files-${{ github.sha }}
+      - name: Debug - Check downloaded files
+        run: |
+          echo "=== Working directory ==="
+          pwd
+          ls -la
+          echo "=== All .bin files after download ==="
+          find . -name "*.bin" -type f
+          echo "=== firmware directory after download ==="
+          find firmware -type f 2>/dev/null || echo "No firmware directory found"
+      - name: Prerelease
         uses: softprops/action-gh-release@v2
         with:
           name: nerdminer-prerelease-${{ needs.build.outputs.version }}
@@ -70,5 +79,5 @@ jobs:
           generate_release_notes: true
           prerelease: true
           fail_on_unmatched_files: true
-          files: ${{ github.workspace }}/binaries/*.bin
+          files: ${{ github.workspace }}/**/*.bin
 

@@ -204,7 +204,9 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         mMonitor.NerdStatus = NM_Connecting;
-        if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
+        wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW);
+
+        if (shouldSaveConfig)
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
