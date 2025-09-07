@@ -64,6 +64,7 @@ void updateGlobalData(void){
             
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
+        http.setTimeout(10000);
         try {
         http.begin(getGlobalHash);
         int httpCode = http.GET();
@@ -71,7 +72,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            DynamicJsonDocument doc(1024);
+            StaticJsonDocument<1024> doc;
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
@@ -96,7 +97,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            DynamicJsonDocument doc(1024);
+            StaticJsonDocument<1024> doc;
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
@@ -113,6 +114,7 @@ void updateGlobalData(void){
         
         http.end();
         } catch(...) {
+          Serial.println("Global data HTTP error caught");
           http.end();
         }
     }
@@ -127,6 +129,7 @@ String getBlockHeight(void){
         if (WiFi.status() != WL_CONNECTED) return current_block;
             
         HTTPClient http;
+        http.setTimeout(10000);
         try {
         http.begin(getHeightAPI);
         int httpCode = http.GET();
@@ -141,6 +144,7 @@ String getBlockHeight(void){
         }        
         http.end();
         } catch(...) {
+          Serial.println("Height HTTP error caught");
           http.end();
         }
     }
@@ -154,9 +158,14 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
+        if (WiFi.status() != WL_CONNECTED) {
+            static char price_buffer[16];
+            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+            return String(price_buffer);
+        }
         
         HTTPClient http;
+        http.setTimeout(10000);
         bool priceUpdated = false;
 
         try {
@@ -166,7 +175,7 @@ String getBTCprice(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
 
-            DynamicJsonDocument doc(1024);
+            StaticJsonDocument<1024> doc;
             deserializeJson(doc, payload);
           
             if (doc.containsKey("last_trade_price")) bitcoin_price = doc["last_trade_price"];
@@ -178,11 +187,14 @@ String getBTCprice(void){
         
         http.end();
         } catch(...) {
+          Serial.println("BTC price HTTP error caught");
           http.end();
         }
     }  
   
-  return "$" + String(bitcoin_price);
+  static char price_buffer[16];
+  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+  return String(price_buffer);
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -428,7 +440,7 @@ pool_data getPoolData(void){
         if (WiFi.status() != WL_CONNECTED) return pData;            
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setReuse(true);        
+        http.setTimeout(10000);        
         try {          
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
@@ -448,7 +460,7 @@ pool_data getPoolData(void){
               filter["workersCount"] = true;
               filter["workers"][0]["sessionId"] = true;
               filter["workers"][0]["hashRate"] = true;
-              DynamicJsonDocument doc(2048);
+              StaticJsonDocument<2048> doc;
               deserializeJson(doc, payload, DeserializationOption::Filter(filter));
               //Serial.println(serializeJsonPretty(doc, Serial));
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
