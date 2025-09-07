@@ -17,13 +17,24 @@
 #include <list>
 #include <map>
 #include "mbedtls/sha256.h"
+//I2C mining support (disabled by default for performance)
+#ifdef ENABLE_I2C_MINING
 #include "i2c_master.h"
+#define I2C_SLAVE_ENABLED
+#endif
 
-//Optimized: Reduce job overhead by increasing nonces per job
-#define NONCE_PER_JOB_SW 8192      // Was 4096 - doubled for better throughput
-#define NONCE_PER_JOB_HW 32*1024   // Was 16*1024 - doubled for better throughput
-
-//#define I2C_SLAVE
+// Reduce memory usage for ESP32 classic to prevent crashes
+#if defined(CONFIG_IDF_TARGET_ESP32)
+  #define NONCE_PER_JOB_SW 2048     // Reduced from 4096
+  #define NONCE_PER_JOB_HW 8*1024   // Reduced from 16*1024
+  #define JOB_QUEUE_SIZE 2          // Reduced queue size
+  #define RESULT_QUEUE_SIZE 8       // Reduced result queue
+#else
+  #define NONCE_PER_JOB_SW 4096     // Normal for S3/S2/C3
+  #define NONCE_PER_JOB_HW 16*1024
+  #define JOB_QUEUE_SIZE 4          // Normal queue size  
+  #define RESULT_QUEUE_SIZE 16      // Normal result queue
+#endif
 
 //#define SHA256_VALIDATE
 //#define RANDOM_NONCE
@@ -93,8 +104,11 @@ bool checkPoolConnection(void) {
   //Try connecting pool IP
   if (!client.connect(serverIP, Settings.PoolPort)) {
     Serial.println("Imposible to connect to : " + Settings.PoolAddress);
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+    // Only retry DNS resolution if we have an invalid IP
+    if (serverIP == IPAddress(1,1,1,1)) {
+      WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
+      Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+    }
     return false;
   }
 
@@ -229,7 +243,7 @@ void runStratumWorker(void *name) {
 
   std::map<uint32_t, std::shared_ptr<Submition>> s_submition_map;
 
-#ifdef I2C_SLAVE
+#ifdef I2C_SLAVE_ENABLED_ENABLED
   std::vector<uint8_t> i2c_slave_vector;
 
   //scan for i2c slaves
@@ -330,7 +344,8 @@ void runStratumWorker(void *name) {
     //Read pending messages from pool
     while(client.connected() && client.available())
     {
-      String line = client.readStringUntil('\n');
+      static String line; // Reutilizar el mismo objeto String
+      line = client.readStringUntil('\n');
       //Serial.println("  Received message from pool");      
       stratum_method result = parse_mining_method(line);
       switch (result)
@@ -384,7 +399,7 @@ void runStratumWorker(void *name) {
                                           #ifdef RANDOM_NONCE
                                           nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
                                           #else
-                                            #ifdef I2C_SLAVE
+                                            #ifdef I2C_SLAVE_ENABLED
                                             if (!i2c_slave_vector.empty())
                                               nonce_pool = 0x10000000;
                                             else
@@ -419,7 +434,7 @@ void runStratumWorker(void *name) {
                                               #endif
                                             }
                                           }
-                                          #ifdef I2C_SLAVE
+                                          #ifdef I2C_SLAVE_ENABLED
                                           //Nonce for nonce_pool starts from 0x10000000
                                           //For i2c slave we give nonces from 0x20000000, that is 0x10000000 nonces per slave
                                           i2c_feed_slaves(i2c_slave_vector, job_pool & 0xFF, 0x20, currentPoolDifficulty, mMiner.bytearray_blockheader);
@@ -468,7 +483,7 @@ void runStratumWorker(void *name) {
     }
 
     std::list<std::shared_ptr<JobResult>> job_result_list;
-    #ifdef I2C_SLAVE
+    #ifdef I2C_SLAVE_ENABLED
     if (i2c_slave_vector.empty() || job_pool == 0xFFFFFFFF)
     {
       vTaskDelay(50 / portTICK_PERIOD_MS); //Small delay
@@ -516,7 +531,7 @@ void runStratumWorker(void *name) {
       s_job_result_list.clear();
 
 #if 1
-      while (s_job_request_list_sw.size() < 4)
+      while (s_job_request_list_sw.size() < JOB_QUEUE_SIZE)
       {
         JobPush( s_job_request_list_sw, job_pool, nonce_pool, NONCE_PER_JOB_SW, currentPoolDifficulty, mMiner.bytearray_blockheader, diget_mid, bake);
         #ifdef RANDOM_NONCE
@@ -528,7 +543,7 @@ void runStratumWorker(void *name) {
 #endif
 
       #ifdef HARDWARE_SHA265
-      while (s_job_request_list_hw.size() < 4)
+      while (s_job_request_list_hw.size() < JOB_QUEUE_SIZE)
       {
         #if defined(CONFIG_IDF_TARGET_ESP32)
           JobPush( s_job_request_list_hw, job_pool, nonce_pool, NONCE_PER_JOB_HW, currentPoolDifficulty, sha_buffer_swap, hw_midstate, bake);
@@ -598,7 +613,7 @@ void minerWorkerSw(void * task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        if (s_job_result_list.size() < 16)
+        if (s_job_result_list.size() < RESULT_QUEUE_SIZE)
           s_job_result_list.push_back(result);
         result.reset();
       }
@@ -804,7 +819,7 @@ void minerWorkerHw(void * task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        if (s_job_result_list.size() < 16)
+        if (s_job_result_list.size() < RESULT_QUEUE_SIZE)
           s_job_result_list.push_back(result);
         result.reset();
       }
@@ -835,17 +850,13 @@ void minerWorkerHw(void * task_id)
       uint32_t nend = job->nonce_start + job->nonce_count;
       for (uint32_t n = job->nonce_start; n < nend; ++n)
       {
-        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_write_digest(digest_mid);
-        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256(sha_buffer, n);
-        //sha_ll_continue_block(SHA2_256);
         REG_WRITE(SHA_CONTINUE_REG, 1);
         
         sha_ll_load(SHA2_256);
         nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256_inter();
-        //sha_ll_start_block(SHA2_256);
         REG_WRITE(SHA_START_REG, 1);
         sha_ll_load(SHA2_256);
         nerd_sha_hal_wait_idle();
@@ -1045,7 +1056,7 @@ void minerWorkerHw(void * task_id)
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
       {
-        if (s_job_result_list.size() < 16)
+        if (s_job_result_list.size() < RESULT_QUEUE_SIZE)
           s_job_result_list.push_back(result);
         result.reset();
       }
@@ -1067,16 +1078,12 @@ void minerWorkerHw(void * task_id)
       memcpy(sha_buffer, job->sha_buffer, 80);
 
       esp_sha_lock_engine(SHA2_256);
+      uint32_t processed_nonces = 0; // Track actually processed nonces
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        //((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(job->nonce_start+n);
-
-        //sha_hal_hash_block(SHA2_256, s_test_buffer, 64/4, true);
-        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256(sha_buffer);
         sha_ll_start_block(SHA2_256);
 
-        //sha_hal_hash_block(SHA2_256, s_test_buffer+64, 64/4, false);
         nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256_upper(sha_buffer+64, job->nonce_start+n);
         sha_ll_continue_block(SHA2_256);
@@ -1084,8 +1091,6 @@ void minerWorkerHw(void * task_id)
         nerd_sha_hal_wait_idle();
         sha_ll_load(SHA2_256);
 
-        //sha_hal_hash_block(SHA2_256, interResult, 64/4, true);
-        nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256_double();
         sha_ll_start_block(SHA2_256);
 
@@ -1093,6 +1098,7 @@ void minerWorkerHw(void * task_id)
         sha_ll_load(SHA2_256);
         if (nerd_sha_ll_read_digest_swap_if(hash))
         {
+          processed_nonces++; // Only count successful hash operations
           //~5 per second
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
@@ -1109,10 +1115,12 @@ void minerWorkerHw(void * task_id)
              (uint8_t)(n & 0xFF) == 0 &&
              s_working_current_job_id != job_in_work)
         {
-          result->nonce_count = n+1;
+          result->nonce_count = processed_nonces; // Use actual processed count
           break;
         }
       }
+      // Update final count with actual processed nonces
+      result->nonce_count = processed_nonces;
       esp_sha_unlock_engine(SHA2_256);
     } else
       vTaskDelay(2 / portTICK_PERIOD_MS);
