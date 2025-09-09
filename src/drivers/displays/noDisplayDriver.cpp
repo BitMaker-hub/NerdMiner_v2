@@ -7,7 +7,7 @@
 #include "wManager.h"
 
 extern monitor_data mMonitor;
-bool ledOn = false;
+bool ledOn = true;
 
 void noDisplay_Init(void)
 {
