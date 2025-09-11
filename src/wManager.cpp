@@ -16,6 +16,10 @@
 #include "mining.h"
 #include "timeconst.h"
 
+#ifdef NVMEM_SPIFFS
+#include <SPIFFS.h>
+#endif
+
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -30,6 +34,23 @@ extern monitor_data mMonitor;
 nvMemory nvMem;
 
 extern SDCard SDCrd;
+
+String readCustomAPName() {
+#ifdef NVMEM_SPIFFS
+    if (SPIFFS.exists("/apname.txt")) {
+        File file = SPIFFS.open("/apname.txt", "r");
+        if (file) {
+            String name = file.readString();
+            file.close();
+            name.trim();
+            if (name.length() > 0 && name.length() < 32) {
+                return name;
+            }
+        }
+    }
+#endif
+    return "";
+}
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -76,6 +97,19 @@ void init_WifiManager()
     Serial.begin(115200);
 #endif //MONITOR_SPEED
     //Serial.setTxTimeoutMs(10);
+    
+    // Initialize SPIFFS to read custom AP name
+#ifdef NVMEM_SPIFFS
+    if (!SPIFFS.begin(false)) {
+        SPIFFS.begin(true);
+    }
+#endif
+    
+    // Check for custom AP name, otherwise use default
+    String customAPName = readCustomAPName();
+    const char* apName = customAPName.length() > 0 ? customAPName.c_str() : DEFAULT_SSID;
+    Serial.print("Using AP name: ");
+    Serial.println(apName);
 
     //Init pin 15 to eneble 5V external power (LilyGo bug)
 #ifdef PIN_ENABLE5V
@@ -204,7 +238,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         mMonitor.NerdStatus = NM_Connecting;
-        wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW);
+        wm.startConfigPortal(apName, DEFAULT_WIFIPW);
 
         if (shouldSaveConfig)
         {
@@ -238,7 +272,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true);
         wm.setEnableConfigPortal(true);
         // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
-        if (!wm.autoConnect(DEFAULT_SSID, DEFAULT_WIFIPW))
+        if (!wm.autoConnect(apName, DEFAULT_WIFIPW))
         {
             Serial.println("Failed to connect to configured WIFI, and hit timeout");
             if (shouldSaveConfig) {
