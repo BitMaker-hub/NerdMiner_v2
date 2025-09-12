@@ -16,6 +16,9 @@
 #include "mining.h"
 #include "timeconst.h"
 
+#include <ArduinoJson.h>
+#include <esp_flash.h>
+
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -30,6 +33,63 @@ extern monitor_data mMonitor;
 nvMemory nvMem;
 
 extern SDCard SDCrd;
+
+String readCustomAPName() {
+    Serial.println("DEBUG: Attempting to read custom AP name from flash at 0x3F0000...");
+    
+    // Leer directamente desde flash
+    const size_t DATA_SIZE = 128;
+    uint8_t buffer[DATA_SIZE];
+    memset(buffer, 0, DATA_SIZE); // Clear buffer
+    
+    // Leer desde 0x3F0000
+    esp_err_t result = esp_flash_read(NULL, buffer, 0x3F0000, DATA_SIZE);
+    if (result != ESP_OK) {
+        Serial.printf("DEBUG: Flash read error: %s\n", esp_err_to_name(result));
+        return "";
+    }
+    
+    Serial.println("DEBUG: Successfully read from flash");
+    String data = String((char*)buffer);
+    
+    // Debug: show raw data read
+    Serial.printf("DEBUG: Raw flash data: '%s'\n", data.c_str());
+    
+    if (data.startsWith("WEBFLASHER_CONFIG:")) {
+        Serial.println("DEBUG: Found WEBFLASHER_CONFIG marker");
+        String jsonPart = data.substring(18); // Después del marcador "WEBFLASHER_CONFIG:"
+        
+        Serial.printf("DEBUG: JSON part: '%s'\n", jsonPart.c_str());
+        
+        DynamicJsonDocument doc(256);
+        DeserializationError error = deserializeJson(doc, jsonPart);
+        
+        if (error == DeserializationError::Ok) {
+            Serial.println("DEBUG: JSON parsed successfully");
+            
+            if (doc.containsKey("apname")) {
+                String customAP = doc["apname"].as<String>();
+                customAP.trim();
+                
+                if (customAP.length() > 0 && customAP.length() < 32) {
+                    Serial.printf("✅ Custom AP name from webflasher: %s\n", customAP.c_str());
+                    return customAP;
+                } else {
+                    Serial.printf("DEBUG: AP name invalid length: %d\n", customAP.length());
+                }
+            } else {
+                Serial.println("DEBUG: 'apname' key not found in JSON");
+            }
+        } else {
+            Serial.printf("DEBUG: JSON parse error: %s\n", error.c_str());
+        }
+    } else {
+        Serial.println("DEBUG: WEBFLASHER_CONFIG marker not found - no custom config");
+    }
+    
+    Serial.println("DEBUG: Using default AP name");
+    return "";
+}
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -76,6 +136,10 @@ void init_WifiManager()
     Serial.begin(115200);
 #endif //MONITOR_SPEED
     //Serial.setTxTimeoutMs(10);
+    
+    // Check for custom AP name from flasher config, otherwise use default
+    String customAPName = readCustomAPName();
+    const char* apName = customAPName.length() > 0 ? customAPName.c_str() : DEFAULT_SSID;
 
     //Init pin 15 to eneble 5V external power (LilyGo bug)
 #ifdef PIN_ENABLE5V
@@ -204,7 +268,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         mMonitor.NerdStatus = NM_Connecting;
-        wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW);
+        wm.startConfigPortal(apName, DEFAULT_WIFIPW);
 
         if (shouldSaveConfig)
         {
@@ -238,7 +302,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true);
         wm.setEnableConfigPortal(true);
         // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
-        if (!wm.autoConnect(DEFAULT_SSID, DEFAULT_WIFIPW))
+        if (!wm.autoConnect(apName, DEFAULT_WIFIPW))
         {
             Serial.println("Failed to connect to configured WIFI, and hit timeout");
             if (shouldSaveConfig) {
