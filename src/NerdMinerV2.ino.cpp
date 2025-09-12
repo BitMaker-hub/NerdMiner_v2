@@ -132,8 +132,8 @@ void setup()
   Serial.println("Initiating tasks...");
   static const char monitor_name[] = "(Monitor)";
   #if defined(CONFIG_IDF_TARGET_ESP32)
-  // Reduced stack for ESP32 classic to save memory  
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 8000, (void*)monitor_name, 5, NULL,1);
+  // Increased stack for ESP32 classic due to NVS operations  
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 9500, (void*)monitor_name, 5, NULL,1);
   #else
   BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)monitor_name, 5, NULL,1);
   #endif
