@@ -105,7 +105,7 @@ void oledDisplay_LoadingScreen(void)
 {
   Serial.println("Initializing...");
   u8g2.clearBuffer();
-  u8g2.drawXBMP(20, 5, btcIconWidth, btcIconHeight, btc_icon);
+  u8g2.drawXBMP(0, 0, initWidth, initHeight, initScreen);
   u8g2.sendBuffer();
 }
 
@@ -113,9 +113,10 @@ void oledDisplay_SetupScreen(void)
 {
   Serial.println("Setup...");
   u8g2.clearBuffer();
-  u8g2.drawXBMP(20, 0, setupIconWidth, setupIconHeight, setup_icon);
+  u8g2.drawXBMP(15, 10, setupIconWidth, setupIconHeight, setup_icon);
   u8g2.setFont(u8g2_font_helvB08_tf);
-  u8g2.drawUTF8(20, 38, "Setup");
+  u8g2.drawUTF8(15, 48, "Setup");
+  u8g2.drawXBMP(64, 2, qrCodeWidth, qrCodeHeight, server_qr_code);
   u8g2.sendBuffer();
 }
 
