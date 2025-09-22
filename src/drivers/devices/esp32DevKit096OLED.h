@@ -17,6 +17,14 @@
 #define LED_PIN 2
 #endif
 
-#define NO_DISPLAY
+#define OLED_096_DISPLAY
+
+#ifndef SCL_PIN
+#define SCL_PIN 6
+#endif
+
+#ifndef SDA_PIN
+#define SDA_PIN 5
+#endif
 
 #endif
