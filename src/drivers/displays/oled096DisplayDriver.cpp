@@ -67,7 +67,7 @@ void oledDisplay_AlternateRotation(void)
   u8g2.setFlipMode(rotationToggle);
 }
 
-void oledDisplay_Screen1(unsigned long mElapsed)
+void oledDisplay_ClockScreen(unsigned long mElapsed)
 {
   if (screenOff)
     return;
@@ -75,10 +75,24 @@ void oledDisplay_Screen1(unsigned long mElapsed)
   mining_data data = getMiningData(mElapsed);
 
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_helvB18_tf);
-  u8g2.drawStr(0, 20, data.currentHashRate.c_str());
-  u8g2.setFont(u8g2_font_helvB08_tf);
-  u8g2.drawStr(45, 36, "KH/s");
+
+  // Background
+  u8g2.drawXBMP(0, 0, minerClockWidth, minerClockHeight, minerClockScreen);
+
+  // Clock
+  u8g2.setFont(u8g2_font_logisoso26_tf);
+  u8g2.drawStr(50, 40, data.currentTime.c_str());
+
+  // Hash rate
+  u8g2.setDrawColor(0);
+  u8g2.setFont(u8g2_font_logisoso16_tn);
+  u8g2.drawStr(5, 62, data.currentHashRate.c_str());
+  u8g2.setDrawColor(1);
+
+  // Temperature
+  u8g2.setFont(u8g2_font_10x20_tf);
+  u8g2.drawStr(94, 62, data.temp.c_str());
+
   u8g2.sendBuffer();
 
   serialPrint(mElapsed);
@@ -128,7 +142,7 @@ void oledDisplay_AnimateCurrentScreen(unsigned long frame)
 {
 }
 
-CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_Screen1, oledDisplay_Screen2};
+CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_ClockScreen, oledDisplay_Screen2};
 
 DisplayDriver oled096DisplayDriver = {
     oledDisplay_Init,
