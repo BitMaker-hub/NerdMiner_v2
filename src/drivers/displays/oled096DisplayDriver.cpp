@@ -15,6 +15,8 @@
 #endif
 
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE);
+bool screenOff = false;
+bool rotationToggle = false;
 
 void clearScreen(void)
 {
@@ -46,21 +48,30 @@ void oledDisplay_Init(void)
   Wire.begin(SDA_PIN, SCL_PIN);
   u8g2.begin();
   u8g2.clear();
-  u8g2.setFlipMode(1);
+  u8g2.setFlipMode(rotationToggle);
   clearScreen();
 }
 
 void oledDisplay_AlternateScreenState(void)
 {
-  Serial.println("Switching display state");
+  screenOff = !screenOff;
+  u8g2.setPowerSave(screenOff);
 }
 
 void oledDisplay_AlternateRotation(void)
 {
+  if (screenOff)
+    return;
+
+  rotationToggle = !rotationToggle;
+  u8g2.setFlipMode(rotationToggle);
 }
 
 void oledDisplay_Screen1(unsigned long mElapsed)
 {
+  if (screenOff)
+    return;
+
   mining_data data = getMiningData(mElapsed);
 
   u8g2.clearBuffer();
@@ -75,6 +86,9 @@ void oledDisplay_Screen1(unsigned long mElapsed)
 
 void oledDisplay_Screen2(unsigned long mElapsed)
 {
+  if (screenOff)
+    return;
+
   mining_data data = getMiningData(mElapsed);
   char temp[8];
   sprintf(temp, "%s°c", data.temp.c_str());
