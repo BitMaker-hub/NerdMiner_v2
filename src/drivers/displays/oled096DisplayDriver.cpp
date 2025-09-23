@@ -98,18 +98,37 @@ void oledDisplay_ClockScreen(unsigned long mElapsed)
   serialPrint(mElapsed);
 }
 
-void oledDisplay_Screen2(unsigned long mElapsed)
+void oledDisplay_GlobalHashScreen(unsigned long mElapsed)
 {
   if (screenOff)
     return;
 
-  mining_data data = getMiningData(mElapsed);
-  char temp[8];
-  sprintf(temp, "%s°c", data.temp.c_str());
+  coin_data data = getCoinData(mElapsed);
 
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_helvB18_tf);
-  u8g2.drawUTF8(0, 20, temp);
+
+  // Background
+  u8g2.drawXBMP(0, 0, priceScreenWidth, priceScreenHeight, priceScreen);
+
+  // bitcoin price
+  u8g2.setDrawColor(0);
+  u8g2.setFont(u8g2_font_5x8_mr);
+  u8g2.drawStr(84, 9, data.btcPrice.c_str());
+  u8g2.setDrawColor(1);
+
+  // difficulty
+  u8g2.setFont(u8g2_font_6x13_tf);
+  u8g2.drawStr(73, 34, data.netwrokDifficulty.c_str());
+
+  // block height
+  u8g2.setDrawColor(0);
+  u8g2.setFont(u8g2_font_logisoso16_tn);
+  u8g2.drawStr(2, 54, data.blockHeight.c_str());
+  u8g2.setDrawColor(1);
+
+  // global hash rate
+  u8g2.setFont(u8g2_font_6x12_tr);
+  u8g2.drawStr(78, 60, data.globalHashRate.c_str());
   u8g2.sendBuffer();
 
   serialPrint(mElapsed);
@@ -142,7 +161,7 @@ void oledDisplay_AnimateCurrentScreen(unsigned long frame)
 {
 }
 
-CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_ClockScreen, oledDisplay_Screen2};
+CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_ClockScreen, oledDisplay_GlobalHashScreen};
 
 DisplayDriver oled096DisplayDriver = {
     oledDisplay_Init,
