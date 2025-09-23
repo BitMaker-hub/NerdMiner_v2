@@ -67,6 +67,47 @@ void oledDisplay_AlternateRotation(void)
   u8g2.setFlipMode(rotationToggle);
 }
 
+void oledDisplay_MinerScreen(unsigned long mElapsed)
+{
+  if (screenOff)
+    return;
+
+  mining_data data = getMiningData(mElapsed);
+
+  u8g2.clearBuffer();
+
+  // Background
+  u8g2.drawXBMP(0, 0, minerWidth, minerHeight, minerScreen);
+
+  // Up Time
+  u8g2.setDrawColor(0);
+  u8g2.setFont(u8g2_font_5x8_mf);
+  u8g2.drawStr(73, 8, data.timeMining.c_str());
+  u8g2.setDrawColor(1);
+
+  // BestDiff & Templates
+  u8g2.setFont(u8g2_font_5x7_mf);
+  u8g2.drawStr(48, 25, "Best Diff");
+  u8g2.drawStr(48, 38, "Templates");
+  u8g2.setFont(u8g2_font_6x13_tf);
+  u8g2.drawStr(99, 25, data.bestDiff.c_str());
+  u8g2.drawStr(99, 38, data.templates.c_str());
+
+  // Valid Blocks
+  u8g2.setDrawColor(0);
+  u8g2.setFont(u8g2_font_logisoso16_tn);
+  u8g2.drawStr(14, 60, data.valids.c_str());
+  u8g2.setDrawColor(1);
+
+  // Total Million Hashes
+  u8g2.setFont(u8g2_font_10x20_tf);
+  u8g2.drawStr(50, 62, data.totalMHashes.c_str());
+
+  u8g2.sendBuffer();
+
+  serialPrint(mElapsed);
+}
+
 void oledDisplay_ClockScreen(unsigned long mElapsed)
 {
   if (screenOff)
@@ -161,7 +202,7 @@ void oledDisplay_AnimateCurrentScreen(unsigned long frame)
 {
 }
 
-CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_ClockScreen, oledDisplay_GlobalHashScreen};
+CyclicScreenFunction oledDisplayCyclicScreens[] = {oledDisplay_MinerScreen, oledDisplay_ClockScreen, oledDisplay_GlobalHashScreen};
 
 DisplayDriver oled096DisplayDriver = {
     oledDisplay_Init,
