@@ -27,6 +27,8 @@
 #include "esp322432s028r.h"
 #elif defined(ESP32_2432S028_2USB) // For another type of ESP32_2432S028 version with 2 USB connectors
 #include "esp322432s028r.h"
+#elif defined(ESP32_2432S024R)
+#include "esp322432s024r.h"
 #elif defined(NERDMINER_T_QT)
 #include "lilygoT_QT.h"
 #elif defined(NERDMINER_T_DISPLAY_V1)

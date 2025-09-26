@@ -20,6 +20,12 @@
 #include "TouchHandler.h"
 #endif
 
+#ifdef ESP32_2432S024R
+#include <TFT_eSPI.h>
+extern TFT_eSPI tft;
+extern void esp32_2432S028R_AlternateScreenState(void);
+#endif
+
 #include <soc/soc_caps.h>
 //#define HW_SHA256_TEST
 
@@ -37,7 +43,9 @@
 #endif
 
 #ifdef TOUCH_ENABLE
+#ifndef ESP32_2432S024R
 extern TouchHandler touchHandler;
+#endif
 #endif
 
 extern monitor_data mMonitor;
@@ -57,6 +65,30 @@ const char* ntpServer = "pool.ntp.org";
 
 
 /********* INIT *****/
+#include "monitor.h"
+#include "utils.h"
+#include "version.h"
+
+// Watchdog task to monitor the monitor task health
+void runWatchdog(void *name) {
+  Serial.println("[WATCHDOG] started");
+  
+  const unsigned long WATCHDOG_TIMEOUT = 120000; // 2 minutes
+  
+  while (1) {
+    unsigned long currentTime = millis();
+    
+    // Check if monitor task has been inactive for too long
+    if (currentTime - lastMonitorActivity > WATCHDOG_TIMEOUT) {
+      Serial.println("[WATCHDOG] Monitor task appears frozen, restarting ESP32...");
+      ESP.restart();
+    }
+    
+    // Check every 30 seconds
+    vTaskDelay(30000 / portTICK_PERIOD_MS);
+  }
+}
+
 void setup()
 {
       //Init pin 15 to eneble 5V external power (LilyGo bug)
@@ -84,6 +116,20 @@ void setup()
 #endif
 
   // Setup the buttons
+#ifdef ESP32_2432S024R
+  // ESP32-2432S024R: Simple button behavior - only screen backlight toggle
+  #ifdef PIN_BUTTON_1
+    button1.setPressMs(5*SECOND_MS);
+    button1.attachClick(esp32_2432S028R_AlternateScreenState); // Simple backlight toggle
+    button1.attachLongPressStart(reset_configuration);
+  #endif
+  #ifdef PIN_BUTTON_2
+    button2.setPressMs(5*SECOND_MS);
+    button2.attachClick(esp32_2432S028R_AlternateScreenState); // Simple backlight toggle
+    button2.attachLongPressStart(reset_configuration);
+  #endif
+#else
+  // Other devices: Full button functionality
   #if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) //One button device
     button1.setPressMs(5*SECOND_MS);
     button1.attachClick(switchToNextScreen);
@@ -103,6 +149,7 @@ void setup()
     button2.attachClick(switchToNextScreen);
     button2.attachLongPressStart(reset_configuration);
   #endif
+#endif
 
   /******** INIT NERDMINER ************/
   Serial.println("NerdMiner v2 starting......");
@@ -130,6 +177,13 @@ void setup()
   // Higher prio monitor task
   Serial.println("");
   Serial.println("Initiating tasks...");
+  
+  /******** CREATE WATCHDOG TASK *****/
+  BaseType_t resWatchdog = xTaskCreatePinnedToCore(runWatchdog, "Watchdog", 2048, NULL, 1, NULL, 0);
+  if (resWatchdog != pdPASS) {
+    Serial.println("ERROR creating Watchdog task");
+  }
+  
   static const char monitor_name[] = "(Monitor)";
   #if defined(CONFIG_IDF_TARGET_ESP32)
   // Increased stack for ESP32 classic due to NVS operations  
@@ -140,11 +194,11 @@ void setup()
 
   /******** CREATE STRATUM TASK *****/
   static const char stratum_name[] = "(Stratum)";
- #if defined(CONFIG_IDF_TARGET_ESP32) && !defined(ESP32_2432S028R) && !defined(ESP32_2432S028_2USB)
+ #if defined(CONFIG_IDF_TARGET_ESP32) && !defined(ESP32_2432S028R) && !defined(ESP32_2432S028_2USB) && !defined(ESP32_2432S024R)
   // Reduced stack for ESP32 classic to save memory
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 12000, (void*)stratum_name, 4, NULL,1);
- #elif defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-  // Free a little bit of the heap to the screen
+ #elif defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
+  // Unified stack size for all 2432 variants to match working configuration
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)stratum_name, 4, NULL,1);
  #else
   BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)stratum_name, 4, NULL,1);
@@ -211,7 +265,55 @@ void loop() {
   #endif
 
 #ifdef TOUCH_ENABLE
+#ifdef ESP32_2432S024R
+  // Simple touch handling for ESP32-2432S024R using TFT_eSPI
+  static unsigned long lastTouchTime = 0;
+  static bool lastTouchState = false;
+  static unsigned long lastDebugTime = 0;
+  
+  // Debug: Track coordinate ranges
+  static uint16_t min_x = 65535, max_x = 0;
+  static uint16_t min_y = 65535, max_y = 0;
+  static bool ranges_initialized = false;
+  
+  uint16_t x, y;
+  bool touched = tft.getTouch(&x, &y, 200);
+  
+  // Track coordinate ranges when touching
+  if (touched) {
+    if (!ranges_initialized) {
+      min_x = max_x = x;
+      min_y = max_y = y;
+      ranges_initialized = true;
+    } else {
+      if (x < min_x) min_x = x;
+      if (x > max_x) max_x = x;
+      if (y < min_y) min_y = y;
+      if (y > max_y) max_y = y;
+    }
+    
+    // Show ranges every 5 seconds
+    if (millis() - lastDebugTime > 5000) {
+      Serial.printf("Touch ranges detected - X: %d-%d, Y: %d-%d (Current: x=%d, y=%d)\n", 
+                    min_x, max_x, min_y, max_y, x, y);
+      lastDebugTime = millis();
+    }
+  }
+  
+  if (touched && !lastTouchState && (millis() - lastTouchTime > 500)) {
+    // Accept touch anywhere on screen with coordinate validation
+    if (x >= 0 && x <= 240 && y >= 0 && y <= 320) {
+      Serial.printf("Touch at: x=%d, y=%d - switching display state\n", x, y);
+      esp32_2432S028R_AlternateScreenState();
+      lastTouchTime = millis();
+      lastTouchState = true;
+    }
+  } else if (!touched) {
+    lastTouchState = false;
+  }
+#else
   touchHandler.isTouched();
+#endif
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 

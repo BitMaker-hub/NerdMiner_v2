@@ -243,7 +243,7 @@ void init_WifiManager()
   wm.addParameter(&time_text_box_num);
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
-  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
   char checkboxParams2[24] = "type=\"checkbox\"";
   if (Settings.invertColors)
   {
@@ -252,7 +252,7 @@ void init_WifiManager()
   WiFiManagerParameter invertColors("inverColors", "Invert Display Colors (if the colors looks weird)", "T", 2, checkboxParams2, WFM_LABEL_AFTER);
   wm.addParameter(&invertColors);
   #endif
-  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+  #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
     char brightnessConvValue[2];
     sprintf(brightnessConvValue, "%d", Settings.Brightness);
     // Text box (Number) - 3 characters maximum
@@ -281,10 +281,10 @@ void init_WifiManager()
             Settings.Timezone = atoi(time_text_box_num.getValue());
             //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
             #endif
-            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
                 Settings.Brightness = atoi(brightness_text_box_num.getValue());
             #endif
             nvMem.saveConfig(&Settings);
@@ -314,10 +314,10 @@ void init_WifiManager()
                 Settings.Timezone = atoi(time_text_box_num.getValue());
                 // Serial.println(save_stats_to_nvs.getValue());
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
                 #endif
-                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
                 Settings.Brightness = atoi(brightness_text_box_num.getValue());
                 #endif
                 nvMem.saveConfig(&Settings);
@@ -364,13 +364,13 @@ void init_WifiManager()
         Serial.print("TimeZone fromUTC: ");
         Serial.println(Settings.Timezone);
 
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
         Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
         Serial.print("Invert Colors: ");
         Serial.println(Settings.invertColors);        
         #endif
 
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
         Settings.Brightness = atoi(brightness_text_box_num.getValue());
         Serial.print("Brightness: ");
         Serial.println(Settings.Brightness);
@@ -406,7 +406,7 @@ void init_WifiManager()
     Serial.print("TimeZone fromUTC: ");
     Serial.println(Settings.Timezone);
 
-    #ifdef ESP32_2432S028R
+    #if definedESP32_2432S028R)  || defined(ESP32_2432S024R)
     Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
     Serial.print("Invert Colors: ");
     Serial.println(Settings.invertColors);
@@ -416,10 +416,10 @@ void init_WifiManager()
     if (shouldSaveConfig)
     {
         nvMem.saveConfig(&Settings);
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
          if (Settings.invertColors) ESP.restart();                
         #endif
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB) || defined(ESP32_2432S024R)
         if (Settings.Brightness != 250) ESP.restart();
         #endif
     }

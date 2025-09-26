@@ -5,6 +5,8 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <list>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -25,6 +27,9 @@ extern double best_diff; // track best diff
 
 extern monitor_data mMonitor;
 
+// Global variable to track monitor task health
+volatile unsigned long lastMonitorActivity = 0;
+
 //from saved config
 extern TSettings Settings; 
 bool invertColors = false;
@@ -37,10 +42,9 @@ global_data gData;
 pool_data pData;
 String poolAPIUrl;
 
-
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
-
+    
     timeClient.begin();
     
     // Adjust offset depending on your zone
@@ -437,79 +441,131 @@ String getPoolAPIUrl(void) {
 }
 
 pool_data getPoolData(void){
-    //pool_data pData;    
-    if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){      
-        if (WiFi.status() != WL_CONNECTED) return pData;            
+    // Update monitor activity timestamp
+    lastMonitorActivity = millis();
+    
+    // Check if update is needed - simple check without mutex
+    if((mPoolUpdate != 0) && (millis() - mPoolUpdate <= UPDATE_POOL_min * 60 * 1000)) {
+        return pData;
+    }
+    
+    if((mPoolUpdate == 0) || (millis() - mPoolUpdate > UPDATE_POOL_min * 60 * 1000)){
+        #ifdef DEBUG_MINING
+        Serial.println("\n=== Starting pool data update ===");
+        Serial.printf("Free heap: %d, Min free: %d, Largest block: %d\n", 
+                     ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+        #endif
+
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("No WiFi connection, skipping pool update");
+            return pData;            
+        }
+        
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setTimeout(10000);        
+        http.setTimeout(5000);  // 5 second timeout
+        http.setReuse(false);  // Don't reuse connections to prevent SSL state issues
+        
         try {          
           String btcWallet = Settings.BtcWallet;
-          // Serial.println(btcWallet);
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
+          
 #ifdef SCREEN_WORKERS_ENABLE
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
           http.begin(poolAPIUrl+btcWallet);
 #else
           http.begin(String(getPublicPool)+btcWallet);
 #endif
+          
           int httpCode = http.GET();
+          
           if (httpCode == HTTP_CODE_OK) {
               String payload = http.getString();
-              // Serial.println(payload);
+              
+              #ifdef DEBUG_MINING
+              Serial.printf("Payload length: %d bytes\n", payload.length());
+              if (payload.length() > 2048) {
+                  Serial.println("Warning: Large payload received!");
+              }
+              #endif
+              
               StaticJsonDocument<300> filter;
               filter["bestDifficulty"] = true;
               filter["workersCount"] = true;
               filter["workers"][0]["sessionId"] = true;
               filter["workers"][0]["hashRate"] = true;
+              
               StaticJsonDocument<2048> doc;
-              deserializeJson(doc, payload, DeserializationOption::Filter(filter));
-              //Serial.println(serializeJsonPretty(doc, Serial));
+              DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+              
+              // Clear payload immediately to free memory
+              payload = String();
+              
+              if (error) {
+                  Serial.print("JSON parse error: ");
+                  Serial.println(error.c_str());
+                  http.end();
+                  return pData;
+              }
+              
+              // Update data directly without critical sections
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
               const JsonArray& workers = doc["workers"].as<JsonArray>();
               float totalhashs = 0;
               for (const JsonObject& worker : workers) {
                 totalhashs += worker["hashRate"].as<double>();
-                /* Serial.print(worker["sessionId"].as<String>()+": ");
-                Serial.print(" - "+worker["hashRate"].as<String>()+": ");
-                Serial.println(totalhashs); */
               }
               char totalhashs_s[16] = {0};
               suffix_string(totalhashs, totalhashs_s, 16, 0);
               pData.workersHash = String(totalhashs_s);
 
-              double temp;
               if (doc.containsKey("bestDifficulty")) {
-              temp = doc["bestDifficulty"].as<double>();            
-              char best_diff_string[16] = {0};
-              suffix_string(temp, best_diff_string, 16, 0);
-              pData.bestDifficulty = String(best_diff_string);
+                double temp = doc["bestDifficulty"].as<double>();            
+                char best_diff_string[16] = {0};
+                suffix_string(temp, best_diff_string, 16, 0);
+                pData.bestDifficulty = String(best_diff_string);
               }
               doc.clear();
+              
+              // Update timestamp
               mPoolUpdate = millis();
-              Serial.println("\n####### Pool Data OK!");               
+              lastMonitorActivity = millis();
+              
+              // Give other tasks a chance to run
+              vTaskDelay(10 / portTICK_PERIOD_MS);
+              
+              // Pool data updated successfully (no verbose message to avoid buffer issues)
           } else {
-              Serial.println("\n####### Pool Data HTTP Error!");    
-              /* Serial.println(httpCode);
-              String payload = http.getString();
-              Serial.println(payload); */
-              // mPoolUpdate = millis();
+              // HTTP error occurred
+              #ifdef DEBUG_MINING
+              Serial.printf("HTTP error code: %d\n", httpCode);
+              #endif
+              
               pData.bestDifficulty = "P";
               pData.workersHash = "E";
               pData.workersCount = 0;
-              http.end();
-              return pData; 
           }
           http.end();
+          
+          // Small delay after HTTP operations to let system stabilize
+          vTaskDelay(50 / portTICK_PERIOD_MS);
+          
         } catch(...) {
-          Serial.println("####### Pool Error!");          
-          // mPoolUpdate = millis();
+          // Catch any exception during HTTP operations
+          #ifdef DEBUG_MINING
+          Serial.println("HTTP exception caught");
+          #endif
+          
           pData.bestDifficulty = "P";
           pData.workersHash = "Error";
           pData.workersCount = 0;
+          
           http.end();
-          return pData;
+          
+          // Longer delay after exception to allow recovery
+          vTaskDelay(100 / portTICK_PERIOD_MS);
         } 
     }
+    
     return pData;
 }

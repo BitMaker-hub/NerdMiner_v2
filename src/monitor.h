@@ -3,6 +3,9 @@
 
 #include <Arduino.h>
 
+// Global variable to track monitor task health
+extern volatile unsigned long lastMonitorActivity;
+
 // Monitor states
 #define SCREEN_MINING   0
 #define SCREEN_CLOCK    1

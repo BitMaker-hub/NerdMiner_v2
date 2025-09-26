@@ -1208,6 +1208,9 @@ void runMonitor(void *name)
   Serial.println("[MONITOR] started");
   restoreStat();
 
+  // Initialize monitor activity timestamp
+  lastMonitorActivity = millis();
+
   unsigned long mLastCheck = 0;
 
   resetToFirstScreen();
@@ -1269,6 +1272,9 @@ void runMonitor(void *name)
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);
+
+    // Update monitor activity timestamp to prevent watchdog timeout
+    lastMonitorActivity = millis();
 
     vTaskDelay(DELAY / portTICK_PERIOD_MS);
     frame++;
