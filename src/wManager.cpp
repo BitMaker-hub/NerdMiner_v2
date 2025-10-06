@@ -4,7 +4,8 @@
 //#include ".h"
 
 #include <WiFi.h>
-
+#include <WebServer.h>  // required by WiFiManager for WM_WebServer alias
+class WebServer;        // forward declaration to satisfy WiFiManager typedef
 #include <WiFiManager.h>
 
 #include "wManager.h"
@@ -334,6 +335,10 @@ void init_WifiManager()
         Serial.println("WiFi connected");
         Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
+    // Convenience: print the full dashboard URL so it's easy to copy
+    Serial.print("Web dashboard: http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/");
 
 
         // Lets deal with the user config values
@@ -427,6 +432,8 @@ void init_WifiManager()
 
 //----------------- MAIN PROCESS WIFI MANAGER --------------
 int oldStatus = 0;
+static unsigned long s_lastIpLogMs = 0;
+static IPAddress s_lastLoggedIp(0,0,0,0);
 
 void wifiManagerProcess() {
 
@@ -441,5 +448,20 @@ void wifiManagerProcess() {
             Serial.println(newStatus);
         }
         oldStatus = newStatus;
+    }
+
+    // Periodically report current IP (and whenever it changes)
+    if (WiFi.status() == WL_CONNECTED) {
+        IPAddress ip = WiFi.localIP();
+        unsigned long now = millis();
+        if (s_lastLoggedIp != ip || (now - s_lastIpLogMs) > 60000UL) { // 60s cadence
+            Serial.print("IP address: ");
+            Serial.println(ip);
+            Serial.print("Web dashboard: http://");
+            Serial.print(ip);
+            Serial.println("/");
+            s_lastLoggedIp = ip;
+            s_lastIpLogMs = now;
+        }
     }
 }

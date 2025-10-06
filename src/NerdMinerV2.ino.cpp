@@ -16,6 +16,8 @@
 #include "ShaTests/nerdSHA_HWTest.h"
 #include "timeconst.h"
 
+#include "nm_web.h"
+
 #ifdef TOUCH_ENABLE
 #include "TouchHandler.h"
 #endif
@@ -125,6 +127,11 @@ void setup()
   /******** INIT WIFI ************/
   init_WifiManager();
 
+#ifdef ENABLE_WEB_STATS
+  /******** INIT WEB SERVER ************/
+  setupWebServer();
+#endif
+
   /******** CREATE TASK TO PRINT SCREEN *****/
   //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
   // Higher prio monitor task
@@ -213,6 +220,11 @@ void loop() {
 #ifdef TOUCH_ENABLE
   touchHandler.isTouched();
 #endif
+
+#ifdef ENABLE_WEB_STATS
+  handleWebServerClient();
+#endif
+
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
