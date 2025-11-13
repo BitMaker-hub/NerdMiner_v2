@@ -294,64 +294,72 @@ void esp32_2432S028R_MinerScreen(unsigned long mElapsed)
 
 void esp32_2432S028R_ClockScreen(unsigned long mElapsed)
 {
+  // Pixel-perfect digital clock using DigitalNumbers font (loaded in init)
+  clock_data data = getClockData(mElapsed); // keeps compatibility with other code paths
 
-  if (hasChangedScreen) tft.pushImage(0, 0, minerClockWidth, minerClockHeight, minerClockScreen);
-  
-  printPoolData();
+  // Create a full-size background sprite
+  if (!createBackgroundSprite(WIDTH, HEIGHT)) {
+    // Fallback to direct draw if sprite can't be created
+    tft.fillScreen(TFT_BLACK);
+  }
+
+  // Ensure background is ready and set as drawer for render
+  background.fillSprite(TFT_BLACK);
+  render.setDrawer(background);
+  render.setLineSpaceRatio(0.9);
+
+  // Time components - prefer using getLocalTime for accurate HH/MM/SS
+  struct tm timeinfo;
+  bool haveTime = getLocalTime(&timeinfo);
+
+  // If no time available, show warning centered
+  if (!haveTime) {
+    render.setFontSize(18);
+    render.setAlignment(Align::MiddleCenter);
+    render.setFontColor(TFT_RED);
+    render.cdrawString("Sem hora (NTP)", WIDTH / 2, HEIGHT / 2, TFT_RED);
+    background.pushSprite(0, 0);
+    background.deleteSprite();
+    hasChangedScreen = false;
+    return;
+  }
+
+  // Format strings
+  char timestr[12];
+  snprintf(timestr, sizeof(timestr), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  char datebuf[32];
+  const char *days[] = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
+  snprintf(datebuf, sizeof(datebuf), "%s  %02d-%02d-%04d", days[timeinfo.tm_wday],
+           timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+
+  // Draw big time using DigitalNumbers font
+  render.setFontSize(80);             // large digit size (tweak if needed)
+  render.setAlignment(Align::MiddleCenter);
+  render.setFontColor(0x07E0);        // green (TFT_GREEN)
+  render.cdrawString(timestr, WIDTH / 2, HEIGHT / 2 - 10, 0x07E0);
+
+  // Draw date below
+  render.setFontSize(18);
+  render.setAlignment(Align::MiddleCenter);
+  render.setFontColor(0xFFE0);        // yellowish
+  render.cdrawString(datebuf, WIDTH / 2, HEIGHT / 2 + 48, 0xFFE0);
+
+  // Small status text top-right (WiFi & placeholder battery)
+  render.setFontSize(12);
+  render.setAlignment(Align::TopRight);
+  if (WiFi.status() == WL_CONNECTED) {
+    render.cdrawString("WiFi", WIDTH - 6, 4, TFT_WHITE);
+  } else {
+    render.cdrawString("No WiFi", WIDTH - 6, 4, TFT_RED);
+  }
+  render.setAlignment(Align::TopLeft);
+  render.cdrawString("BAT: --%", 6, 4, TFT_WHITE);
+
+  // Push to screen and cleanup
+  background.pushSprite(0, 0);
+  background.deleteSprite();
 
   hasChangedScreen = false;
-
-  clock_data data = getClockData(mElapsed);
-
- // Create background sprite to print data at once
-  createBackgroundSprite(270,36);
-
-  // Print background screen
-  background.pushImage(0, -130, minerClockWidth, minerClockHeight, minerClockScreen);
-  // Hashrate
-  render.setFontSize(25);
-  render.setFontColor(TFT_BLACK);
-  render.rdrawString(data.currentHashRate.c_str(), 95, 0, TFT_BLACK);
-
-  // Print BlockHeight
-  render.setFontSize(18);
-  render.rdrawString(data.blockHeight.c_str(), 254, 9, TFT_BLACK);
-
-  // Push prepared background to screen
-  background.pushSprite(0, 130);
-  // Delete sprite to free the memory heap
-  background.deleteSprite(); 
-
-  createBackgroundSprite(169,105);
-  // Print background screen
-  background.pushImage(-130, -3, minerClockWidth, minerClockHeight, minerClockScreen);
-  
-  // Print BTC Price
-  background.setFreeFont(FSSB9);
-  background.setTextSize(1);
-  background.setTextDatum(TL_DATUM);
-  background.setTextColor(TFT_BLACK);
-  background.drawString(data.btcPrice.c_str(), 202-130, 0, GFXFF);
- 
-  // Print Hour
-  background.setFreeFont(FF23);
-  background.setTextSize(2);
-  background.setTextColor(0xDEDB, TFT_BLACK);
-  background.drawString(data.currentTime.c_str(), 0, 50, GFXFF);
- 
-  // Push prepared background to screen
-  background.pushSprite(130, 3);
-
-  // Delete sprite to free the memory heap
-  background.deleteSprite();   
-
-  Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
-                data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str());
-
-  #ifdef DEBUG_MEMORY
-  // Print heap
-  printheap();
-  #endif
 }
 
 void esp32_2432S028R_GlobalHashScreen(unsigned long mElapsed)
@@ -599,7 +607,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
 
 }
 
-CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice};
+CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_ClockScreen};
 
 DisplayDriver esp32_2432S028RDriver = {
     esp32_2432S028R_Init,
