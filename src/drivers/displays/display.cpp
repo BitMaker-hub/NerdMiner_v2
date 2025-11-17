@@ -109,6 +109,24 @@ void resetToFirstScreen()
 void switchToNextScreen()
 {
   currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
+  
+#ifdef M5PAPER_V1_1
+  // Trigger M5Paper-specific screen change refresh
+  extern void m5paper_onScreenChange();
+  m5paper_onScreenChange();
+#endif
+}
+
+// Switches to the previous cyclic screen without drawing it
+void switchToPreviousScreen()
+{
+  currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen - 1 + currentDisplayDriver->num_cyclic_screens) % currentDisplayDriver->num_cyclic_screens;
+  
+#ifdef M5PAPER_V1_1
+  // Trigger M5Paper-specific screen change refresh
+  extern void m5paper_onScreenChange();
+  m5paper_onScreenChange();
+#endif
 }
 
 // Draw the current cyclic screen

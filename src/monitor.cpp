@@ -462,14 +462,34 @@ pool_data getPoolData(void){
               filter["workersCount"] = true;
               filter["workers"][0]["sessionId"] = true;
               filter["workers"][0]["hashRate"] = true;
+              filter["workers"][0]["bestDifficulty"] = true;
+              filter["workers"][0]["lastSeen"] = true;
               StaticJsonDocument<2048> doc;
               deserializeJson(doc, payload, DeserializationOption::Filter(filter));
               //Serial.println(serializeJsonPretty(doc, Serial));
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
               const JsonArray& workers = doc["workers"].as<JsonArray>();
               float totalhashs = 0;
+              double minDiff = -1;
+              double maxDiff = -1;
+              unsigned long mostRecentLastSeen = 0;
+              
               for (const JsonObject& worker : workers) {
                 totalhashs += worker["hashRate"].as<double>();
+                
+                // Track min/max session best difficulty
+                if (worker.containsKey("bestDifficulty")) {
+                  double workerBestDiff = worker["bestDifficulty"].as<double>();
+                  if (minDiff < 0 || workerBestDiff < minDiff) minDiff = workerBestDiff;
+                  if (maxDiff < 0 || workerBestDiff > maxDiff) maxDiff = workerBestDiff;
+                }
+                
+                // Track most recent last seen
+                if (worker.containsKey("lastSeen")) {
+                  unsigned long lastSeen = worker["lastSeen"].as<unsigned long>();
+                  if (lastSeen > mostRecentLastSeen) mostRecentLastSeen = lastSeen;
+                }
+                
                 /* Serial.print(worker["sessionId"].as<String>()+": ");
                 Serial.print(" - "+worker["hashRate"].as<String>()+": ");
                 Serial.println(totalhashs); */
@@ -477,6 +497,36 @@ pool_data getPoolData(void){
               char totalhashs_s[16] = {0};
               suffix_string(totalhashs, totalhashs_s, 16, 0);
               pData.workersHash = String(totalhashs_s);
+
+              // Format min/max difficulty
+              if (minDiff >= 0 && maxDiff >= 0) {
+                char min_diff_string[16] = {0};
+                char max_diff_string[16] = {0};
+                suffix_string(minDiff, min_diff_string, 16, 0);
+                suffix_string(maxDiff, max_diff_string, 16, 0);
+                pData.minDifficulty = String(min_diff_string);
+                pData.maxDifficulty = String(max_diff_string);
+              } else {
+                pData.minDifficulty = "-";
+                pData.maxDifficulty = "-";
+              }
+              
+              // Format last seen (convert from Unix timestamp to relative time)
+              if (mostRecentLastSeen > 0) {
+                unsigned long currentTime = millis() / 1000; // Current time in seconds
+                unsigned long timeDiff = currentTime - mostRecentLastSeen;
+                if (timeDiff < 60) {
+                  pData.lastSeen = "Just now";
+                } else if (timeDiff < 3600) {
+                  pData.lastSeen = String(timeDiff / 60) + " min ago";
+                } else if (timeDiff < 86400) {
+                  pData.lastSeen = String(timeDiff / 3600) + " hr ago";
+                } else {
+                  pData.lastSeen = String(timeDiff / 86400) + " days ago";
+                }
+              } else {
+                pData.lastSeen = "Unknown";
+              }
 
               double temp;
               if (doc.containsKey("bestDifficulty")) {
@@ -497,6 +547,9 @@ pool_data getPoolData(void){
               pData.bestDifficulty = "P";
               pData.workersHash = "E";
               pData.workersCount = 0;
+              pData.minDifficulty = "-";
+              pData.maxDifficulty = "-";
+              pData.lastSeen = "Error";
               http.end();
               return pData; 
           }
@@ -507,6 +560,9 @@ pool_data getPoolData(void){
           pData.bestDifficulty = "P";
           pData.workersHash = "Error";
           pData.workersCount = 0;
+          pData.minDifficulty = "-";
+          pData.maxDifficulty = "-";
+          pData.lastSeen = "Error";
           http.end();
           return pData;
         } 

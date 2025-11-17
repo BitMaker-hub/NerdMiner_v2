@@ -120,7 +120,10 @@ typedef struct {
 typedef struct{
   int workersCount;       // Workers count, how many nerdminers using your address
   String workersHash;     // Workers Total Hash Rate
-  String bestDifficulty;  // Your miners best difficulty
+  String bestDifficulty;  // Your miners best difficulty (overall)
+  String minDifficulty;   // Minimum session best difficulty among workers
+  String maxDifficulty;   // Maximum session best difficulty among workers
+  String lastSeen;        // Most recent last seen time among workers
 }pool_data;
 
 void setup_monitor(void);

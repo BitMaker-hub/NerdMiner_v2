@@ -41,9 +41,6 @@
 // Uncomment the line below to disable touch for maximum hash rate
 // #define M5PAPER_DISABLE_TOUCH
 
-// Button pin for previous screen (GPIO 37 - Wheel Up)
-#define PREV_SCREEN_BUTTON 37
-
 // E-ink display canvases
 M5EPD_Canvas canvas_page(&M5.EPD);   // Full page canvas for static content
 M5EPD_Canvas canvas_stats(&M5.EPD);  // Small canvas for dynamic stats updates
@@ -53,13 +50,10 @@ static int currentPage = 0;
 static int lastDisplayedScreen = -1;  // Track which screen was last displayed
 static unsigned long lastFullRefresh = 0;
 static unsigned long lastStatsUpdate = 0;
-static unsigned long lastButtonCheck = 0;
 static unsigned long lastTouchCheck = 0;
-static bool prevButtonPressed = false;
 
 const unsigned long FULL_REFRESH_INTERVAL_MS = 60000;  // Full refresh every 60 seconds
 const unsigned long STATS_UPDATE_INTERVAL_MS = 1000;    // Stats update every second
-const unsigned long BUTTON_CHECK_INTERVAL_MS = 200;     // Check button every 200ms
 
 #ifndef M5PAPER_DISABLE_TOUCH
 const unsigned long TOUCH_CHECK_INTERVAL_MS = 100;      // Check touch every 100ms (only if touch enabled)
@@ -172,59 +166,37 @@ static void checkForScreenChange() {
     }
 }
 
-// Function to go to previous screen
-void switchToPreviousScreen() {
+// M5Paper-specific screen change refresh (called from global button handlers)
+void m5paper_onScreenChange() {
+    // Force complete page refresh on screen change
+    M5.EPD.Clear(true);  // Full clear to remove all previous content
+    lastFullRefresh = 0;
+    prev_shares = "";    // Reset to force redraw
+    prev_hashrate = "";
+    prev_btcPrice = "";
+    prev_blockHeight = "";
+    
+    lastDisplayedScreen = m5paperDisplayDriver.current_cyclic_screen;  // Update tracker
+    
+    Serial.printf("M5Paper screen changed to: %d\n", m5paperDisplayDriver.current_cyclic_screen);
+}
+
+// Local helper to switch screens with m5paper-specific refresh logic
+static void m5paper_switchToPreviousScreen() {
     int numScreens = m5paperDisplayDriver.num_cyclic_screens;
     m5paperDisplayDriver.current_cyclic_screen = 
         (m5paperDisplayDriver.current_cyclic_screen - 1 + numScreens) % numScreens;
     
-    // Force complete page refresh on screen change
-    M5.EPD.Clear(true);  // Full clear to remove all previous content
-    lastFullRefresh = 0;
-    prev_shares = "";    // Reset to force redraw
-    prev_hashrate = "";
-    prev_btcPrice = "";
-    prev_blockHeight = "";
-    
-    lastDisplayedScreen = m5paperDisplayDriver.current_cyclic_screen;  // Update tracker
-    
-    Serial.printf("Switched to previous screen: %d\n", m5paperDisplayDriver.current_cyclic_screen);
+    m5paper_onScreenChange();
 }
 
-// Function to go to next screen (for touch)
-void switchToNextScreenTouch() {
+// Local helper to switch to next screen with m5paper-specific refresh logic
+static void m5paper_switchToNextScreenTouch() {
     int numScreens = m5paperDisplayDriver.num_cyclic_screens;
     m5paperDisplayDriver.current_cyclic_screen = 
         (m5paperDisplayDriver.current_cyclic_screen + 1) % numScreens;
     
-    // Force complete page refresh on screen change
-    M5.EPD.Clear(true);  // Full clear to remove all previous content
-    lastFullRefresh = 0;
-    prev_shares = "";    // Reset to force redraw
-    prev_hashrate = "";
-    prev_btcPrice = "";
-    prev_blockHeight = "";
-    
-    lastDisplayedScreen = m5paperDisplayDriver.current_cyclic_screen;  // Update tracker
-    
-    Serial.printf("Switched to next screen: %d\n", m5paperDisplayDriver.current_cyclic_screen);
-}
-
-// Check if previous screen button is pressed (GPIO 37)
-void checkPrevScreenButton() {
-    if (millis() - lastButtonCheck < BUTTON_CHECK_INTERVAL_MS) {
-        return;
-    }
-    lastButtonCheck = millis();
-    
-    bool currentState = (digitalRead(PREV_SCREEN_BUTTON) == LOW);  // Active LOW
-    
-    // Detect button press (edge detection)
-    if (currentState && !prevButtonPressed) {
-        switchToPreviousScreen();
-    }
-    
-    prevButtonPressed = currentState;
+    m5paper_onScreenChange();
 }
 
 // Touch handling for M5Paper GT911 - returns touch state with button info
@@ -348,9 +320,6 @@ void m5paper_Init(void)
     M5.EPD.Clear(true);      // Clear with full refresh
     M5.RTC.begin();
     
-    // Initialize previous screen button (GPIO 37)
-    pinMode(PREV_SCREEN_BUTTON, INPUT_PULLUP);
-    
     // Set portrait rotation (90 degrees)
     M5.EPD.SetRotation(90);
     
@@ -426,17 +395,14 @@ void m5paper_MinerScreen(unsigned long mElapsed)
     // Check if screen was changed externally (e.g., GPIO button from main code)
     checkForScreenChange();
     
-    // Check for previous screen button press (GPIO 37)
-    checkPrevScreenButton();
-    
     // Check for touch input
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
-            switchToPreviousScreen();
+            m5paper_switchToPreviousScreen();
             return;
         } else if (touch.buttonNumber == 2) {
-            switchToNextScreenTouch();
+            m5paper_switchToNextScreenTouch();
             return;
         }
     }
@@ -660,15 +626,14 @@ void m5paper_MinerScreen(unsigned long mElapsed)
 void m5paper_ClockScreen(unsigned long mElapsed)
 {
     checkForScreenChange();
-    checkPrevScreenButton();
     
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
-            switchToPreviousScreen();
+            m5paper_switchToPreviousScreen();
             return;
         } else if (touch.buttonNumber == 2) {
-            switchToNextScreenTouch();
+            m5paper_switchToNextScreenTouch();
             return;
         }
     }
@@ -760,15 +725,14 @@ void m5paper_ClockScreen(unsigned long mElapsed)
 void m5paper_GlobalHashScreen(unsigned long mElapsed)
 {
     checkForScreenChange();
-    checkPrevScreenButton();
     
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
-            switchToPreviousScreen();
+            m5paper_switchToPreviousScreen();
             return;
         } else if (touch.buttonNumber == 2) {
-            switchToNextScreenTouch();
+            m5paper_switchToNextScreenTouch();
             return;
         }
     }
@@ -972,15 +936,14 @@ void m5paper_GlobalHashScreen(unsigned long mElapsed)
 void m5paper_PoolStatsScreen(unsigned long mElapsed)
 {
     checkForScreenChange();
-    checkPrevScreenButton();
     
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
-            switchToPreviousScreen();
+            m5paper_switchToPreviousScreen();
             return;
         } else if (touch.buttonNumber == 2) {
-            switchToNextScreenTouch();
+            m5paper_switchToNextScreenTouch();
             return;
         }
     }
@@ -988,6 +951,7 @@ void m5paper_PoolStatsScreen(unsigned long mElapsed)
     pool_data poolData = getPoolData();
     clock_data clockData = getClockData(mElapsed);
     mining_data miningData = getMiningData(mElapsed);
+    coin_data coinData = getCoinData(mElapsed);
     
     // Get battery percentage
     int batteryPct = getBatteryPercentage();
@@ -1058,8 +1022,29 @@ void m5paper_PoolStatsScreen(unsigned long mElapsed)
         canvas_page.drawString(poolData.workersHash + "H/s", rightCol, y);
         
         y += 50;
-        canvas_page.drawString("Best Difficulty:", leftCol, y);
+        canvas_page.drawString("Session Diff Range:", leftCol, y);
+        String diffRange = poolData.minDifficulty + " - " + poolData.maxDifficulty;
+        canvas_page.drawString(diffRange, rightCol, y);
+        
+        y += 50;
+        canvas_page.drawString("Best Diff Ever:", leftCol, y);
         canvas_page.drawString(poolData.bestDifficulty, rightCol, y);
+        
+        y += 50;
+        canvas_page.drawString("Last Seen:", leftCol, y);
+        canvas_page.drawString(poolData.lastSeen, rightCol, y);
+        
+        y += 50;
+        canvas_page.drawString("Net Difficulty:", leftCol, y);
+        canvas_page.drawString(coinData.netwrokDifficulty, rightCol, y);
+        
+        y += 50;
+        canvas_page.drawString("Net Hash Rate:", leftCol, y);
+        canvas_page.drawString(coinData.globalHashRate, rightCol, y);
+        
+        y += 50;
+        canvas_page.drawString("Block Height:", leftCol, y);
+        canvas_page.drawString(coinData.blockHeight, rightCol, y);
         
         y += 50;
         canvas_page.drawString("Your Shares:", leftCol, y);
@@ -1137,8 +1122,29 @@ void m5paper_PoolStatsScreen(unsigned long mElapsed)
         canvas_stats.drawString(poolData.workersHash + "H/s", rightCol, y);
         
         y += 50;
-        canvas_stats.drawString("Best Difficulty:", leftCol, y);
+        canvas_stats.drawString("Session Diff Range:", leftCol, y);
+        String diffRange = poolData.minDifficulty + " - " + poolData.maxDifficulty;
+        canvas_stats.drawString(diffRange, rightCol, y);
+        
+        y += 50;
+        canvas_stats.drawString("Best Diff Ever:", leftCol, y);
         canvas_stats.drawString(poolData.bestDifficulty, rightCol, y);
+        
+        y += 50;
+        canvas_stats.drawString("Last Seen:", leftCol, y);
+        canvas_stats.drawString(poolData.lastSeen, rightCol, y);
+        
+        y += 50;
+        canvas_stats.drawString("Net Difficulty:", leftCol, y);
+        canvas_stats.drawString(coinData.netwrokDifficulty, rightCol, y);
+        
+        y += 50;
+        canvas_stats.drawString("Net Hash Rate:", leftCol, y);
+        canvas_stats.drawString(coinData.globalHashRate, rightCol, y);
+        
+        y += 50;
+        canvas_stats.drawString("Block Height:", leftCol, y);
+        canvas_stats.drawString(coinData.blockHeight, rightCol, y);
         
         y += 50;
         canvas_stats.drawString("Your Shares:", leftCol, y);
