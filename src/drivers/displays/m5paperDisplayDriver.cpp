@@ -52,8 +52,19 @@ static unsigned long lastFullRefresh = 0;
 static unsigned long lastStatsUpdate = 0;
 static unsigned long lastTouchCheck = 0;
 
-const unsigned long FULL_REFRESH_INTERVAL_MS = 60000;  // Full refresh every 60 seconds
-const unsigned long STATS_UPDATE_INTERVAL_MS = 1000;    // Stats update every second
+// Display refresh intervals - configurable via platformio.ini build flags
+// Lower values = more frequent updates but lower hash rate
+// Higher values = better hash rate performance but less frequent updates
+#ifndef M5_FULL_REFRESH_INTERVAL_MS
+    #define M5_FULL_REFRESH_INTERVAL_MS 60000  // Default: Full refresh every 60 seconds
+#endif
+
+#ifndef M5_STATS_UPDATE_INTERVAL_MS
+    #define M5_STATS_UPDATE_INTERVAL_MS 1000   // Default: Stats update every 1 second
+#endif
+
+const unsigned long FULL_REFRESH_INTERVAL_MS = M5_FULL_REFRESH_INTERVAL_MS;
+const unsigned long STATS_UPDATE_INTERVAL_MS = M5_STATS_UPDATE_INTERVAL_MS;
 
 #ifndef M5PAPER_DISABLE_TOUCH
 const unsigned long TOUCH_CHECK_INTERVAL_MS = 100;      // Check touch every 100ms (only if touch enabled)
@@ -327,6 +338,11 @@ void m5paper_Init(void)
     
     Serial.println("M5Paper E-ink display initialized (540x960 portrait)");
     Serial.println("Layout: Image at top (540x240), text labels below");
+    
+    // Display performance configuration
+    Serial.printf("Display update intervals (configurable in platformio.ini):\n");
+    Serial.printf("  - Stats update: %lu ms\n", STATS_UPDATE_INTERVAL_MS);
+    Serial.printf("  - Full refresh: %lu ms\n", FULL_REFRESH_INTERVAL_MS);
     
 #ifdef M5PAPER_DISABLE_TOUCH
     Serial.println("Touch DISABLED for maximum hash rate performance");
