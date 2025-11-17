@@ -94,8 +94,13 @@ void setup()
 
   #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
     button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(switchToPreviousScreen);
-    button1.attachLongPressStart(reset_configuration);
+    #ifndef M5PAPER_V1_1
+      button1.attachClick(alternateScreenState);
+      button1.attachDoubleClick(alternateScreenRotation);
+    #else
+      button1.attachClick(switchToPreviousScreen);
+      button1.attachLongPressStart(reset_configuration);
+    #endif
   #endif
 
   #if defined(PIN_BUTTON_2) //Button 2 of two button device

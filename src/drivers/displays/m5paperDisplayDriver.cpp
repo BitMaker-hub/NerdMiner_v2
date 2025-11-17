@@ -151,13 +151,15 @@ static void draw_filled_button(M5EPD_Canvas &c, int x, int y, int w, int h, int 
 // Helper: check if screen changed externally (e.g., via GPIO button) and force refresh
 static void checkForScreenChange() {
     if (m5paperDisplayDriver.current_cyclic_screen != lastDisplayedScreen) {
-        Serial.printf("Screen changed externally from %d to %d - forcing full refresh\n", 
+        Serial.printf("Screen changed externally from %d to %d - clearing display\n", 
                      lastDisplayedScreen, m5paperDisplayDriver.current_cyclic_screen);
         
-        // Force complete page refresh on screen change
-        M5.EPD.Clear(true);  // Full clear to remove all previous content
+        // Clear screen for new content (this runs in display task context, not button callback)
+        M5.EPD.Clear(true);
         lastFullRefresh = 0;
-        prev_shares = "";    // Reset to force redraw
+        
+        // Reset cached values to force redraw
+        prev_shares = "";
         prev_hashrate = "";
         prev_btcPrice = "";
         prev_blockHeight = "";
@@ -168,17 +170,9 @@ static void checkForScreenChange() {
 
 // M5Paper-specific screen change refresh (called from global button handlers)
 void m5paper_onScreenChange() {
-    // Force complete page refresh on screen change
-    M5.EPD.Clear(true);  // Full clear to remove all previous content
-    lastFullRefresh = 0;
-    prev_shares = "";    // Reset to force redraw
-    prev_hashrate = "";
-    prev_btcPrice = "";
-    prev_blockHeight = "";
-    
-    lastDisplayedScreen = m5paperDisplayDriver.current_cyclic_screen;  // Update tracker
-    
-    Serial.printf("M5Paper screen changed to: %d\n", m5paperDisplayDriver.current_cyclic_screen);
+    // Don't do blocking operations in button callback!
+    // Just mark that screen changed, let checkForScreenChange() handle the refresh
+    Serial.printf("M5Paper screen change requested to: %d\n", m5paperDisplayDriver.current_cyclic_screen);
 }
 
 // Local helper to switch screens with m5paper-specific refresh logic
