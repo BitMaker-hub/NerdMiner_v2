@@ -64,6 +64,10 @@ DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #endif
 
+#ifdef M5PAPER_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5paperDisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()

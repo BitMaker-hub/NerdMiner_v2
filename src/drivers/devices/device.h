@@ -53,6 +53,8 @@
 #include "lilygoT_HMI.h"
 #elif defined(SPOTPEAR)
 #include "spotpearKeychain.h"
+#elif defined(M5PAPER_V1_1)
+#include "m5paper.h"
 
 #else
 #error "No device defined"
