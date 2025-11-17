@@ -77,7 +77,7 @@ void updateGlobalData(void){
             String temp = "";
             if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
             if(temp.length()>18 + 3) //Exahashes more than 18 digits + 3 digits decimals
-              gData.globalHash = temp.substring(0,temp.length()-18 - 3);
+              gData.globalHash = temp.substring(0,temp.length()-18 - 3) + " EH/s";
             if (doc.containsKey("currentDifficulty")) temp = String(doc["currentDifficulty"].as<float>());
             if(temp.length()>10 + 3){ //Terahash more than 10 digits + 3 digit decimals
               temp = temp.substring(0,temp.length()-10 - 3);
