@@ -36,6 +36,10 @@
   OneButton button2(PIN_BUTTON_2);
 #endif
 
+#ifdef PIN_BUTTON_3
+  OneButton button3(PIN_BUTTON_3);
+#endif
+
 #ifdef TOUCH_ENABLE
 extern TouchHandler touchHandler;
 #endif
@@ -94,14 +98,26 @@ void setup()
 
   #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
     button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(alternateScreenState);
-    button1.attachDoubleClick(alternateScreenRotation);
+    #ifndef M5PAPER_V1_1
+      button1.attachClick(alternateScreenState);
+      button1.attachDoubleClick(alternateScreenRotation);
+    #else
+      button1.attachClick(switchToPreviousScreen);
+      button1.attachLongPressStart(reset_configuration);
+    #endif
   #endif
 
   #if defined(PIN_BUTTON_2) //Button 2 of two button device
     button2.setPressMs(5*SECOND_MS);
     button2.attachClick(switchToNextScreen);
     button2.attachLongPressStart(reset_configuration);
+  #endif
+
+  #ifdef M5PAPER_V1_1
+    #ifdef PIN_BUTTON_3 //Button 3 of three button device
+      button3.setPressMs(5*SECOND_MS);
+      button3.attachClick(alternateScreenState);
+    #endif
   #endif
 
   /******** INIT NERDMINER ************/
@@ -208,6 +224,10 @@ void loop() {
 
   #ifdef PIN_BUTTON_2
     button2.tick();
+  #endif
+
+  #ifdef PIN_BUTTON_3
+    button3.tick();
   #endif
 
 #ifdef TOUCH_ENABLE

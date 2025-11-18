@@ -64,6 +64,10 @@ DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #endif
 
+#ifdef M5PAPER_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5paperDisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()
@@ -74,7 +78,15 @@ void initDisplay()
 // Alternate screen state
 void alternateScreenState()
 {
-  currentDisplayDriver->alternateScreenState();
+  #ifndef M5PAPER_V1_1
+    // For non-M5Paper devices, just call the generic function
+    currentDisplayDriver->alternateScreenState();
+  #else
+    // For M5Paper, switch to previous screen#ifdef M5PAPER_V1_1
+    // Trigger M5Paper-specific screen change refresh
+    extern void m5paper_AlternateScreenState();
+    m5paper_AlternateScreenState();
+  #endif
 }
 
 // Alternate screen rotation
@@ -105,6 +117,24 @@ void resetToFirstScreen()
 void switchToNextScreen()
 {
   currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen + 1) % currentDisplayDriver->num_cyclic_screens;
+  
+#ifdef M5PAPER_V1_1
+  // Trigger M5Paper-specific screen change refresh
+  extern void m5paper_onScreenChange();
+  m5paper_onScreenChange();
+#endif
+}
+
+// Switches to the previous cyclic screen without drawing it
+void switchToPreviousScreen()
+{
+  currentDisplayDriver->current_cyclic_screen = (currentDisplayDriver->current_cyclic_screen - 1 + currentDisplayDriver->num_cyclic_screens) % currentDisplayDriver->num_cyclic_screens;
+  
+#ifdef M5PAPER_V1_1
+  // Trigger M5Paper-specific screen change refresh
+  extern void m5paper_onScreenChange();
+  m5paper_onScreenChange();
+#endif
 }
 
 // Draw the current cyclic screen
