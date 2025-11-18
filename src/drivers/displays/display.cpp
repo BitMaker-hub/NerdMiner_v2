@@ -78,7 +78,15 @@ void initDisplay()
 // Alternate screen state
 void alternateScreenState()
 {
-  currentDisplayDriver->alternateScreenState();
+  #ifndef M5PAPER_V1_1
+    // For non-M5Paper devices, just call the generic function
+    currentDisplayDriver->alternateScreenState();
+  #else
+    // For M5Paper, switch to previous screen#ifdef M5PAPER_V1_1
+    // Trigger M5Paper-specific screen change refresh
+    extern void m5paper_AlternateScreenState();
+    m5paper_AlternateScreenState();
+  #endif
 }
 
 // Alternate screen rotation

@@ -51,6 +51,9 @@ static int lastDisplayedScreen = -1;  // Track which screen was last displayed
 static unsigned long lastFullRefresh = 0;
 static unsigned long lastStatsUpdate = 0;
 static unsigned long lastTouchCheck = 0;
+static bool displaysleep = false;
+static bool forceFullRefresh = false;  // Flag to force immediate full refresh after wake
+static bool preventPartialUpdates = false;  // Flag to prevent partial updates during transitions
 
 // Display refresh intervals - configurable via platformio.ini build flags
 // Lower values = more frequent updates but lower hash rate
@@ -162,12 +165,30 @@ static void draw_filled_button(M5EPD_Canvas &c, int x, int y, int w, int h, int 
 // Helper: check if screen changed externally (e.g., via GPIO button) and force refresh
 static void checkForScreenChange() {
     if (m5paperDisplayDriver.current_cyclic_screen != lastDisplayedScreen) {
-        Serial.printf("Screen changed externally from %d to %d - clearing display\n", 
+        Serial.printf("Screen changed externally from %d to %d\n", 
                      lastDisplayedScreen, m5paperDisplayDriver.current_cyclic_screen);
         
-        // Clear screen for new content (this runs in display task context, not button callback)
-        M5.EPD.Clear(true);
+        // If we were sleeping, wake up immediately
+        bool wasSleeping = displaysleep;
+        displaysleep = false;
+        
+        if (wasSleeping) {
+            Serial.println("[M5PAPER] Waking from sleep due to screen change");
+        } else {
+            Serial.println("[M5PAPER] Normal screen change");
+        }
+        
+        // Quick clear with white canvas instead of blocking M5.EPD.Clear()
+        M5EPD_Canvas clear_canvas(&M5.EPD);
+        clear_canvas.createCanvas(M5PAPER_WIDTH, M5PAPER_HEIGHT);
+        clear_canvas.fillCanvas(0);  // White
+        clear_canvas.pushCanvas(0, 0, UPDATE_MODE_DU);  // Fast partial clear
+        
+        // Force a full refresh on the new page and prevent partial updates during transition
+        preventPartialUpdates = true;
+        forceFullRefresh = true;
         lastFullRefresh = 0;
+        lastStatsUpdate = 0;
         
         // Reset cached values to force redraw
         prev_shares = "";
@@ -268,19 +289,20 @@ TouchState_M5Paper m5paper_checkTouch(int currentScreen)
     }
     
     // Define button areas - buttons at bottom of screen
-    // Touch coordinates in landscape (960x540): X = 0-960, Y = 0-540
-    if (finger.y > 460 && finger.y < 540) {
+    // Portrait mode (rotation 90): 540 wide × 960 tall
+    // Buttons are in bottom 80 pixels of screen
+    if (finger.y > (M5PAPER_HEIGHT - 80) && finger.y < M5PAPER_HEIGHT) {
         int buttonPressed = 0;
         
         // All screens have navigation buttons at bottom
-        const int btnW = 240;
-        const int spacing = 60;
+        const int btnW = 150;
+        const int spacing = 22;
         
         // Three buttons layout: [Prev] [Next] [Menu]
         const int totalW = btnW * 3 + spacing * 2;
         const int startX = (M5PAPER_WIDTH - totalW) / 2;
         
-        Serial.printf("[M5PAPER] Touch in button area. StartX=%d, finger.x=%d\n", startX, finger.x);
+        Serial.printf("[M5PAPER] Touch in button area. StartX=%d, finger.x=%d, finger.y=%d\n", startX, finger.x, finger.y);
         
         if (finger.x >= startX && finger.x < (startX + btnW)) {
             buttonPressed = 1;  // Previous screen
@@ -316,17 +338,14 @@ TouchState_M5Paper m5paper_checkTouch(int currentScreen)
 void m5paper_Init(void)
 {
     M5.begin();
-    M5.EPD.SetRotation(0);  // Try rotation 0 for landscape
+    M5.EPD.SetRotation(90);  // Portrait mode
     
 #ifndef M5PAPER_DISABLE_TOUCH
-    M5.TP.SetRotation(0);   // Touch rotation must match display
+    M5.TP.SetRotation(90);   // Touch rotation must match display
 #endif
     
     M5.EPD.Clear(true);      // Clear with full refresh
     M5.RTC.begin();
-    
-    // Set portrait rotation (90 degrees)
-    M5.EPD.SetRotation(90);
     
     // Create canvases for portrait 540x960
     canvas_page.createCanvas(M5PAPER_WIDTH, M5PAPER_HEIGHT);
@@ -356,9 +375,55 @@ void m5paper_Init(void)
 
 void m5paper_AlternateScreenState(void)
 {
-    // E-ink doesn't have backlight, but we can do a full refresh
-    M5.EPD.Clear(true);
-    lastFullRefresh = millis();
+    Serial.println("[M5PAPER] AlternateScreenState called");
+    displaysleep = !displaysleep;
+    Serial.printf("[M5PAPER] displaysleep is now: %s\n", displaysleep ? "TRUE" : "FALSE");
+    
+    if (displaysleep) {
+        Serial.println("[M5PAPER] Entering sleep mode - displaying sleep screen");
+        
+        // Don't clear display here - it's too slow and blocks GPIO interrupts
+        // Just reset timers and display sleep image directly
+        lastStatsUpdate = millis();
+        lastFullRefresh = millis();
+        
+        // Display sleep screen (already in portrait mode 90)
+        M5EPD_Canvas temp_canvas(&M5.EPD);
+        temp_canvas.createCanvas(540, 960);
+        temp_canvas.fillCanvas(0);  // Black background
+        
+        Serial.println("[M5PAPER] Drawing sleep image...");
+        // Draw portrait sleeping screen image (540x960)
+        draw_grayscale_image(temp_canvas, sleepingScreen_gray, 
+                            sleepingScreen_gray_width, sleepingScreen_gray_height);
+        
+        Serial.println("[M5PAPER] Pushing canvas to display...");
+        // Use GC16 mode for better quality
+        temp_canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
+        
+        Serial.println("[M5PAPER] Sleep screen displayed successfully");
+    } else {
+        Serial.println("[M5PAPER] Waking from sleep mode");
+        // Wake from sleep mode - quick clear with white canvas
+        M5EPD_Canvas clear_canvas(&M5.EPD);
+        clear_canvas.createCanvas(M5PAPER_WIDTH, M5PAPER_HEIGHT);
+        clear_canvas.fillCanvas(0);  // White
+        clear_canvas.pushCanvas(0, 0, UPDATE_MODE_DU);  // Fast partial clear
+        
+        // Force a full refresh which will draw the normal screen and prevent partial updates during transition
+        preventPartialUpdates = true;
+        lastFullRefresh = 0;  // Force full refresh on next screen update
+        lastStatsUpdate = 0;  // Reset stats timer too
+        forceFullRefresh = true;  // Set flag to force immediate refresh
+        
+        // Reset cached values to force redraw
+        prev_hashrate = "";
+        prev_shares = "";
+        prev_btcPrice = "";
+        prev_blockHeight = "";
+        
+        Serial.println("[M5PAPER] Wake complete - will do full refresh on next update");
+    }
 }
 
 void m5paper_AlternateRotation(void)
@@ -403,10 +468,18 @@ void m5paper_SetupScreen(void)
 void m5paper_MinerScreen(unsigned long mElapsed)
 {
     // Check if screen was changed externally (e.g., GPIO button from main code)
+    // This MUST come before displaysleep check so page changes work even in sleep mode
     checkForScreenChange();
+    
+    // If display is sleeping, don't render
+    if (displaysleep) {
+        return;
+    }
     
     // Check for touch input
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
+    
+    // Handle touch input for normal mode
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
             m5paper_switchToPreviousScreen();
@@ -414,20 +487,28 @@ void m5paper_MinerScreen(unsigned long mElapsed)
         } else if (touch.buttonNumber == 2) {
             m5paper_switchToNextScreenTouch();
             return;
+        } else if (touch.buttonNumber == 3) {
+            // Menu button - toggle sleep/wake (touch version)
+            m5paper_AlternateScreenState();
+            return;
         }
     }
     
-    mining_data data = getMiningData(mElapsed);
-    clock_data clockData = getClockData(mElapsed);
-    
-    // Get battery percentage
-    int batteryPct = getBatteryPercentage();
-    
-    // Full refresh every 60 seconds or on first load
-    bool needFullRefresh = (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
+    // Full refresh every 60 seconds or on first load or when forced after wake
+    bool needFullRefresh = forceFullRefresh || 
+                           (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
                            (prev_hashrate.isEmpty());
     
     if (needFullRefresh) {
+        // Fetch data only when needed for full refresh
+        mining_data data = getMiningData(mElapsed);
+        clock_data clockData = getClockData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
+        forceFullRefresh = false;  // Clear the flag
+        preventPartialUpdates = false;  // Clear the flag since we're doing full refresh now
         // Full page refresh with image
         canvas_page.fillCanvas(0);  // Black background
         
@@ -534,7 +615,14 @@ void m5paper_MinerScreen(unsigned long mElapsed)
         prev_hashrate = data.currentHashRate;
         prev_shares = data.completedShares;
     }
-    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS) {
+    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS && !preventPartialUpdates) {
+        // Fetch data only when needed for partial update
+        mining_data data = getMiningData(mElapsed);
+        clock_data clockData = getClockData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
         // Partial update - update only the dynamic text area (not status bar or image)
         canvas_stats.fillCanvas(0);  // Black background
         canvas_stats.setTextColor(15);  // White text
@@ -734,9 +822,19 @@ void m5paper_ClockScreen(unsigned long mElapsed)
 
 void m5paper_GlobalHashScreen(unsigned long mElapsed)
 {
+    // Check if screen was changed externally (e.g., GPIO button from main code)
+    // This MUST come before displaysleep check so page changes work even in sleep mode
     checkForScreenChange();
     
+    // If display is sleeping, don't render
+    if (displaysleep) {
+        return;
+    }
+    
+    // Check for touch input
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
+    
+    // Handle touch input for normal mode
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
             m5paper_switchToPreviousScreen();
@@ -744,20 +842,28 @@ void m5paper_GlobalHashScreen(unsigned long mElapsed)
         } else if (touch.buttonNumber == 2) {
             m5paper_switchToNextScreenTouch();
             return;
+        } else if (touch.buttonNumber == 3) {
+            // Menu button - toggle sleep/wake (touch version)
+            m5paper_AlternateScreenState();
+            return;
         }
     }
     
-    coin_data data = getCoinData(mElapsed);
-    clock_data clockData = getClockData(mElapsed);
-    
-    // Get battery percentage
-    int batteryPct = getBatteryPercentage();
-    
-    // Full refresh every 60 seconds or on first load
-    bool needFullRefresh = (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
+    // Full refresh every 60 seconds or on first load or when forced after wake
+    bool needFullRefresh = forceFullRefresh || 
+                           (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
                            (prev_blockHeight.isEmpty());
     
     if (needFullRefresh) {
+        // Fetch data only when needed for full refresh
+        coin_data data = getCoinData(mElapsed);
+        clock_data clockData = getClockData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
+        forceFullRefresh = false;  // Clear the flag
+        preventPartialUpdates = false;  // Clear the flag since we're doing full refresh now
         // Full page refresh
         canvas_page.fillCanvas(0);  // Black background
         
@@ -854,7 +960,15 @@ void m5paper_GlobalHashScreen(unsigned long mElapsed)
         prev_blockHeight = data.blockHeight;
         prev_btcPrice = data.btcPrice;
     }
-    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS) {
+    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS && !preventPartialUpdates) {
+        // Fetch data only when needed for partial update
+        coin_data data = getCoinData(mElapsed);
+        clock_data clockData = getClockData(mElapsed);
+        mining_data miningData = getMiningData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
         // Partial update - update only the dynamic text area
         canvas_stats.fillCanvas(0);  // Black background
         canvas_stats.setTextColor(15);  // White text
@@ -869,7 +983,6 @@ void m5paper_GlobalHashScreen(unsigned long mElapsed)
         
         // Center: Temperature with label
         canvas_stats.setTextDatum(TC_DATUM);
-        mining_data miningData = getMiningData(mElapsed);
         String tempLabel = "Temp: " + miningData.temp;
         canvas_stats.drawString(tempLabel, M5PAPER_WIDTH / 2, statusY);
         
@@ -945,9 +1058,19 @@ void m5paper_GlobalHashScreen(unsigned long mElapsed)
 
 void m5paper_PoolStatsScreen(unsigned long mElapsed)
 {
+    // Check if screen was changed externally (e.g., GPIO button from main code)
+    // This MUST come before displaysleep check so page changes work even in sleep mode
     checkForScreenChange();
     
+    // If display is sleeping, don't render
+    if (displaysleep) {
+        return;
+    }
+    
+    // Check for touch input
     TouchState_M5Paper touch = m5paper_checkTouch(m5paperDisplayDriver.current_cyclic_screen);
+    
+    // Handle touch input for normal mode
     if (touch.justReleased) {
         if (touch.buttonNumber == 1) {
             m5paper_switchToPreviousScreen();
@@ -955,23 +1078,31 @@ void m5paper_PoolStatsScreen(unsigned long mElapsed)
         } else if (touch.buttonNumber == 2) {
             m5paper_switchToNextScreenTouch();
             return;
+        } else if (touch.buttonNumber == 3) {
+            // Menu button - toggle sleep/wake (touch version)
+            m5paper_AlternateScreenState();
+            return;
         }
     }
     
-    pool_data poolData = getPoolData();
-    clock_data clockData = getClockData(mElapsed);
-    mining_data miningData = getMiningData(mElapsed);
-    coin_data coinData = getCoinData(mElapsed);
-    
-    // Get battery percentage
-    int batteryPct = getBatteryPercentage();
-    
-    // Full refresh every 60 seconds or on first load
+    // Full refresh every 60 seconds or on first load or when forced after wake
     static String prev_workersHash = "";
-    bool needFullRefresh = (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
+    bool needFullRefresh = forceFullRefresh || 
+                           (millis() - lastFullRefresh > FULL_REFRESH_INTERVAL_MS) || 
                            (prev_workersHash.isEmpty());
     
     if (needFullRefresh) {
+        // Fetch data only when needed for full refresh
+        pool_data poolData = getPoolData();
+        clock_data clockData = getClockData(mElapsed);
+        mining_data miningData = getMiningData(mElapsed);
+        coin_data coinData = getCoinData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
+        forceFullRefresh = false;  // Clear the flag
+        preventPartialUpdates = false;  // Clear the flag since we're doing full refresh now
         // Full page refresh
         canvas_page.fillCanvas(0);  // Black background
         
@@ -1075,7 +1206,16 @@ void m5paper_PoolStatsScreen(unsigned long mElapsed)
         lastFullRefresh = millis();
         prev_workersHash = poolData.workersHash;
     }
-    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS) {
+    else if (millis() - lastStatsUpdate > STATS_UPDATE_INTERVAL_MS && !preventPartialUpdates) {
+        // Fetch data only when needed for partial update
+        pool_data poolData = getPoolData();
+        clock_data clockData = getClockData(mElapsed);
+        mining_data miningData = getMiningData(mElapsed);
+        coin_data coinData = getCoinData(mElapsed);
+        
+        // Get battery percentage
+        int batteryPct = getBatteryPercentage();
+        
         // Partial update - update only the dynamic text area
         canvas_stats.fillCanvas(0);  // Black background
         canvas_stats.setTextColor(15);  // White text
