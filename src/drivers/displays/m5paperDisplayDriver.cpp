@@ -183,6 +183,7 @@ static void checkForScreenChange() {
         clear_canvas.createCanvas(M5PAPER_WIDTH, M5PAPER_HEIGHT);
         clear_canvas.fillCanvas(0);  // White
         clear_canvas.pushCanvas(0, 0, UPDATE_MODE_DU);  // Fast partial clear
+        clear_canvas.deleteCanvas();  // Free memory to prevent leaks
         
         // Force a full refresh on the new page and prevent partial updates during transition
         preventPartialUpdates = true;
