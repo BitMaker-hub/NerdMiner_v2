@@ -343,6 +343,10 @@ void m5paper_Init(void)
 #ifndef M5PAPER_DISABLE_TOUCH
     M5.TP.SetRotation(90);   // Touch rotation must match display
 #endif
+
+    // Delete any existing canvases to prevent memory issues
+    canvas_page.deleteCanvas();
+    canvas_stats.deleteCanvas();
     
     M5.EPD.Clear(true);      // Clear with full refresh
     M5.RTC.begin();
@@ -371,6 +375,10 @@ void m5paper_Init(void)
     Serial.println("GPIO 39 = Next Screen, GPIO 37 = Previous Screen");
     Serial.println("Touch: [Prev] [Next] [Menu] buttons at screen bottom");
 #endif
+
+    // Initialize flags
+    displaysleep = false;
+    preventPartialUpdates = false;
 }
 
 void m5paper_AlternateScreenState(void)
@@ -384,6 +392,7 @@ void m5paper_AlternateScreenState(void)
         
         // Don't clear display here - it's too slow and blocks GPIO interrupts
         // Just reset timers and display sleep image directly
+        preventPartialUpdates = true;  // Prevent partial updates while in sleep mode
         lastStatsUpdate = millis();
         lastFullRefresh = millis();
         
@@ -400,6 +409,7 @@ void m5paper_AlternateScreenState(void)
         Serial.println("[M5PAPER] Pushing canvas to display...");
         // Use GC16 mode for better quality
         temp_canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
+        temp_canvas.deleteCanvas();  // Free memory to prevent leaks
         
         Serial.println("[M5PAPER] Sleep screen displayed successfully");
     } else {
@@ -409,6 +419,7 @@ void m5paper_AlternateScreenState(void)
         clear_canvas.createCanvas(M5PAPER_WIDTH, M5PAPER_HEIGHT);
         clear_canvas.fillCanvas(0);  // White
         clear_canvas.pushCanvas(0, 0, UPDATE_MODE_DU);  // Fast partial clear
+        clear_canvas.deleteCanvas();  // Free memory to prevent leaks
         
         // Force a full refresh which will draw the normal screen and prevent partial updates during transition
         preventPartialUpdates = true;
