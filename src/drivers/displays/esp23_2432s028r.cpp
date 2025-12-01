@@ -545,7 +545,9 @@ void esp32_2432S028R_BTCpriceHistory(unsigned long mElapsed)
 
   int step = 1;
   int graphW = 300, graphH = 170, graphOffsetX = 10, graphOffsetY = 35;
+  
   int oldPrice = getBTCpriceHistory(0);
+  clock_data data = getClockData(mElapsed);
 
   tft.pushImage(0, 0, BTCgraphScreenWidth, BTCgraphScreenHeight, BTCgraphScreen);
   tft.setTextColor(TFT_WHITE);
@@ -562,7 +564,6 @@ void esp32_2432S028R_BTCpriceHistory(unsigned long mElapsed)
   }
 
   if (maxPrice > 0) {
-    clock_data data = getClockData(mElapsed);
 
     tft.setTextColor(TFT_SKYBLUE);
     tft.drawString(String("$ ")+String(oldPrice), 250,   5, FONT2);
