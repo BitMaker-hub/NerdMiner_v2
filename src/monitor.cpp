@@ -37,6 +37,8 @@ global_data gData;
 pool_data pData;
 String poolAPIUrl;
 
+int BTCpriceHistory[BTC_PRICE_HISTORY_TOT_MINUTES];
+int priceHistoryIndex = 0;
 
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
@@ -52,6 +54,19 @@ void setup_monitor(void){
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
 #endif
+
+  for (int i = 0; i < BTC_PRICE_HISTORY_TOT_MINUTES; i++) {
+    BTCpriceHistory[i] = 0;
+  }
+// Init with FAKE data
+// int price = 91293;
+// for (int i = BTC_PRICE_HISTORY_TOT_MINUTES - 1; i >= 0; i--) {
+//   BTCpriceHistory[i] = price;
+//   price += (rand() % 40) - 20;
+// }
+
+    // Get current price - runMonitor() will call this every minute
+    saveBTCpriceHistory();
 }
 
 unsigned long mGlobalUpdate =0;
@@ -154,14 +169,12 @@ String getBlockHeight(void){
 
 unsigned long mBTCUpdate = 0;
 
-String getBTCprice(void){
+int getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
         if (WiFi.status() != WL_CONNECTED) {
-            static char price_buffer[16];
-            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-            return String(price_buffer);
+            return bitcoin_price;
         }
         
         HTTPClient http;
@@ -180,6 +193,10 @@ String getBTCprice(void){
           
             if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
                 bitcoin_price = doc["bitcoin"]["usd"];
+
+Serial.println(">>>> ===== >>>> new BTC price:");
+Serial.println(bitcoin_price);
+Serial.println(">>>> ===== >>>> new BTC price");
             }
 
             doc.clear();
@@ -194,9 +211,7 @@ String getBTCprice(void){
         }
     }  
   
-  static char price_buffer[16];
-  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-  return String(price_buffer);
+  return bitcoin_price;
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -349,6 +364,39 @@ mining_data getMiningData(unsigned long mElapsed)
   return data;
 }
 
+void saveBTCpriceHistory()
+{
+  int price = getBTCprice();
+
+  if (priceHistoryIndex == 0 && BTCpriceHistory[0] == 0) {
+    // Init all history data to current price
+    for (int i=0; i<BTC_PRICE_HISTORY_TOT_MINUTES; i++) {
+      BTCpriceHistory[i] = price;
+    }
+  } else {
+    BTCpriceHistory[priceHistoryIndex] = price;
+  }
+
+  priceHistoryIndex = (priceHistoryIndex + 1) % BTC_PRICE_HISTORY_TOT_MINUTES;
+}
+
+int getBTCpriceHistoryIndex()
+{
+  return priceHistoryIndex;
+}
+
+int getBTCpriceHistory(int minutesAgo)
+{
+  if (minutesAgo == 0) return bitcoin_price;
+
+  if (minutesAgo >= BTC_PRICE_HISTORY_TOT_MINUTES) minutesAgo = (BTC_PRICE_HISTORY_TOT_MINUTES) - 1;
+
+  int priceIndex = (priceHistoryIndex - minutesAgo);
+  if (priceIndex < 0) priceIndex = priceIndex + (BTC_PRICE_HISTORY_TOT_MINUTES);
+
+  return BTCpriceHistory[priceIndex];
+}
+
 clock_data getClockData(unsigned long mElapsed)
 {
   clock_data data;
@@ -356,7 +404,7 @@ clock_data getClockData(unsigned long mElapsed)
   data.completedShares = shares;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
-  data.btcPrice = getBTCprice();
+  data.btcPrice = String("$") + String(bitcoin_price);
   data.blockHeight = getBlockHeight();
   data.currentTime = getTime();
   data.currentDate = getDate();
@@ -384,7 +432,7 @@ coin_data getCoinData(unsigned long mElapsed)
   data.completedShares = shares;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
-  data.btcPrice = getBTCprice();
+  data.btcPrice = String("$") + String(bitcoin_price);
   data.currentTime = getTime();
 #ifdef SCREEN_FEES_ENABLE
   data.hourFee = String(gData.hourFee);

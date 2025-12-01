@@ -123,6 +123,11 @@ typedef struct{
   String bestDifficulty;  // Your miners best difficulty
 }pool_data;
 
+#define BTC_PRICE_HISTORY_TOT_MINUTES 360
+void saveBTCpriceHistory();
+int getBTCpriceHistory(int minutesAgo);
+int getBTCpriceHistoryIndex();
+
 void setup_monitor(void);
 
 mining_data getMiningData(unsigned long mElapsed);

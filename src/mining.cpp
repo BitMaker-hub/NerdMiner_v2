@@ -1260,6 +1260,10 @@ void runMonitor(void *name)
 
       seconds_elapsed++;
 
+      if(seconds_elapsed % 60 == 0) {
+        saveBTCpriceHistory();
+      }
+
       if(seconds_elapsed % (saveIntervals[currentIntervalIndex]) == 0){
         saveStat();
         seconds_elapsed = 0;

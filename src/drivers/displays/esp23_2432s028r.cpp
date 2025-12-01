@@ -506,6 +506,96 @@ void esp32_2432S028R_BTCprice(unsigned long mElapsed)
   #endif
 }
 
+void drawLine(int sx, int sy, int ex, int ey, int strokeWidth, uint32_t color)
+{
+    int dx = abs(ex - sx);
+    int dy = abs(ey - sy);
+    int sx_step = (sx < ex) ? 1 : -1;
+    int sy_step = (sy < ey) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true)
+    {
+        // Desenha o círculo para "espessar" a linha
+        tft.drawCircle(sx, sy, strokeWidth, color);
+
+        // Se chegou ao destino, para
+        if (sx == ex && sy == ey) break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            sx += sx_step;
+        }
+        if (e2 < dx) {
+            err += dx;
+            sy += sy_step;
+        }
+    }
+}
+
+int oldHistoryIndex = -1;
+
+void esp32_2432S028R_BTCpriceHistory(unsigned long mElapsed)
+{
+  // Detect Screen change
+  int historyIndex = getBTCpriceHistoryIndex();
+  if (historyIndex == oldHistoryIndex) return;
+  oldHistoryIndex = historyIndex;
+
+  int step = 1;
+  int graphW = 300, graphH = 170, graphOffsetX = 10, graphOffsetY = 35;
+  int oldPrice = getBTCpriceHistory(0);
+
+  tft.pushImage(0, 0, BTCgraphScreenWidth, BTCgraphScreenHeight, BTCgraphScreen);
+  tft.setTextColor(TFT_WHITE);
+
+  int maxPrice = 0, minPrice = INT_MAX;
+  for (int x=graphW; x >= 0; x--) {
+    int stepAgo = (graphW - x) * step;
+    int price = getBTCpriceHistory(stepAgo);
+
+    if (price == 0) break;
+
+    if (price < minPrice) minPrice = price;
+    if (price > maxPrice) maxPrice = price;
+  }
+
+  if (maxPrice > 0) {
+    clock_data data = getClockData(mElapsed);
+
+    tft.setTextColor(TFT_SKYBLUE);
+    tft.drawString(String("$ ")+String(oldPrice), 250,   5, FONT2);
+    tft.setTextColor(TFT_WHITE);
+
+    tft.drawString(String("$ ")+String(maxPrice),  60,   5, FONT2);
+    tft.drawString(String("$ ")+String(minPrice),  60, 220, FONT2);
+
+    tft.drawString("Last 5h", 150, 220, FONT2);
+    tft.drawString(data.currentTime.c_str(), 260, 220, FONT2);
+
+    // Plot graph
+    int range = maxPrice - minPrice;
+    if (range == 0) range = 1;
+    int oldX = graphW;
+    int oldY = (graphH - (graphH * ((oldPrice - minPrice)) / range));
+    for (int x=graphW; x >= 0; x--) {
+      int stepAgo = (graphW - x) * step;
+      int price = getBTCpriceHistory(stepAgo);
+      if (price == 0) break;
+
+      int y = (graphH - (graphH * ((price - minPrice)) / range));
+
+      drawLine(oldX+graphOffsetX, oldY+graphOffsetY, x+graphOffsetX, y+graphOffsetY, 2, TFT_PURPLE);
+
+      oldX = x;
+      oldY = y;
+    }
+  } else {
+    tft.drawString("Waiting Data", 200, 220, FONT2);
+  }
+}
+
 void esp32_2432S028R_LoadingScreen(void)
 {
   tft.fillScreen(TFT_BLACK);
@@ -599,7 +689,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
 
 }
 
-CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice};
+CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_BTCpriceHistory, esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice};
 
 DisplayDriver esp32_2432S028RDriver = {
     esp32_2432S028R_Init,
