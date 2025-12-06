@@ -39,7 +39,11 @@ static uint8_t setup_icon[] = {
   0x00, 0xE0, 0x01, 0x00, 0x00, 0xE0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
 };
 
+#ifdef OLED_042_WISECHIP
+U8G2_SH1106_72X40_WISE_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+#else
 U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+#endif
 
 void clearScreen(void) {
     u8g2.clearBuffer();
