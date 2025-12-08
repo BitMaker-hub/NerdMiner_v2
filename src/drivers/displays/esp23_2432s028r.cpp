@@ -34,6 +34,8 @@ extern bool invertColors;
 extern TSettings Settings;
 bool hasChangedScreen = true;
 
+int priceHistoryGraphColors[4] = { TFT_PURPLE, TFT_RED, TFT_BLUE, TFT_BLACK };
+
 void getChipInfo(void){
   Serial.print("Chip: ");
   Serial.println(ESP.getChipModel());
@@ -506,6 +508,163 @@ void esp32_2432S028R_BTCprice(unsigned long mElapsed)
   #endif
 }
 
+void drawLine(int sx, int sy, int ex, int ey, int strokeWidth, uint32_t color)
+{
+    int dx = abs(ex - sx);
+    int dy = abs(ey - sy);
+    int sx_step = (sx < ex) ? 1 : -1;
+    int sy_step = (sy < ey) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true)
+    {
+        // Desenha o círculo para "espessar" a linha
+        tft.drawCircle(sx, sy, strokeWidth, color);
+
+        // Se chegou ao destino, para
+        if (sx == ex && sy == ey) break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            sx += sx_step;
+        }
+        if (e2 < dx) {
+            err += dx;
+            sy += sy_step;
+        }
+    }
+}
+
+void plotGraph(int graphID, int *minPrice, int *maxPrice)
+{
+  int graphW = 300, graphH = 170, graphOffsetX = 10, graphOffsetY = 35;
+
+  //BTC_PRICE_HISTORY_GRAPH_MIN
+  *maxPrice = 0;
+  *minPrice = INT_MAX;
+  for (int x=graphW; x >= 0; x--) {
+    int stepAgo = (graphW - x);
+    int price = getBTCpriceHistory(stepAgo, graphID);
+    if (price == 0) break;
+
+    if (price < *minPrice) *minPrice = price;
+    if (price > *maxPrice) *maxPrice = price;
+  }
+
+  if (*maxPrice == 0)
+    return; // No data
+  
+  // Plot graph
+  int range = *maxPrice - *minPrice;
+  if (range == 0) range = 1;
+
+  int oldPrice = getBTCpriceHistory(0, graphID);
+  int oldX = graphW;
+  int oldY = (graphH - (graphH * ((oldPrice - *minPrice)) / range));
+
+  for (int x=graphW; x >= 0; x--) {
+    int stepAgo = (graphW - x);
+    int price = getBTCpriceHistory(stepAgo, graphID);
+    if (price == 0) break;
+
+    int y = (graphH - (graphH * ((price - *minPrice)) / range));
+
+    drawLine(oldX+graphOffsetX, oldY+graphOffsetY, x+graphOffsetX, y+graphOffsetY, 2, priceHistoryGraphColors[graphID]);
+
+    oldX = x;
+    oldY = y;
+  }
+}
+
+String getGraphLegend(int graphID, int lineIndex)
+{
+  char legend[20];
+  unsigned long secondsAgo = getBTCpriceLegendSecsAgo(graphID) * lineIndex;
+  unsigned long legendTime = getNow() - secondsAgo;
+
+  struct tm *tm = localtime((time_t *)&legendTime);
+
+  if (secondsAgo < (24 * 60 * 60)) {
+    int hours   = tm->tm_hour;
+    int minutes = tm->tm_min;
+
+    sprintf(legend, "%02d:%02d", hours, minutes);
+  } else {
+    // int year  = tm->tm_year + 1900; // tm_year es el número de años desde 1900
+    int month = tm->tm_mon + 1;    // tm_mon es el mes del año desde 0 (enero) hasta 11 (diciembre)
+    int day   = tm->tm_mday;         // tm_mday es el día del mes
+
+    sprintf(legend, "%02d/%02d", day, month);
+  }
+
+  return String(legend);
+}
+
+int oldHistoryIndex = -1;
+int oldGraphID      = -1;
+int showGraphs = 1;
+void esp32_2432S028R_BTCpriceHistory(unsigned long mElapsed)
+{
+  if (showGraphs < 2 && getBTCpriceHistoryIndex(BTC_PRICE_HISTORY_GRAPH_5MIN) > 120) {
+    // Wait to have some data to show Daily Graph
+    showGraphs = 2;
+  }
+  if (showGraphs < 3 && getBTCpriceHistoryIndex(BTC_PRICE_HISTORY_GRAPH_30MIN) > 120) {
+    // Wait to have some data to show Weekly Graph
+    showGraphs = 3;
+  }
+  if (showGraphs < 4 && getBTCpriceHistoryIndex(BTC_PRICE_HISTORY_GRAPH_WEEKLY) > 120) {
+    // Wait to have some data to show Monthly Graph
+    showGraphs = 4;
+  }
+
+  uint32_t secsElapsed = millis() / 1000;
+  int graphID = (secsElapsed / 20) % showGraphs; // 20 secs for each graph
+
+  // Detect Screen change
+  if (graphID == oldGraphID) {
+    int historyIndex = getBTCpriceHistoryIndex(graphID);
+    if (historyIndex == oldHistoryIndex) return;
+    oldHistoryIndex = historyIndex;
+  }
+  oldGraphID = graphID;
+
+  int curPrice = getBTCpriceHistory(0, graphID);
+  clock_data data = getClockData(mElapsed);
+
+  tft.pushImage(0, 0, BTCgraphScreenWidth, BTCgraphScreenHeight, BTCgraphScreen);
+
+  int maxPrice = 0, minPrice = INT_MAX;
+  plotGraph(graphID, &minPrice, &maxPrice);
+
+  if (maxPrice == 0) {
+    tft.setTextColor(TFT_BLACK);
+    tft.drawString("Waiting Data", 130, 220, FONT2);
+    return;
+  }
+
+  tft.setTextColor(TFT_SKYBLUE);
+  tft.drawString(String("$ ")+String(curPrice), 250,   5, FONT2);
+
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString(String("$ ")+String(maxPrice),  60,   5, FONT2);
+  tft.drawString(String("$ ")+String(minPrice),  60, 220, FONT2);
+
+  String dateDayMonth = data.currentDate.substring(0, 5); // Remove the year
+  tft.drawString(dateDayMonth.c_str(), 210, 220, FONT2);
+  tft.drawString(data.currentTime.c_str(), 280, 220, FONT2);
+
+  tft.setTextColor(priceHistoryGraphColors[graphID]);
+  tft.drawString(String("Last ") + getBTCpriceHistoryName(graphID), 130, 220, FONT2);
+
+  tft.setTextColor(TFT_BLACK);
+  for (int i=1; i<=5; i++) {
+    int px = 260 - ((i - 1) * 60);
+    tft.drawString(getGraphLegend(graphID, i), px, 180, FONT2);
+  }
+}
+
 void esp32_2432S028R_LoadingScreen(void)
 {
   tft.fillScreen(TFT_BLACK);
@@ -599,7 +758,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
 
 }
 
-CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice};
+CyclicScreenFunction esp32_2432S028RCyclicScreens[] = {esp32_2432S028R_MinerScreen, esp32_2432S028R_ClockScreen, esp32_2432S028R_GlobalHashScreen, esp32_2432S028R_BTCprice, esp32_2432S028R_BTCpriceHistory};
 
 DisplayDriver esp32_2432S028RDriver = {
     esp32_2432S028R_Init,
