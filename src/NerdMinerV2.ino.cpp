@@ -28,6 +28,11 @@
 //15 minutes WDT for miner task
 #define WDT_MINER_TIMEOUT 900
 
+// Screen timeout settings
+#define SCREEN_TIMEOUT_MS 20000 // 20 seconds
+unsigned long lastActivityTime = 0;
+bool isScreenOn = true;
+
 #ifdef PIN_BUTTON_1
   OneButton button1(PIN_BUTTON_1);
 #endif
@@ -56,9 +61,46 @@ const char* ntpServer = "pool.ntp.org";
 //void runMonitor(void *name);
 
 
+// Helper functions for screen timeout
+void resetActivityTimer() {
+  lastActivityTime = millis();
+}
+
+void checkScreenTimeout() {
+  if (isScreenOn && (millis() - lastActivityTime > SCREEN_TIMEOUT_MS)) {
+    alternateScreenState();
+    isScreenOn = false;
+  }
+}
+
+void onSwitchToNextScreen() {
+  resetActivityTimer();
+  if (!isScreenOn) {
+    alternateScreenState();
+    isScreenOn = true;
+  }
+  switchToNextScreen();
+}
+
+void onAlternateScreenRotation() {
+  resetActivityTimer();
+  if (!isScreenOn) {
+    alternateScreenState();
+    isScreenOn = true;
+  }
+  alternateScreenRotation();
+}
+
+void onAlternateScreenState() {
+  resetActivityTimer();
+  alternateScreenState();
+  isScreenOn = !isScreenOn;
+}
+
 /********* INIT *****/
 void setup()
 {
+  lastActivityTime = millis();
       //Init pin 15 to eneble 5V external power (LilyGo bug)
   #ifdef PIN_ENABLE5V
       pinMode(PIN_ENABLE5V, OUTPUT);
@@ -86,21 +128,21 @@ void setup()
   // Setup the buttons
   #if defined(PIN_BUTTON_1) && !defined(PIN_BUTTON_2) //One button device
     button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(switchToNextScreen);
-    button1.attachDoubleClick(alternateScreenRotation);
+    button1.attachClick(onSwitchToNextScreen);
+    button1.attachDoubleClick(onAlternateScreenRotation);
     button1.attachLongPressStart(reset_configuration);
-    button1.attachMultiClick(alternateScreenState);
+    button1.attachMultiClick(onAlternateScreenState);
   #endif
 
   #if defined(PIN_BUTTON_1) && defined(PIN_BUTTON_2) //Button 1 of two button device
     button1.setPressMs(5*SECOND_MS);
-    button1.attachClick(alternateScreenState);
-    button1.attachDoubleClick(alternateScreenRotation);
+    button1.attachClick(onAlternateScreenState);
+    button1.attachDoubleClick(onAlternateScreenRotation);
   #endif
 
   #if defined(PIN_BUTTON_2) //Button 2 of two button device
     button2.setPressMs(5*SECOND_MS);
-    button2.attachClick(switchToNextScreen);
+    button2.attachClick(onSwitchToNextScreen);
     button2.attachLongPressStart(reset_configuration);
   #endif
 
@@ -213,6 +255,7 @@ void loop() {
 #ifdef TOUCH_ENABLE
   touchHandler.isTouched();
 #endif
+  checkScreenTimeout();
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
