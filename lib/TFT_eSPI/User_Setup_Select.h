@@ -161,6 +161,9 @@
 #ifdef NERDMINER_S3_GEEK
 #include <User_Setups/Setup303_WaveShare ESP32S3_GEEK.h>            // Setup file for Waveshare Setup303_WaveShare ESP32S3_GEEK with ST7789 135*240 TFT
 #endif
+#ifdef NERDMINER_S3_LCD_147
+#include <User_Setups/Setup305_WaveShare_ESP32S3_LCD_147.h>         // Setup file for Waveshare ESP32-S3-LCD-1.47 with ST7789 172*320 TFT
+#endif
 
 // #include <User_Setups/Setup212_LilyGo_T_PicoPro.h>         // For the LilyGo T-PICO-Pro with ST7796 222 x 480 TFT
 // #include <User_Setups/Setup213_LilyGo_T_Beam_Shield.h>         // For the LilyGo T-BEAM V1.x with ST7796 222 x 480 TFT
