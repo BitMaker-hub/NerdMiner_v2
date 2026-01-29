@@ -172,6 +172,9 @@
 #ifdef M5STICK_C_PLUS2
 #include <User_Setups/Setup304_M5StickCPlus2.h>            // Setup file for ESP32 configured for ST7735 128 x 128 animated eyes
 #endif
+#ifdef ADAFRUIT_FEATHER_ESP32S3_TFT
+#include <User_Setups/Setup213_Adafruit_Feather_ESP32S3_TFT.h> // For the Adafruit Feather ESP32-S3 TFT with ST7789 240 x 135 TFT
+#endif
 
 //#include <User_Setups/Setup301_BW16_ST7735.h>            // Setup file for Bw16-based boards with ST7735 160 x 80 TFT
 //#include <User_Setups/Setup302_Waveshare_ESP32S3_GC9A01.h>            // Setup file for Waveshare ESP32-S3-Touch-LCD-1.28 board with GC9A01 240*240 TFT
