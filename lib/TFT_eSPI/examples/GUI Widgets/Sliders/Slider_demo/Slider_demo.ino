@@ -142,7 +142,7 @@ void touch_calibrate()
 
   // check file system exists
   if (!LittleFS.begin()) {
-    Serial.println("formatting file system");
+    Serial.println("Formating file system");
     LittleFS.format();
     LittleFS.begin();
   }

@@ -46,7 +46,7 @@ typedef enum {
 } stratum_method;
 
 unsigned long getNextId(unsigned long id);
-bool verifyPayload (String* line);
+bool verifyPayload(String* line);
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc);
 
 //Method Mining.subscribe
@@ -66,6 +66,6 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
 bool tx_suggest_difficulty(WiFiClient& client, double difficulty);
 bool parse_mining_set_difficulty(String line, double& difficulty);
 
-unsigned long parse_extract_id(const String &line);
+unsigned long parse_extract_id(String line);
 
 #endif // STRATUM_API_H

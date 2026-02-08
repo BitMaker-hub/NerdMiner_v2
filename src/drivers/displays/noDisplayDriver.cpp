@@ -7,7 +7,7 @@
 #include "wManager.h"
 
 extern monitor_data mMonitor;
-bool ledOn = true;
+bool ledOn = false;
 
 void noDisplay_Init(void)
 {
@@ -27,7 +27,42 @@ void noDisplay_AlternateRotation(void)
 
 void noDisplay_NoScreen(unsigned long mElapsed)
 {
-  mining_data data = getMiningData(mElapsed);
+  static unsigned long lastPrint = 0;
+  static unsigned long elapsedAccum = 0;
+  static String lastShares;
+  static String lastKHashes;
+  static String lastHashrate;
+  static String lastTemplates;
+  static String lastBestDiff;
+  static String lastStales;
+  elapsedAccum += mElapsed;
+
+  const unsigned long now = millis();
+  if (now - lastPrint < 5000)
+    return;
+  lastPrint = now;
+
+  mining_data data = getMiningData(elapsedAccum);
+  elapsedAccum = 0;
+
+  bool changed = false;
+  if (data.completedShares != lastShares) changed = true;
+  if (data.totalKHashes != lastKHashes) changed = true;
+  if (data.currentHashRate != lastHashrate) changed = true;
+  if (data.templates != lastTemplates) changed = true;
+  if (data.bestDiff != lastBestDiff) changed = true;
+  if (data.stales != lastStales) changed = true;
+
+  // Always print at least every 60s, otherwise only on changes.
+  if (!changed && (now - lastPrint < 60000))
+    return;
+
+  lastShares = data.completedShares;
+  lastKHashes = data.totalKHashes;
+  lastHashrate = data.currentHashRate;
+  lastTemplates = data.templates;
+  lastBestDiff = data.bestDiff;
+  lastStales = data.stales;
 
   // Print hashrate to serial
   Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
@@ -38,6 +73,7 @@ void noDisplay_NoScreen(unsigned long mElapsed)
   Serial.printf(">>> Block templates: %s\n", data.templates.c_str());
   Serial.printf(">>> Best difficulty: %s\n", data.bestDiff.c_str());
   Serial.printf(">>> 32Bit shares: %s\n", data.completedShares.c_str());
+  Serial.printf(">>> Stales: %s\n", data.stales.c_str());
   Serial.printf(">>> Temperature: %s\n", data.temp.c_str());
   Serial.printf(">>> Total MHashes: %s\n", data.totalMHashes.c_str());
   Serial.printf(">>> Time mining: %s\n", data.timeMining.c_str());

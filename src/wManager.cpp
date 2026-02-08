@@ -4,6 +4,8 @@
 //#include ".h"
 
 #include <WiFi.h>
+#include "esp_event.h"
+#include "esp_wifi.h"
 
 #include <WiFiManager.h>
 
@@ -15,9 +17,6 @@
 #include "drivers/storage/storage.h"
 #include "mining.h"
 #include "timeconst.h"
-
-#include <ArduinoJson.h>
-#include <esp_flash.h>
 
 
 // Flag for saving data
@@ -33,63 +32,7 @@ extern monitor_data mMonitor;
 nvMemory nvMem;
 
 extern SDCard SDCrd;
-
-String readCustomAPName() {
-    Serial.println("DEBUG: Attempting to read custom AP name from flash at 0x3F0000...");
-    
-    // Leer directamente desde flash
-    const size_t DATA_SIZE = 128;
-    uint8_t buffer[DATA_SIZE];
-    memset(buffer, 0, DATA_SIZE); // Clear buffer
-    
-    // Leer desde 0x3F0000
-    esp_err_t result = esp_flash_read(NULL, buffer, 0x3F0000, DATA_SIZE);
-    if (result != ESP_OK) {
-        Serial.printf("DEBUG: Flash read error: %s\n", esp_err_to_name(result));
-        return "";
-    }
-    
-    Serial.println("DEBUG: Successfully read from flash");
-    String data = String((char*)buffer);
-    
-    // Debug: show raw data read
-    Serial.printf("DEBUG: Raw flash data: '%s'\n", data.c_str());
-    
-    if (data.startsWith("WEBFLASHER_CONFIG:")) {
-        Serial.println("DEBUG: Found WEBFLASHER_CONFIG marker");
-        String jsonPart = data.substring(18); // Después del marcador "WEBFLASHER_CONFIG:"
-        
-        Serial.printf("DEBUG: JSON part: '%s'\n", jsonPart.c_str());
-        
-        DynamicJsonDocument doc(256);
-        DeserializationError error = deserializeJson(doc, jsonPart);
-        
-        if (error == DeserializationError::Ok) {
-            Serial.println("DEBUG: JSON parsed successfully");
-            
-            if (doc.containsKey("apname")) {
-                String customAP = doc["apname"].as<String>();
-                customAP.trim();
-                
-                if (customAP.length() > 0 && customAP.length() < 32) {
-                    Serial.printf("✅ Custom AP name from webflasher: %s\n", customAP.c_str());
-                    return customAP;
-                } else {
-                    Serial.printf("DEBUG: AP name invalid length: %d\n", customAP.length());
-                }
-            } else {
-                Serial.println("DEBUG: 'apname' key not found in JSON");
-            }
-        } else {
-            Serial.printf("DEBUG: JSON parse error: %s\n", error.c_str());
-        }
-    } else {
-        Serial.println("DEBUG: WEBFLASHER_CONFIG marker not found - no custom config");
-    }
-    
-    Serial.println("DEBUG: Using default AP name");
-    return "";
-}
+static volatile uint8_t s_last_wifi_disc_reason = 0xFF;
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -128,6 +71,28 @@ void reset_configuration()
     ESP.restart();
 }
 
+
+static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+#if defined(ARDUINO_EVENT_WIFI_STA_DISCONNECTED)
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED)
+  {
+    s_last_wifi_disc_reason = info.wifi_sta_disconnected.reason;
+    Serial.printf("[WiFi] Disconnected, reason: %d\n", info.wifi_sta_disconnected.reason);
+  }
+#endif
+}
+
+static void onWifiEventIdf(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
+        wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
+        s_last_wifi_disc_reason = disc->reason;
+        Serial.printf("[WiFi] Disconnected (IDF), reason: %d\n", disc->reason);
+    }
+}
+
 void init_WifiManager()
 {
 #ifdef MONITOR_SPEED
@@ -136,10 +101,6 @@ void init_WifiManager()
     Serial.begin(115200);
 #endif //MONITOR_SPEED
     //Serial.setTxTimeoutMs(10);
-    
-    // Check for custom AP name from flasher config, otherwise use default
-    String customAPName = readCustomAPName();
-    const char* apName = customAPName.length() > 0 ? customAPName.c_str() : DEFAULT_SSID;
 
     //Init pin 15 to eneble 5V external power (LilyGo bug)
 #ifdef PIN_ENABLE5V
@@ -160,6 +121,9 @@ void init_WifiManager()
 #endif
     // Explicitly set WiFi mode
     WiFi.mode(WIFI_STA);
+    WiFi.onEvent(onWiFiEvent);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &onWifiEventIdf, nullptr, nullptr);
 
     if (!nvMem.loadConfig(&Settings))
     {
@@ -268,9 +232,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
         drawSetupScreen();
         mMonitor.NerdStatus = NM_Connecting;
-        wm.startConfigPortal(apName, DEFAULT_WIFIPW);
-
-        if (shouldSaveConfig)
+        if (!wm.startConfigPortal(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
@@ -302,7 +264,7 @@ void init_WifiManager()
         wm.setConfigPortalBlocking(true);
         wm.setEnableConfigPortal(true);
         // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
-        if (!wm.autoConnect(apName, DEFAULT_WIFIPW))
+        if (!wm.autoConnect(DEFAULT_SSID, DEFAULT_WIFIPW))
         {
             Serial.println("Failed to connect to configured WIFI, and hit timeout");
             if (shouldSaveConfig) {
@@ -334,7 +296,6 @@ void init_WifiManager()
         Serial.println("WiFi connected");
         Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
-
 
         // Lets deal with the user config values
 
@@ -378,40 +339,6 @@ void init_WifiManager()
 
     }
 
-    // Lets deal with the user config values
-
-    // Copy the string value
-    Settings.PoolAddress = pool_text_box.getValue();
-    //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-    Serial.print("PoolString: ");
-    Serial.println(Settings.PoolAddress);
-
-    //Convert the number value
-    Settings.PoolPort = atoi(port_text_box_num.getValue());
-    Serial.print("portNumber: ");
-    Serial.println(Settings.PoolPort);
-
-    // Copy the string value
-    strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-    Serial.print("poolPassword: ");
-    Serial.println(Settings.PoolPassword);
-
-    // Copy the string value
-    strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-    Serial.print("btcString: ");
-    Serial.println(Settings.BtcWallet);
-
-    //Convert the number value
-    Settings.Timezone = atoi(time_text_box_num.getValue());
-    Serial.print("TimeZone fromUTC: ");
-    Serial.println(Settings.Timezone);
-
-    #ifdef ESP32_2432S028R
-    Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-    Serial.print("Invert Colors: ");
-    Serial.println(Settings.invertColors);
-    #endif
-
     // Save the custom parameters to FS
     if (shouldSaveConfig)
     {
@@ -439,6 +366,11 @@ void wifiManagerProcess() {
         } else {
             Serial.print("[Error] - current status: ");
             Serial.println(newStatus);
+            if (s_last_wifi_disc_reason != 0xFF)
+            {
+                Serial.print("[WiFi] Last disconnect reason: ");
+                Serial.println(s_last_wifi_disc_reason);
+            }
         }
         oldStatus = newStatus;
     }

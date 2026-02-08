@@ -23,7 +23,7 @@ void setup(void) {
 
   // check file system
   if (!SPIFFS.begin()) {
-    Serial.println("formatting file system");
+    Serial.println("formating file system");
 
     SPIFFS.format();
     SPIFFS.begin();

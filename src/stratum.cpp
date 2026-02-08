@@ -25,12 +25,10 @@ unsigned long getNextId(unsigned long id) {
 }
 
 //Verify Payload doesn't has zero lenght
-bool verifyPayload (String* line){
-  if(line->length() == 0) return false;
+bool verifyPayload(String* line){
+  if (!line) return false;
   line->trim();
-  if(line->isEmpty()) return false;
-  return true;
-  
+  return line->length() > 0;
 }
 
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
@@ -256,7 +254,7 @@ bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
 }
 
 
-unsigned long parse_extract_id(const String &line)
+unsigned long parse_extract_id(String line)
 {
     DeserializationError error = deserializeJson(doc, line);
     if (error)

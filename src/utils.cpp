@@ -77,9 +77,8 @@ void reverse_bytes(uint8_t * data, size_t len) {
 
 static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 /* Converts a little endian 256 bit value to a double */
-double le256todouble(const void *target) 
+double le256todouble(const void *target)
 {
-
 	const uint64_t *data64;
 	double dcut64;
 
@@ -95,7 +94,7 @@ double le256todouble(const void *target)
 	data64 = (const uint64_t *)(target);
 	dcut64 += *data64;
 
-  return dcut64;
+	return dcut64;
 }
 
 double diff_from_target(void *target)
@@ -227,20 +226,16 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     //mWorker.extranonce2 = "00000002";
     
     //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
-    // Use char buffer instead of String concatenation to avoid memory leaks
-    static char coinbase_buffer[512]; // Static buffer to avoid repeated allocation
-    snprintf(coinbase_buffer, sizeof(coinbase_buffer), "%s%s%s%s", 
-             mJob.coinb1.c_str(), mWorker.extranonce1.c_str(), 
-             mWorker.extranonce2.c_str(), mJob.coinb2.c_str());
-    Serial.print("    coinbase: "); Serial.println(coinbase_buffer);
-    size_t str_len = strlen(coinbase_buffer)/2;
+    String coinbase = mJob.coinb1 + mWorker.extranonce1 + mWorker.extranonce2 + mJob.coinb2;
+    Serial.print("    coinbase: "); Serial.println(coinbase);
+    size_t str_len = coinbase.length()/2;
     uint8_t bytearray[str_len];
 
-    size_t res = to_byte_array(coinbase_buffer, str_len*2, bytearray);
+    size_t res = to_byte_array(coinbase.c_str(), str_len*2, bytearray);
 
     #ifdef DEBUG_MINING
     Serial.print("    extranonce2: "); Serial.println(mWorker.extranonce2);
-    Serial.print("    coinbase: "); Serial.println(coinbase_buffer);
+    Serial.print("    coinbase: "); Serial.println(coinbase);
     Serial.print("    coinbase bytes - size: "); Serial.println(res);
     for (size_t i = 0; i < res; i++)
         Serial.printf("%02x", bytearray[i]);
@@ -520,7 +515,6 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 }
 
 
-
 static const uint32_t s_crc32_table[256] =
 {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
@@ -605,4 +599,3 @@ uint32_t crc32_finish(uint32_t crc32)
 {
     return crc32 ^ 0xFFFFFFFF;
 }
-

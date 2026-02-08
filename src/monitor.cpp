@@ -20,6 +20,7 @@ extern uint64_t upTime;
 
 extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
 extern uint32_t valids; // increased if blockhash <= targethalfshares
+extern uint32_t stales; // stale/late shares reported by pool
 
 extern double best_diff; // track best diff
 
@@ -64,7 +65,6 @@ void updateGlobalData(void){
             
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setTimeout(10000);
         try {
         http.begin(getGlobalHash);
         int httpCode = http.GET();
@@ -72,7 +72,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
@@ -97,7 +97,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
@@ -114,7 +114,6 @@ void updateGlobalData(void){
         
         http.end();
         } catch(...) {
-          Serial.println("Global data HTTP error caught");
           http.end();
         }
     }
@@ -129,7 +128,6 @@ String getBlockHeight(void){
         if (WiFi.status() != WL_CONNECTED) return current_block;
             
         HTTPClient http;
-        http.setTimeout(10000);
         try {
         http.begin(getHeightAPI);
         int httpCode = http.GET();
@@ -144,7 +142,6 @@ String getBlockHeight(void){
         }        
         http.end();
         } catch(...) {
-          Serial.println("Height HTTP error caught");
           http.end();
         }
     }
@@ -158,16 +155,9 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) {
-            static char price_buffer[16];
-            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-            return String(price_buffer);
-        }
+        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
         
         HTTPClient http;
-        http.setTimeout(10000);
-        bool priceUpdated = false;
-
         try {
         http.begin(getBTCAPI);
         int httpCode = http.GET();
@@ -175,12 +165,9 @@ String getBTCprice(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
 
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-          
-            if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
-                bitcoin_price = doc["bitcoin"]["usd"];
-            }
+            if (doc.containsKey("data") && doc["data"].containsKey("amount")) bitcoin_price = doc["data"]["amount"];
 
             doc.clear();
 
@@ -189,14 +176,11 @@ String getBTCprice(void){
         
         http.end();
         } catch(...) {
-          Serial.println("BTC price HTTP error caught");
           http.end();
         }
-    }  
+    }
   
-  static char price_buffer[16];
-  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-  return String(price_buffer);
+  return "$" + String(bitcoin_price);
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -336,6 +320,7 @@ mining_data getMiningData(unsigned long mElapsed)
   sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
 
   data.completedShares = shares;
+  data.stales = stales;
   data.totalMHashes = Mhashes;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
@@ -411,7 +396,7 @@ String getPoolAPIUrl(void) {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "pool.nerdminers.org") {
+        if (Settings.PoolAddress == "nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
@@ -419,8 +404,6 @@ String getPoolAPIUrl(void) {
                 case 3333:
                     if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
-                    if (Settings.PoolAddress == "pool.solomining.de")
-                        poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
@@ -442,7 +425,7 @@ pool_data getPoolData(void){
         if (WiFi.status() != WL_CONNECTED) return pData;            
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setTimeout(10000);        
+        http.setReuse(true);        
         try {          
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
@@ -462,7 +445,7 @@ pool_data getPoolData(void){
               filter["workersCount"] = true;
               filter["workers"][0]["sessionId"] = true;
               filter["workers"][0]["hashRate"] = true;
-              StaticJsonDocument<2048> doc;
+              DynamicJsonDocument doc(2048);
               deserializeJson(doc, payload, DeserializationOption::Filter(filter));
               //Serial.println(serializeJsonPretty(doc, Serial));
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
