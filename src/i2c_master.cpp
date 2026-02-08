@@ -1,4 +1,5 @@
 #include "i2c_master.h"
+#include "i2c_hash_config.h"
 #include <Arduino.h>
 #include <driver/i2c.h>
 #include "i2c_protocol.h"

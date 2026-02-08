@@ -23,12 +23,7 @@
 #include "i2c_master.h"
 #include "i2c_protocol.h"
 
-#if defined(I2C_SLAVE) && !defined(I2C_HASH_MASTER)
-#define I2C_HASH_MASTER
-#endif
-#if defined(I2C_HASH_MASTER) && defined(I2C_HASH_SLAVE)
-#error "Define only one: I2C_HASH_MASTER or I2C_HASH_SLAVE"
-#endif
+#include "i2c_hash_config.h"
 #if defined(I2C_HASH_SLAVE)
 #include <driver/i2c.h>
 #endif
