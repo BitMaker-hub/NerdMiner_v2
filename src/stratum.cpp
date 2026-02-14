@@ -31,7 +31,7 @@ bool verifyPayload(String* line){
   return line->length() > 0;
 }
 
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
+bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> &doc) {
   
   if (!doc.containsKey("error")) return false;
   
@@ -47,19 +47,26 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
     // Docs: 
     // - https://cs.braiins.com/stratum-v1/docs
     // - https://github.com/aeternity/protocol/blob/master/STRATUM.md#mining-subscribe
-bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe)
+bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const char *resume_id)
 {
     char payload[BUFFER] = {0};
     
     // Subscribe
     id = 1; //Initialize id messages
+    const bool use_resume = (resume_id != nullptr && resume_id[0] != '\0');
     #ifndef HAN
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+    if (use_resume)
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);
+    else
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
     #else
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\"]}\n", id, CURRENT_VERSION);
+    if (use_resume)
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);
+    else
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\"]}\n", id, CURRENT_VERSION);
     #endif
     
-    Serial.printf("[WORKER] ==> Mining subscribe\n");
+    Serial.printf("[WORKER] ==> Mining subscribe%s\n", use_resume ? " (resume)" : "");
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
     

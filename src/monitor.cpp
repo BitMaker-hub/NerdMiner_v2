@@ -5,6 +5,7 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <list>
+#include <time.h>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
@@ -214,14 +215,12 @@ String getDate(){
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
   // Convierte la hora actual (epoch time) en una estructura tm
-  struct tm *tm = localtime((time_t *)&currentTime);
-
-  int year = tm->tm_year + 1900; // tm_year es el número de años desde 1900
-  int month = tm->tm_mon + 1;    // tm_mon es el mes del año desde 0 (enero) hasta 11 (diciembre)
-  int day = tm->tm_mday;         // tm_mday es el día del mes
-
+  time_t now_epoch = (time_t)currentTime;
+  struct tm tm_buf{};
+  if (localtime_r(&now_epoch, &tm_buf) == nullptr)
+    return String("00/00/0000");
   char currentDate[20];
-  sprintf(currentDate, "%02d/%02d/%04d", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
+  sprintf(currentDate, "%02d/%02d/%04d", tm_buf.tm_mday, tm_buf.tm_mon + 1, tm_buf.tm_year + 1900);
 
   return String(currentDate);
 }
@@ -233,7 +232,6 @@ String getTime(void){
   char LocalHour[10];
   sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
   
-  String mystring(LocalHour);
   return LocalHour;
 }
 
@@ -496,3 +494,4 @@ pool_data getPoolData(void){
     }
     return pData;
 }
+

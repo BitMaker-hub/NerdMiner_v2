@@ -36,7 +36,7 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
             if (!*in)
                 return count;
             *out = (*out << 4) | hex(*in++);
-            *out++;
+            out++;
             count++;
         }
         return count;
@@ -121,16 +121,22 @@ bool isSha256Valid(const void* sha256)
 /****************** PREMINING CALCULATIONS ********************/
 
 
-bool checkValid(unsigned char* hash, unsigned char* target) {
+bool checkValid(const unsigned char* hash, const unsigned char* target) {
+  if (hash == nullptr || target == nullptr)
+    return false;
+
   bool valid = true;
   unsigned char diff_target[32];
-  memcpy(diff_target, &target, 32);
+  memcpy(diff_target, target, sizeof(diff_target));
   //convert target to little endian for comparison
-  reverse_bytes(diff_target, 32);
+  reverse_bytes(diff_target, sizeof(diff_target));
 
-  for(uint8_t i=31; i>=0; i--) {
+  for(int i = 31; i >= 0; --i) {
     if(hash[i] > diff_target[i]) {
       valid = false;
+      break;
+    }
+    if(hash[i] < diff_target[i]) {
       break;
     }
   }
@@ -194,7 +200,17 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     char target[TARGET_BUFFER_SIZE+1];
     memset(target, '0', TARGET_BUFFER_SIZE);
     int zeros = (int) strtol(mJob.nbits.substring(0, 2).c_str(), 0, 16) - 3;
-    memcpy(target + zeros - 2, mJob.nbits.substring(2).c_str(), mJob.nbits.length() - 2);
+    int target_offset = zeros - 2;
+    if (target_offset < 0)
+      target_offset = 0;
+    if (target_offset > TARGET_BUFFER_SIZE)
+      target_offset = TARGET_BUFFER_SIZE;
+    size_t nbits_tail_len = (mJob.nbits.length() > 2) ? (mJob.nbits.length() - 2) : 0;
+    size_t copy_len = nbits_tail_len;
+    if ((size_t)target_offset + copy_len > TARGET_BUFFER_SIZE)
+      copy_len = TARGET_BUFFER_SIZE - (size_t)target_offset;
+    if (copy_len > 0)
+      memcpy(target + target_offset, mJob.nbits.substring(2).c_str(), copy_len);
     target[TARGET_BUFFER_SIZE] = 0;
     Serial.print("    target: "); Serial.println(target);
     
@@ -311,12 +327,11 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     // merkle root from merkle_result
     
     Serial.print("    merkle sha         : ");
-    char merkle_root[65];
+    char merkle_root[65] = {0};
     for (int i = 0; i < 32; i++) {
       Serial.printf("%02x", mMiner.merkle_result[i]);
       snprintf(&merkle_root[i*2], 3, "%02x", mMiner.merkle_result[i]);
     }
-    merkle_root[65] = 0;
     Serial.println("");
 
     // calculate blockheader

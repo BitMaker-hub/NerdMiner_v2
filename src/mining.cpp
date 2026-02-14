@@ -15,6 +15,7 @@
 #include "drivers/storage/storage.h"
 #include <map>
 #include <memory>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "mbedtls/sha256.h"
@@ -61,6 +62,9 @@
 #ifndef WIFI_RECONNECT_INTERVAL_MS
 #define WIFI_RECONNECT_INTERVAL_MS 10000
 #endif
+#ifndef WIFI_FORCE_RECONNECT_INTERVAL_MS
+#define WIFI_FORCE_RECONNECT_INTERVAL_MS 30000
+#endif
 #ifndef POOL_TCP_KEEPIDLE_S
 #define POOL_TCP_KEEPIDLE_S 60
 #endif
@@ -69,6 +73,24 @@
 #endif
 #ifndef POOL_TCP_KEEPCNT
 #define POOL_TCP_KEEPCNT 3
+#endif
+#ifndef ADAPTIVE_SUGGEST_DIFFICULTY
+#define ADAPTIVE_SUGGEST_DIFFICULTY 1
+#endif
+#ifndef SUGGEST_DIFF_FIXED_VALUE
+#define SUGGEST_DIFF_FIXED_VALUE 16384.0
+#endif
+#ifndef SUGGEST_DIFF_TARGET_SHARE_TIME_S
+#define SUGGEST_DIFF_TARGET_SHARE_TIME_S 30.0
+#endif
+#ifndef SUGGEST_DIFF_MIN
+#define SUGGEST_DIFF_MIN 0.0001
+#endif
+#ifndef SUGGEST_DIFF_MAX
+#define SUGGEST_DIFF_MAX 131072.0
+#endif
+#ifndef SUGGEST_DIFF_SMOOTH_ALPHA_PCT
+#define SUGGEST_DIFF_SMOOTH_ALPHA_PCT 40
 #endif
 
 //10 Jobs per second
@@ -139,10 +161,28 @@ monitor_data mMonitor;
 static bool volatile isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
 unsigned long mLastRXfromPool = millis();
+static String s_last_subscribe_session_id;
+static constexpr double kDiffOneHashes = 4294967296.0; // 2^32 hashes for difficulty 1
+static double s_suggest_diff_smoothed = -1.0;
+static uint64_t s_suggest_hashes_last = 0;
+static uint32_t s_suggest_ms_last = 0;
 
 int saveIntervals[7] = {5 * 60, 15 * 60, 30 * 60, 1 * 3600, 3 * 3600, 6 * 3600, 12 * 3600};
 int saveIntervalsSize = sizeof(saveIntervals)/sizeof(saveIntervals[0]);
 int currentIntervalIndex = 0;
+
+static void copyCString(char *dst, size_t dstSize, const char *src)
+{
+  if (dst == nullptr || dstSize == 0)
+    return;
+  if (src == nullptr)
+  {
+    dst[0] = '\0';
+    return;
+  }
+  strncpy(dst, src, dstSize - 1);
+  dst[dstSize - 1] = '\0';
+}
 
 static void configurePoolSocket(WiFiClient &poolClient)
 {
@@ -166,6 +206,64 @@ static void configurePoolSocket(WiFiClient &poolClient)
 #endif
 }
 
+static inline double clamp_double(double v, double lo, double hi)
+{
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static inline uint64_t get_total_hashes_snapshot()
+{
+  return (uint64_t)Mhashes * 1000000ULL + (uint64_t)hashes;
+}
+
+static double calculateSuggestedDifficulty()
+{
+#if ADAPTIVE_SUGGEST_DIFFICULTY
+  const uint32_t now = millis();
+  const uint64_t total_hashes = get_total_hashes_snapshot();
+
+  if (s_suggest_ms_last == 0 || now <= s_suggest_ms_last || total_hashes < s_suggest_hashes_last)
+  {
+    s_suggest_ms_last = now;
+    s_suggest_hashes_last = total_hashes;
+    if (s_suggest_diff_smoothed < 0.0)
+      return SUGGEST_DIFF_MIN;
+    return clamp_double(s_suggest_diff_smoothed, SUGGEST_DIFF_MIN, SUGGEST_DIFF_MAX);
+  }
+
+  const uint32_t elapsed_ms = now - s_suggest_ms_last;
+  const uint64_t hash_delta = total_hashes - s_suggest_hashes_last;
+  if (elapsed_ms >= 1000 && hash_delta > 0)
+  {
+    const double hps = ((double)hash_delta * 1000.0) / (double)elapsed_ms;
+    double sample_diff = (hps * SUGGEST_DIFF_TARGET_SHARE_TIME_S) / kDiffOneHashes;
+    sample_diff = clamp_double(sample_diff, SUGGEST_DIFF_MIN, SUGGEST_DIFF_MAX);
+
+    if (s_suggest_diff_smoothed < 0.0)
+    {
+      s_suggest_diff_smoothed = sample_diff;
+    }
+    else
+    {
+      double alpha = (double)SUGGEST_DIFF_SMOOTH_ALPHA_PCT / 100.0;
+      alpha = clamp_double(alpha, 0.0, 1.0);
+      s_suggest_diff_smoothed = (1.0 - alpha) * s_suggest_diff_smoothed + alpha * sample_diff;
+    }
+
+    s_suggest_ms_last = now;
+    s_suggest_hashes_last = total_hashes;
+  }
+
+  if (s_suggest_diff_smoothed < 0.0)
+    return SUGGEST_DIFF_MIN;
+  return clamp_double(s_suggest_diff_smoothed, SUGGEST_DIFF_MIN, SUGGEST_DIFF_MAX);
+#else
+  return SUGGEST_DIFF_FIXED_VALUE;
+#endif
+}
+
 bool checkPoolConnection(void) {
   
   if (client.connected()) {
@@ -178,15 +276,21 @@ bool checkPoolConnection(void) {
   
   //Resolve first time pool DNS and save IP
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
+    if (!WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP))
+    {
+      Serial.printf("Failed to resolve pool DNS for: %s\n", Settings.PoolAddress.c_str());
+      return false;
+    }
+    Serial.printf("Resolved DNS and saved IP (first time): %s\n", serverIP.toString().c_str());
   }
 
   //Try connecting pool IP
   if (!client.connect(serverIP, Settings.PoolPort)) {
     Serial.println("Imposible to connect to : " + Settings.PoolAddress);
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+    if (WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP))
+      Serial.printf("Resolved DNS retry got: %s\n", serverIP.toString().c_str());
+    else
+      Serial.printf("DNS retry failed for: %s\n", Settings.PoolAddress.c_str());
     return false;
   }
 
@@ -219,14 +323,16 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
     bool rx_idle = (time_now > mLastRXfromPool + keepAliveTime);
     if (tx_idle && rx_idle)
     {
+      double suggest_diff = calculateSuggestedDifficulty();
       Serial.println("  Sending  : KeepAlive (suggest_difficulty)");
-      if (!tx_suggest_difficulty(client, currentDifficulty)) {
+      if (!tx_suggest_difficulty(client, suggest_diff)) {
         Serial.println("  Sending keepAlive to pool -> Detected client disconnected");
         return true;
       }
       mLastTXtoPool = time_now;
     }
 
+    (void)currentDifficulty;
     (void)elapsedKHs;
     (void)inactivityTime;
     mStart0Hashrate = 0;
@@ -270,6 +376,7 @@ static constexpr UBaseType_t kJobQueueTargetDepth = 4;
 static constexpr UBaseType_t kResultQueueDepth = 16;
 #endif
 static constexpr size_t kJobResultsMax = 32;
+static constexpr size_t kMaxPendingSubmissions = 64;
 
 static QueueHandle_t s_job_queue_sw = nullptr;
 #ifdef HARDWARE_SHA265
@@ -1263,20 +1370,20 @@ void runStratumWorker(void *name) {
       
     wl_status_t wifi_status = WiFi.status();
     if(wifi_status != WL_CONNECTED){
-      // WiFi is disconnected, so reconnect now
+      // WiFi is disconnected.
       mMonitor.NerdStatus = NM_Connecting;
       MiningJobStop(job_pool, s_submition_map);
       static uint32_t last_wifi_reconnect = 0;
       uint32_t now = millis();
       if (now < last_wifi_reconnect) // wrap
         last_wifi_reconnect = 0;
-      // Avoid reconnect storm while driver is already negotiating.
-      bool allow_reconnect =
+      // Keep auto reconnect in control; force reconnect only if stuck for a while.
+      bool allow_force_reconnect =
           (wifi_status == WL_DISCONNECTED) ||
           (wifi_status == WL_CONNECTION_LOST) ||
           (wifi_status == WL_CONNECT_FAILED) ||
           (wifi_status == WL_NO_SSID_AVAIL);
-      if (allow_reconnect && now - last_wifi_reconnect >= WIFI_RECONNECT_INTERVAL_MS)
+      if (allow_force_reconnect && now - last_wifi_reconnect >= WIFI_FORCE_RECONNECT_INTERVAL_MS)
       {
         WiFi.reconnect();
         last_wifi_reconnect = now;
@@ -1299,21 +1406,40 @@ void runStratumWorker(void *name) {
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
-      if(!tx_mining_subscribe(client, mWorker)) { 
-        client.stop();
-        MiningJobStop(job_pool, s_submition_map);
-        continue; 
+      bool resume_attempt = s_last_subscribe_session_id.length() > 0;
+      if(!tx_mining_subscribe(client, mWorker, resume_attempt ? s_last_subscribe_session_id.c_str() : nullptr)) {
+        if (resume_attempt)
+        {
+          Serial.println("[WORKER] Resume subscribe failed, trying fresh subscribe");
+          if (!tx_mining_subscribe(client, mWorker, nullptr))
+          {
+            client.stop();
+            MiningJobStop(job_pool, s_submition_map);
+            continue;
+          }
+        }
+        else
+        {
+          client.stop();
+          MiningJobStop(job_pool, s_submition_map);
+          continue;
+        }
       }
+      s_last_subscribe_session_id = mWorker.sub_details;
       mLastRXfromPool = millis();
       
-      strcpy(mWorker.wName, Settings.BtcWallet);
-      strcpy(mWorker.wPass, Settings.PoolPassword);
+      copyCString(mWorker.wName, sizeof(mWorker.wName), Settings.BtcWallet);
+      copyCString(mWorker.wPass, sizeof(mWorker.wPass), Settings.PoolPassword);
+      if (strlen(Settings.PoolPassword) >= sizeof(mWorker.wPass))
+      {
+        Serial.printf("[WORKER] Pool password truncated to %u chars\n", (unsigned)(sizeof(mWorker.wPass) - 1));
+      }
       // STEP 2: Pool authorize work (Block Info)
       tx_mining_auth(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
       //tx_mining_auth2(client, mWorker.wName, mWorker.wPass); //Don't verifies authoritzation, TODO
 
       // STEP 3: Suggest pool difficulty
-      tx_suggest_difficulty(client, currentPoolDifficulty);
+      tx_suggest_difficulty(client, calculateSuggestedDifficulty());
 
       isMinerSuscribed=true;
       uint32_t time_now = millis();
@@ -1546,7 +1672,13 @@ void runStratumWorker(void *name) {
         if (!client.connected())
           break;
         unsigned long sumbit_id = 0;
-        tx_mining_submit(client, mWorker, mJob, res->nonce, sumbit_id);
+        if (!tx_mining_submit(client, mWorker, mJob, res->nonce, sumbit_id))
+        {
+          client.stop();
+          isMinerSuscribed = false;
+          MiningJobStop(job_pool, s_submition_map);
+          break;
+        }
         Serial.print("   - Current diff share: "); Serial.println(res->difficulty,12);
         Serial.print("   - Current pool diff : "); Serial.println(currentPoolDifficulty,12);
         Serial.print("   - TX SHARE: ");
@@ -1564,6 +1696,8 @@ void runStratumWorker(void *name) {
         } else
           sub_ptr->isValid = false;
 
+        if (s_submition_map.size() >= kMaxPendingSubmissions)
+          s_submition_map.erase(s_submition_map.begin());
         s_submition_map[sumbit_id] = sub_ptr;
       }
     }

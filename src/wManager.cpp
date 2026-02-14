@@ -8,6 +8,7 @@
 #include "esp_wifi.h"
 
 #include <WiFiManager.h>
+#include <string.h>
 
 #include "wManager.h"
 #include "monitor.h"
@@ -33,6 +34,19 @@ nvMemory nvMem;
 
 extern SDCard SDCrd;
 static volatile uint8_t s_last_wifi_disc_reason = 0xFF;
+
+static void copyCString(char *dst, size_t dstSize, const char *src)
+{
+    if (dst == nullptr || dstSize == 0)
+        return;
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
 
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
@@ -121,6 +135,8 @@ void init_WifiManager()
 #endif
     // Explicitly set WiFi mode
     WiFi.mode(WIFI_STA);
+    WiFi.persistent(false);
+    WiFi.setAutoReconnect(true);
     WiFi.onEvent(onWiFiEvent);
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
     esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &onWifiEventIdf, nullptr, nullptr);
@@ -172,7 +188,7 @@ void init_WifiManager()
 
     // Need to convert numerical input to string to display the default value.
     char convertedValue[6];
-    sprintf(convertedValue, "%d", Settings.PoolPort);
+    snprintf(convertedValue, sizeof(convertedValue), "%d", Settings.PoolPort);
 
     // Text box (Number) - 7 characters maximum
     WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
@@ -185,7 +201,7 @@ void init_WifiManager()
 
   // Text box (Number) - 2 characters maximum
   char charZone[6];
-  sprintf(charZone, "%d", Settings.Timezone);
+  snprintf(charZone, sizeof(charZone), "%d", Settings.Timezone);
   WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
 
   WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
@@ -217,8 +233,8 @@ void init_WifiManager()
   wm.addParameter(&invertColors);
   #endif
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-    char brightnessConvValue[2];
-    sprintf(brightnessConvValue, "%d", Settings.Brightness);
+    char brightnessConvValue[4];
+    snprintf(brightnessConvValue, sizeof(brightnessConvValue), "%d", Settings.Brightness);
     // Text box (Number) - 3 characters maximum
     WiFiManagerParameter brightness_text_box_num("Brightness", "Screen backlight Duty Cycle (0-255)", brightnessConvValue, 3);
     wm.addParameter(&brightness_text_box_num);
@@ -238,8 +254,8 @@ void init_WifiManager()
             Serial.println("failed to connect and hit timeout");
             Settings.PoolAddress = pool_text_box.getValue();
             Settings.PoolPort = atoi(port_text_box_num.getValue());
-            strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-            strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+            copyCString(Settings.PoolPassword, sizeof(Settings.PoolPassword), password_text_box.getValue());
+            copyCString(Settings.BtcWallet, sizeof(Settings.BtcWallet), addr_text_box.getValue());
             Settings.Timezone = atoi(time_text_box_num.getValue());
             //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
@@ -271,8 +287,8 @@ void init_WifiManager()
                 // Save new config            
                 Settings.PoolAddress = pool_text_box.getValue();
                 Settings.PoolPort = atoi(port_text_box_num.getValue());
-                strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-                strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+                copyCString(Settings.PoolPassword, sizeof(Settings.PoolPassword), password_text_box.getValue());
+                copyCString(Settings.BtcWallet, sizeof(Settings.BtcWallet), addr_text_box.getValue());
                 Settings.Timezone = atoi(time_text_box_num.getValue());
                 // Serial.println(save_stats_to_nvs.getValue());
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
@@ -311,12 +327,12 @@ void init_WifiManager()
         Serial.println(Settings.PoolPort);
 
         // Copy the string value
-        strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
+        copyCString(Settings.PoolPassword, sizeof(Settings.PoolPassword), password_text_box.getValue());
         Serial.print("poolPassword: ");
         Serial.println(Settings.PoolPassword);
 
         // Copy the string value
-        strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
+        copyCString(Settings.BtcWallet, sizeof(Settings.BtcWallet), addr_text_box.getValue());
         Serial.print("btcString: ");
         Serial.println(Settings.BtcWallet);
 

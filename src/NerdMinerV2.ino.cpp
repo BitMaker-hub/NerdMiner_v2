@@ -687,26 +687,22 @@ void setup()
 
   initMiningQueues();
 
-  char *name = (char*) malloc(32);
   #if !defined(I2C_HASH_SLAVE)
-  sprintf(name, "(%s)", "Monitor");
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)name, 5, NULL, 0);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)"(Monitor)", 5, NULL, 0);
   (void)res1;
   #endif
 
   /******** CREATE STRATUM TASK *****/
   #if !defined(I2C_HASH_SLAVE)
-  sprintf(name, "(%s)", "Stratum");
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
   // Free a little bit of the heap to the screen
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)name, 4, NULL, 0);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)"(Stratum)", 4, NULL, 0);
   #else
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)name, 4, NULL, 0);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)"(Stratum)", 4, NULL, 0);
   #endif
   (void)res2;
   #else
-  sprintf(name, "(%s)", "I2C-Slave");
-  BaseType_t res2 = xTaskCreatePinnedToCore(runI2cSlaveWorker, "I2C-Slave", 12000, (void*)name, 4, NULL, 0);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runI2cSlaveWorker, "I2C-Slave", 12000, (void*)"(I2C-Slave)", 4, NULL, 0);
   (void)res2;
   #endif
 
