@@ -47,15 +47,6 @@
 #ifndef I2C_MASTER_POST_HIT_DELAY_MS
 #define I2C_MASTER_POST_HIT_DELAY_MS 2
 #endif
-#ifndef I2C_REBALANCE_ALPHA_PCT
-#define I2C_REBALANCE_ALPHA_PCT 25
-#endif
-#ifndef I2C_REBALANCE_DEFAULT_RATE_HPS
-#define I2C_REBALANCE_DEFAULT_RATE_HPS 200000.0f
-#endif
-#ifndef I2C_REBALANCE_MIN_RATE_HPS
-#define I2C_REBALANCE_MIN_RATE_HPS 1000.0f
-#endif
 #ifndef I2C_REBALANCE_DEBUG
 #define I2C_REBALANCE_DEBUG 0
 #endif
@@ -1112,8 +1103,8 @@ void runI2cMasterWorker(void *name)
 
   std::vector<uint8_t> i2c_slave_vector;
   std::vector<uint32_t> i2c_slave_nonce_starts;
+  std::vector<I2cSlaveHarvest> i2c_harvest_buffer;
   uint32_t i2c_slave_nonce_stride = 1;
-  std::map<uint8_t, float> i2c_slave_rates_hps;
   bool i2c_master_ready = false;
   uint32_t i2c_last_scan = 0;
   uint32_t last_feed_generation = 0;
@@ -1142,29 +1133,6 @@ void runI2cMasterWorker(void *name)
     i2c_slave_vector = std::move(found);
     s_i2c_master_slave_count = (uint8_t)i2c_slave_vector.size();
     i2c_last_scan = millis();
-
-    for (auto it = i2c_slave_rates_hps.begin(); it != i2c_slave_rates_hps.end();)
-    {
-      bool present = false;
-      for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
-      {
-        if (i2c_slave_vector[i] == it->first)
-        {
-          present = true;
-          break;
-        }
-      }
-      if (!present)
-        it = i2c_slave_rates_hps.erase(it);
-      else
-        ++it;
-    }
-    for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
-    {
-      uint8_t addr = i2c_slave_vector[i];
-      if (i2c_slave_rates_hps.find(addr) == i2c_slave_rates_hps.end())
-        i2c_slave_rates_hps[addr] = I2C_REBALANCE_DEFAULT_RATE_HPS;
-    }
 
     if (verbose || changed)
     {
@@ -1226,11 +1194,7 @@ void runI2cMasterWorker(void *name)
         for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
         {
           uint32_t start = (i < i2c_slave_nonce_starts.size()) ? i2c_slave_nonce_starts[i] : 0;
-          float rate = I2C_REBALANCE_DEFAULT_RATE_HPS;
-          auto it = i2c_slave_rates_hps.find(i2c_slave_vector[i]);
-          if (it != i2c_slave_rates_hps.end())
-            rate = it->second;
-          Serial.printf("0x%02X=>0x%08lX(%.0f) ", (uint32_t)i2c_slave_vector[i], (unsigned long)start, (double)rate);
+          Serial.printf("0x%02X=>0x%08lX ", (uint32_t)i2c_slave_vector[i], (unsigned long)start);
         }
         Serial.println("");
         #endif
@@ -1242,66 +1206,28 @@ void runI2cMasterWorker(void *name)
       i2c_hit_slaves(i2c_slave_vector);
       if (I2C_MASTER_POST_HIT_DELAY_MS > 0)
         vTaskDelay(I2C_MASTER_POST_HIT_DELAY_MS / portTICK_PERIOD_MS);
-      std::vector<I2cSlaveHarvest> harvest_records = i2c_harvest_slaves(i2c_slave_vector, job.job_id);
+      i2c_harvest_slaves(i2c_slave_vector, job.job_id, i2c_harvest_buffer);
       uint32_t time_end = millis();
-      uint32_t elapsed_for_rate = (time_end > time_start) ? (time_end - time_start) : 0;
-      if (elapsed_for_rate == 0)
-        elapsed_for_rate = (I2C_MASTER_CYCLE_MS > 0) ? I2C_MASTER_CYCLE_MS : 1;
 
       uint32_t nonces_done = 0;
-      std::vector<uint32_t> nonce_vector;
-      std::map<uint8_t, uint32_t> processed_by_slave;
-      for (size_t i = 0; i < harvest_records.size(); ++i)
+      for (size_t i = 0; i < i2c_harvest_buffer.size(); ++i)
       {
-        const I2cSlaveHarvest &item = harvest_records[i];
+        const I2cSlaveHarvest &item = i2c_harvest_buffer[i];
         nonces_done += item.processed_nonce;
-        processed_by_slave[item.address] += item.processed_nonce;
-        if (item.has_nonce)
-          nonce_vector.push_back(item.nonce);
-      }
-      i2c_master_add_processed_hashes(nonces_done);
-
-      float alpha = (float)I2C_REBALANCE_ALPHA_PCT / 100.0f;
-      if (alpha < 0.0f)
-        alpha = 0.0f;
-      if (alpha > 1.0f)
-        alpha = 1.0f;
-      for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
-      {
-        uint8_t addr = i2c_slave_vector[i];
-        uint32_t processed = 0;
-        auto pit = processed_by_slave.find(addr);
-        if (pit != processed_by_slave.end())
-          processed = pit->second;
-
-        float sample_rate = ((float)processed * 1000.0f) / (float)elapsed_for_rate;
-        auto rit = i2c_slave_rates_hps.find(addr);
-        if (rit == i2c_slave_rates_hps.end())
-          i2c_slave_rates_hps[addr] = I2C_REBALANCE_DEFAULT_RATE_HPS;
-        float prev_rate = i2c_slave_rates_hps[addr];
-        float next_rate = sample_rate;
-        if (prev_rate > 0.0f)
-          next_rate = prev_rate + ((sample_rate - prev_rate) * alpha);
-        if (next_rate < I2C_REBALANCE_MIN_RATE_HPS)
-          next_rate = I2C_REBALANCE_MIN_RATE_HPS;
-        i2c_slave_rates_hps[addr] = next_rate;
-      }
-
-      if (s_result_queue && !nonce_vector.empty())
-      {
-        for (size_t n = 0; n < nonce_vector.size(); ++n)
+        if (s_result_queue && item.has_nonce)
         {
           JobResult result{};
-          if (nerd_sha256d_baked_nonce(job.midstate, nonce_vector[n], job.bake, result.hash))
+          if (nerd_sha256d_baked_nonce(job.midstate, item.nonce, job.bake, result.hash))
           {
             result.id = job.full_job_id;
-            result.nonce = nonce_vector[n];
+            result.nonce = item.nonce;
             result.nonce_count = 0;
             result.difficulty = diff_from_target(result.hash);
             xQueueSend(s_result_queue, &result, 0);
           }
         }
       }
+      i2c_master_add_processed_hashes(nonces_done);
 
       if (time_end > time_start)
       {

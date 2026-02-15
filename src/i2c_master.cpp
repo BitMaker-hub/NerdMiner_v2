@@ -154,9 +154,12 @@ void i2c_hit_slaves(const std::vector<uint8_t>& slaves)
     }
 }
 
-std::vector<I2cSlaveHarvest> i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id)
+void i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id, std::vector<I2cSlaveHarvest>& results)
 {
-    std::vector<I2cSlaveHarvest> results;
+    results.clear();
+    if (results.capacity() < slaves.size())
+        results.reserve(slaves.size());
+
     JobI2cResult result{};
     for (size_t n = 0; n < slaves.size(); ++n)
     {
@@ -187,14 +190,24 @@ std::vector<I2cSlaveHarvest> i2c_harvest_slaves(const std::vector<uint8_t>& slav
         item.has_nonce = (result.nonce != kI2cInvalidNonce);
         results.push_back(item);
     }
+}
+
+std::vector<I2cSlaveHarvest> i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id)
+{
+    std::vector<I2cSlaveHarvest> results;
+    results.reserve(slaves.size());
+    i2c_harvest_slaves(slaves, id, results);
     return results;
 }
 
 std::vector<uint32_t> i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id, uint32_t &total_procesed_nonce)
 {
     std::vector<uint32_t> nonce_vector;
-    std::vector<I2cSlaveHarvest> records = i2c_harvest_slaves(slaves, id);
+    std::vector<I2cSlaveHarvest> records;
+    records.reserve(slaves.size());
+    i2c_harvest_slaves(slaves, id, records);
     total_procesed_nonce = 0;
+    nonce_vector.reserve(records.size());
     for (size_t i = 0; i < records.size(); ++i)
     {
         total_procesed_nonce += records[i].processed_nonce;
