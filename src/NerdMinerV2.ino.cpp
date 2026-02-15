@@ -34,6 +34,9 @@
 #define WDT_TIMEOUT 3
 //15 minutes WDT for miner task
 #define WDT_MINER_TIMEOUT 900
+#ifndef MINER_CPU_FREQ_MHZ
+#define MINER_CPU_FREQ_MHZ 240
+#endif
 
 #ifdef PIN_BUTTON_1
   OneButton button1(PIN_BUTTON_1);
@@ -613,8 +616,12 @@ void setup()
   Serial.setTimeout(0);
   delay(SECOND_MS/10);
 
-#if defined(CONFIG_IDF_TARGET_ESP32)
-  setCpuFrequencyMhz(240);
+#if defined(ARDUINO_ARCH_ESP32)
+  if (MINER_CPU_FREQ_MHZ > 0)
+  {
+    bool freq_ok = setCpuFrequencyMhz(MINER_CPU_FREQ_MHZ);
+    Serial.printf("[POWER] CPU frequency set to %d MHz (%s)\n", MINER_CPU_FREQ_MHZ, freq_ok ? "ok" : "failed");
+  }
 #endif
 
   esp_task_wdt_init(WDT_MINER_TIMEOUT, true);
@@ -671,9 +678,6 @@ void setup()
   /******** INIT WIFI ************/
   #if !defined(I2C_HASH_SLAVE)
   init_WifiManager();
-#if defined(CONFIG_IDF_TARGET_ESP32)
-  WiFi.setSleep(false);
-#endif
   #else
   Serial.println("[I2C-SLAVE] WiFi disabled for hashboard mode.");
   mMonitor.NerdStatus = NM_hashing;

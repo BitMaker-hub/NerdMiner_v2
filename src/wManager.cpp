@@ -19,6 +19,19 @@
 #include "mining.h"
 #include "timeconst.h"
 
+#ifndef WIFI_DISABLE_MODEM_SLEEP
+#define WIFI_DISABLE_MODEM_SLEEP 1
+#endif
+#ifndef WIFI_CONNECT_RETRIES
+#define WIFI_CONNECT_RETRIES 3
+#endif
+#ifndef WIFI_MANAGER_COUNTRY
+#define WIFI_MANAGER_COUNTRY ""
+#endif
+#ifndef WIFI_TX_POWER_LEVEL
+#define WIFI_TX_POWER_LEVEL WIFI_POWER_19_5dBm
+#endif
+
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -34,6 +47,50 @@ nvMemory nvMem;
 
 extern SDCard SDCrd;
 static volatile uint8_t s_last_wifi_disc_reason = 0xFF;
+
+static const char *wifiDisconnectReasonText(uint8_t reason)
+{
+    // Numeric fallbacks keep logs useful across core/IDF versions where reason macros differ.
+    switch (reason)
+    {
+    case 2: return "AUTH_EXPIRE";
+    case 4: return "ASSOC_EXPIRE";
+    case 15: return "4WAY_HANDSHAKE_TIMEOUT";
+    case 200: return "BEACON_TIMEOUT";
+    case 201: return "NO_AP_FOUND";
+    case 202: return "AUTH_FAIL";
+    case 203: return "ASSOC_FAIL";
+    case 204: return "HANDSHAKE_TIMEOUT";
+    case 205: return "CONNECTION_FAIL";
+    default: break;
+    }
+
+    switch (reason)
+    {
+#ifdef WIFI_REASON_AUTH_EXPIRE
+    case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
+#endif
+#ifdef WIFI_REASON_AUTH_FAIL
+    case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
+#endif
+#ifdef WIFI_REASON_ASSOC_EXPIRE
+    case WIFI_REASON_ASSOC_EXPIRE: return "ASSOC_EXPIRE";
+#endif
+#ifdef WIFI_REASON_ASSOC_FAIL
+    case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
+#endif
+#ifdef WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: return "4WAY_TIMEOUT";
+#endif
+#ifdef WIFI_REASON_HANDSHAKE_TIMEOUT
+    case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
+#endif
+#ifdef WIFI_REASON_CONNECTION_FAIL
+    case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
+#endif
+    default: return "UNKNOWN";
+    }
+}
 
 static void copyCString(char *dst, size_t dstSize, const char *src)
 {
@@ -92,7 +149,9 @@ static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
   if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED)
   {
     s_last_wifi_disc_reason = info.wifi_sta_disconnected.reason;
-    Serial.printf("[WiFi] Disconnected, reason: %d\n", info.wifi_sta_disconnected.reason);
+    Serial.printf("[WiFi] Disconnected, reason: %d (%s)\n",
+                  info.wifi_sta_disconnected.reason,
+                  wifiDisconnectReasonText(info.wifi_sta_disconnected.reason));
   }
 #endif
 }
@@ -103,7 +162,9 @@ static void onWifiEventIdf(void *arg, esp_event_base_t event_base, int32_t event
     {
         wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
         s_last_wifi_disc_reason = disc->reason;
-        Serial.printf("[WiFi] Disconnected (IDF), reason: %d\n", disc->reason);
+        Serial.printf("[WiFi] Disconnected (IDF), reason: %d (%s)\n",
+                      disc->reason,
+                      wifiDisconnectReasonText(disc->reason));
     }
 }
 
@@ -135,10 +196,14 @@ void init_WifiManager()
 #endif
     // Explicitly set WiFi mode
     WiFi.mode(WIFI_STA);
+#if WIFI_DISABLE_MODEM_SLEEP
+    WiFi.setSleep(false);
+#endif
     WiFi.persistent(false);
     WiFi.setAutoReconnect(true);
     WiFi.onEvent(onWiFiEvent);
-    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    WiFi.setTxPower((wifi_power_t)WIFI_TX_POWER_LEVEL);
+    Serial.printf("[WiFi] TX power level: %d\n", (int)WIFI_TX_POWER_LEVEL);
     esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &onWifiEventIdf, nullptr, nullptr);
 
     if (!nvMem.loadConfig(&Settings))
@@ -175,7 +240,15 @@ void init_WifiManager()
     //Advanced settings
     wm.setConfigPortalBlocking(false); //Hacemos que el portal no bloquee el firmware
     wm.setConnectTimeout(40); // how long to try to connect for before continuing
+    wm.setConnectRetries(WIFI_CONNECT_RETRIES);
     wm.setConfigPortalTimeout(180); // auto close configportal after n seconds
+    wm.setCleanConnect(false); // Disconnect before reconnect attempts; helps avoid auth loops.
+    wm.setWiFiAutoReconnect(true);
+    if (strlen(WIFI_MANAGER_COUNTRY) == 2)
+    {
+        wm.setCountry(String(WIFI_MANAGER_COUNTRY));
+        Serial.printf("[WiFi] WiFi country set to: %s\n", WIFI_MANAGER_COUNTRY);
+    }
     // wm.setCaptivePortalEnable(false); // disable captive portal redirection
     // wm.setAPClientCheck(true); // avoid timeout if client connected to softap
     //wm.setTimeout(120);

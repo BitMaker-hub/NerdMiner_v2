@@ -74,6 +74,18 @@
 #ifndef POOL_TCP_KEEPCNT
 #define POOL_TCP_KEEPCNT 3
 #endif
+#ifndef POOL_STREAM_TIMEOUT_MS
+#define POOL_STREAM_TIMEOUT_MS 2000
+#endif
+#ifndef MINER_POWER_SMOOTHING_SW_JOB_INTERVAL
+#define MINER_POWER_SMOOTHING_SW_JOB_INTERVAL 0
+#endif
+#ifndef MINER_POWER_SMOOTHING_HW_JOB_INTERVAL
+#define MINER_POWER_SMOOTHING_HW_JOB_INTERVAL 0
+#endif
+#ifndef MINER_POWER_SMOOTHING_DELAY_MS
+#define MINER_POWER_SMOOTHING_DELAY_MS 1
+#endif
 #ifndef ADAPTIVE_SUGGEST_DIFFICULTY
 #define ADAPTIVE_SUGGEST_DIFFICULTY 1
 #endif
@@ -162,6 +174,7 @@ static bool volatile isMinerSuscribed = false;
 unsigned long mLastTXtoPool = millis();
 unsigned long mLastRXfromPool = millis();
 static String s_last_subscribe_session_id;
+static bool s_resume_subscribe_enabled = true;
 static constexpr double kDiffOneHashes = 4294967296.0; // 2^32 hashes for difficulty 1
 static double s_suggest_diff_smoothed = -1.0;
 static uint64_t s_suggest_hashes_last = 0;
@@ -187,7 +200,8 @@ static void copyCString(char *dst, size_t dstSize, const char *src)
 static void configurePoolSocket(WiFiClient &poolClient)
 {
   poolClient.setNoDelay(true);
-  poolClient.setTimeout(2);
+  // Stream timeout is in milliseconds; keep it long enough to read full JSON lines.
+  poolClient.setTimeout(POOL_STREAM_TIMEOUT_MS);
 
   int on = 1;
   poolClient.setSocketOption(SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
@@ -315,18 +329,20 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
     if (!isMinerSuscribed)
       return false;
 
-    // If no shares sent to pool
-    // send something to pool to hold socket oppened
+    // Heartbeat by TX idle time:
+    // if we spend too long without sending anything (e.g. no shares), push a light keepalive.
     if (time_now < mLastTXtoPool) //32bit wrap
       mLastTXtoPool = time_now;
+    if (time_now < mLastRXfromPool) //32bit wrap
+      mLastRXfromPool = time_now;
+
     bool tx_idle = (time_now > mLastTXtoPool + keepAliveTime);
-    bool rx_idle = (time_now > mLastRXfromPool + keepAliveTime);
-    if (tx_idle && rx_idle)
+    if (tx_idle)
     {
       double suggest_diff = calculateSuggestedDifficulty();
-      Serial.println("  Sending  : KeepAlive (suggest_difficulty)");
+      Serial.println("  Sending  : Heartbeat (suggest_difficulty)");
       if (!tx_suggest_difficulty(client, suggest_diff)) {
-        Serial.println("  Sending keepAlive to pool -> Detected client disconnected");
+        Serial.println("  Sending heartbeat to pool -> Detected client disconnected");
         return true;
       }
       mLastTXtoPool = time_now;
@@ -354,6 +370,7 @@ struct JobRequest
 {
   JobData *data;
   uint32_t nonce_start;
+  uint32_t nonce_stride;
   uint32_t nonce_count;
 };
 
@@ -438,6 +455,23 @@ static inline void update_hashrate(volatile uint32_t &rate, uint32_t hashes, uin
   else
     rate = (prev * 7 + sample) / 8;
 }
+
+static inline void apply_power_smoothing(uint32_t interval, uint32_t &counter)
+{
+  if (interval == 0)
+    return;
+
+  counter++;
+  if (counter < interval)
+    return;
+
+  counter = 0;
+  const TickType_t delay_ticks = MINER_POWER_SMOOTHING_DELAY_MS / portTICK_PERIOD_MS;
+  if (delay_ticks > 0)
+    vTaskDelay(delay_ticks);
+  else
+    taskYIELD();
+}
 static uint32_t mac_nonce_offset()
 {
   static uint32_t cached = 0;
@@ -500,7 +534,7 @@ void initMiningQueues()
                                       s_result_queue_storage, &s_result_queue_struct);
 }
 
-static bool JobPush(QueueHandle_t queue, JobData *data, uint32_t nonce_start, uint32_t nonce_count)
+static bool JobPush(QueueHandle_t queue, JobData *data, uint32_t nonce_start, uint32_t nonce_count, uint32_t nonce_stride = 1)
 {
   if (queue == nullptr)
     return false;
@@ -508,6 +542,7 @@ static bool JobPush(QueueHandle_t queue, JobData *data, uint32_t nonce_start, ui
   JobRequest job{};
   job.data = data;
   job.nonce_start = nonce_start;
+  job.nonce_stride = nonce_stride == 0 ? 1 : nonce_stride;
   job.nonce_count = nonce_count;
   return xQueueSend(queue, &job, 0) == pdTRUE;
 }
@@ -583,6 +618,21 @@ static uint32_t RandomGet()
 static constexpr int kI2cSlaveRxBufLen = 256;
 static constexpr int kI2cSlaveTxBufLen = 256;
 
+struct I2cNonceStrideState
+{
+  uint32_t cursor;
+  uint32_t stride;
+};
+
+static inline void i2c_stride_advance(I2cNonceStrideState &state, uint32_t nonce_count)
+{
+  if (nonce_count == 0)
+    return;
+  uint32_t step = state.stride == 0 ? 1 : state.stride;
+  uint64_t adv = (uint64_t)step * (uint64_t)nonce_count;
+  state.cursor = (uint32_t)(state.cursor + adv);
+}
+
 static int i2c_slave_start_worker()
 {
   i2c_config_t config{};
@@ -600,7 +650,7 @@ static int i2c_slave_start_worker()
   return i2c_driver_install((i2c_port_t)I2C_HASH_BUS_PORT, config.mode, kI2cSlaveRxBufLen, kI2cSlaveTxBufLen, 0);
 }
 
-static void i2c_slave_refill_job_queues(JobData *job_data, uint32_t &nonce_pool)
+static void i2c_slave_refill_job_queues(JobData *job_data, I2cNonceStrideState &nonce_state)
 {
   if (job_data == nullptr)
     return;
@@ -608,23 +658,23 @@ static void i2c_slave_refill_job_queues(JobData *job_data, uint32_t &nonce_pool)
   const uint32_t sw_nonce_count = calc_nonce_per_job_sw();
   while (s_job_queue_sw && uxQueueMessagesWaiting(s_job_queue_sw) < kJobQueueTargetDepth)
   {
-    if (!JobPush(s_job_queue_sw, job_data, nonce_pool, sw_nonce_count))
+    if (!JobPush(s_job_queue_sw, job_data, nonce_state.cursor, sw_nonce_count, nonce_state.stride))
       break;
-    nonce_pool += sw_nonce_count;
+    i2c_stride_advance(nonce_state, sw_nonce_count);
   }
 
   #ifdef HARDWARE_SHA265
   const uint32_t hw_nonce_count = calc_nonce_per_job_hw();
   while (s_job_queue_hw && uxQueueMessagesWaiting(s_job_queue_hw) < kJobQueueTargetDepth)
   {
-    if (!JobPush(s_job_queue_hw, job_data, nonce_pool, hw_nonce_count))
+    if (!JobPush(s_job_queue_hw, job_data, nonce_state.cursor, hw_nonce_count, nonce_state.stride))
       break;
-    nonce_pool += hw_nonce_count;
+    i2c_stride_advance(nonce_state, hw_nonce_count);
   }
   #endif
 }
 
-static void i2c_slave_prepare_job(const JobI2cRequest &request, JobData *job_data, uint32_t &nonce_pool)
+static void i2c_slave_prepare_job(const JobI2cRequest &request, JobData *job_data, I2cNonceStrideState &nonce_state)
 {
   if (job_data == nullptr)
     return;
@@ -667,11 +717,12 @@ static void i2c_slave_prepare_job(const JobI2cRequest &request, JobData *job_dat
   s_current_job_data = job_data;
   s_working_current_job_id = request.id;
 
-  nonce_pool = ((uint32_t)request.nonce_start) << 24;
-  i2c_slave_refill_job_queues(job_data, nonce_pool);
+  nonce_state.cursor = request.nonce_start;
+  nonce_state.stride = request.nonce_stride == 0 ? 1 : request.nonce_stride;
+  i2c_slave_refill_job_queues(job_data, nonce_state);
 }
 
-static JobI2cResult i2c_slave_collect_result(uint8_t active_job_id, JobData *job_data, uint32_t &nonce_pool)
+static JobI2cResult i2c_slave_collect_result(uint8_t active_job_id, JobData *job_data, I2cNonceStrideState &nonce_state)
 {
   JobI2cResult out{};
   out.cmd = I2C_CMD_SLAVE_RESULT;
@@ -697,7 +748,7 @@ static JobI2cResult i2c_slave_collect_result(uint8_t active_job_id, JobData *job
     }
   }
 
-  i2c_slave_refill_job_queues(job_data, nonce_pool);
+  i2c_slave_refill_job_queues(job_data, nonce_state);
   out.crc = i2cCommandCrc8(&out, sizeof(out));
   return out;
 }
@@ -728,7 +779,9 @@ void runI2cSlaveWorker(void *name)
   Serial.printf("[I2C-SLAVE] Ready on address 0x%02X (SDA=%d, SCL=%d)\n", I2C_HASH_SLAVE_ADDRESS, I2C_HASH_SDA_PIN, I2C_HASH_SCL_PIN);
 
   JobData *job_data = nullptr;
-  uint32_t nonce_pool = 0;
+  I2cNonceStrideState nonce_state{};
+  nonce_state.cursor = 0;
+  nonce_state.stride = 1;
   uint8_t active_job_id = kI2cNoJobId;
 
   JobI2cResult idle{};
@@ -807,15 +860,18 @@ void runI2cSlaveWorker(void *name)
           JobI2cRequest request{};
           memcpy(&request, frame, sizeof(request));
           JobData *slot = &s_job_data_pool[s_job_data_index++ % kJobDataPoolSize];
-          i2c_slave_prepare_job(request, slot, nonce_pool);
+          i2c_slave_prepare_job(request, slot, nonce_state);
           job_data = slot;
           active_job_id = request.id;
-          JobI2cResult result = i2c_slave_collect_result(active_job_id, job_data, nonce_pool);
+          JobI2cResult result = i2c_slave_collect_result(active_job_id, job_data, nonce_state);
           i2c_slave_publish_result(result);
           feed_count++;
           #if I2C_SLAVE_DEBUG
-          Serial.printf("[I2C-SLAVE] FEED #%u id=%u nonce_start=0x%02X diff=%.9f\n",
-                        (unsigned)feed_count, (unsigned)request.id, (unsigned)request.nonce_start, request.difficulty);
+          Serial.printf("[I2C-SLAVE] FEED #%u id=%u nonce_start=0x%08lX stride=%lu diff=%.9f\n",
+                        (unsigned)feed_count, (unsigned)request.id,
+                        (unsigned long)request.nonce_start,
+                        (unsigned long)request.nonce_stride,
+                        request.difficulty);
           #endif
         }
         else
@@ -823,7 +879,7 @@ void runI2cSlaveWorker(void *name)
           req_count++;
           if (job_data && active_job_id != kI2cNoJobId)
           {
-            JobI2cResult result = i2c_slave_collect_result(active_job_id, job_data, nonce_pool);
+            JobI2cResult result = i2c_slave_collect_result(active_job_id, job_data, nonce_state);
             i2c_slave_publish_result(result);
             #if I2C_SLAVE_DEBUG
             if (result.processed_nonce > 0 || result.nonce != kI2cInvalidNonce)
@@ -851,7 +907,7 @@ void runI2cSlaveWorker(void *name)
     }
     else if (job_data && active_job_id != kI2cNoJobId)
     {
-      i2c_slave_refill_job_queues(job_data, nonce_pool);
+      i2c_slave_refill_job_queues(job_data, nonce_state);
       vTaskDelay(2 / portTICK_PERIOD_MS);
     }
     else
@@ -884,7 +940,7 @@ void runI2cSlaveWorker(void *name)
                     (unsigned)rx_overflow_count,
                     (unsigned)swq,
                     (unsigned)hwq,
-                    (unsigned long)nonce_pool);
+                    (unsigned long)nonce_state.cursor);
     }
     #endif
   }
@@ -931,6 +987,7 @@ static portMUX_TYPE s_i2c_master_lock = portMUX_INITIALIZER_UNLOCKED;
 static I2cMasterJobShared s_i2c_master_job{};
 static volatile uint32_t s_i2c_master_hashes_pending = 0;
 static volatile uint8_t s_i2c_master_slave_count = 0;
+static volatile bool s_i2c_master_boot_scan_done = false;
 
 static bool i2c_master_has_workers()
 {
@@ -1025,71 +1082,25 @@ static uint32_t i2c_master_slaves_signature(const std::vector<uint8_t> &slaves)
 }
 
 static void i2c_master_assign_nonce_starts(const std::vector<uint8_t> &slaves,
-                                           const std::map<uint8_t, float> &slave_rates_hps,
-                                           std::vector<uint8_t> &nonce_starts)
+                                           std::vector<uint32_t> &nonce_starts,
+                                           uint32_t &nonce_stride,
+                                           uint32_t seed)
 {
   nonce_starts.clear();
-  nonce_starts.resize(slaves.size(), 0x20);
   if (slaves.empty())
+  {
+    nonce_stride = 1;
     return;
-
-  static constexpr uint8_t kStartMin = 0x20;
-  static constexpr uint8_t kStartMax = 0xF0;
-  static constexpr uint16_t kSpanBytes = (uint16_t)(kStartMax - kStartMin);
-  const size_t count = slaves.size();
-
-  std::vector<float> weights;
-  weights.resize(count, I2C_REBALANCE_DEFAULT_RATE_HPS);
-  float total_weight = 0.0f;
-  for (size_t i = 0; i < count; ++i)
-  {
-    float weight = I2C_REBALANCE_DEFAULT_RATE_HPS;
-    auto it = slave_rates_hps.find(slaves[i]);
-    if (it != slave_rates_hps.end() && it->second > 0.0f)
-      weight = it->second;
-    if (weight < I2C_REBALANCE_MIN_RATE_HPS)
-      weight = I2C_REBALANCE_MIN_RATE_HPS;
-    weights[i] = weight;
-    total_weight += weight;
   }
-  if (total_weight <= 0.0f)
-    total_weight = (float)count;
 
-  uint8_t cursor = kStartMin;
-  uint16_t remaining_span = kSpanBytes;
-  float remaining_weight = total_weight;
+  nonce_stride = (uint32_t)slaves.size();
+  if (nonce_stride == 0)
+    nonce_stride = 1;
 
-  for (size_t i = 0; i < count; ++i)
+  nonce_starts.resize(slaves.size(), 0);
+  for (size_t i = 0; i < slaves.size(); ++i)
   {
-    nonce_starts[i] = cursor;
-    if (i + 1 >= count)
-      break;
-
-    const uint16_t remaining_workers = (uint16_t)(count - i - 1);
-    uint16_t max_step = 1;
-    if (remaining_span > remaining_workers)
-      max_step = (uint16_t)(remaining_span - remaining_workers);
-    uint16_t step = 1;
-    if (remaining_weight > 0.0f)
-    {
-      float share = ((weights[i] * (float)remaining_span) / remaining_weight) + 0.5f;
-      if (share > 1.0f)
-        step = (uint16_t)share;
-    }
-    if (step < 1)
-      step = 1;
-    if (step > max_step)
-      step = max_step;
-
-    cursor = (uint8_t)(cursor + step);
-    if (remaining_span > step)
-      remaining_span = (uint16_t)(remaining_span - step);
-    else
-      remaining_span = 0;
-    if (remaining_weight > weights[i])
-      remaining_weight -= weights[i];
-    else
-      remaining_weight = 0.0f;
+    nonce_starts[i] = seed + (uint32_t)i;
   }
 }
 
@@ -1097,9 +1108,11 @@ void runI2cMasterWorker(void *name)
 {
   Serial.println("");
   Serial.printf("\n[I2C-MASTER] Started. Running %s on core %d\n", (char *)name, xPortGetCoreID());
+  s_i2c_master_boot_scan_done = false;
 
   std::vector<uint8_t> i2c_slave_vector;
-  std::vector<uint8_t> i2c_slave_nonce_starts;
+  std::vector<uint32_t> i2c_slave_nonce_starts;
+  uint32_t i2c_slave_nonce_stride = 1;
   std::map<uint8_t, float> i2c_slave_rates_hps;
   bool i2c_master_ready = false;
   uint32_t i2c_last_scan = 0;
@@ -1168,6 +1181,7 @@ void runI2cMasterWorker(void *name)
     {
       last_feed_signature = 0;
       i2c_slave_nonce_starts.clear();
+      i2c_slave_nonce_stride = 1;
     }
   };
 
@@ -1178,11 +1192,11 @@ void runI2cMasterWorker(void *name)
   {
     Serial.printf("[I2C-MASTER] Boot scan %u/%u\n", (unsigned)(round + 1), (unsigned)boot_scan_rounds);
     scan_i2c_workers(round == 0 || round + 1 == boot_scan_rounds);
-    if (!i2c_slave_vector.empty())
-      break;
     if (round + 1 < boot_scan_rounds && I2C_BOOT_SCAN_DELAY_MS > 0)
       vTaskDelay(I2C_BOOT_SCAN_DELAY_MS / portTICK_PERIOD_MS);
   }
+  s_i2c_master_boot_scan_done = true;
+  Serial.println("[I2C-MASTER] Boot scan complete.");
 
   while (1)
   {
@@ -1204,18 +1218,19 @@ void runI2cMasterWorker(void *name)
       uint32_t slave_signature = i2c_master_slaves_signature(i2c_slave_vector);
       if (job.generation != last_feed_generation || slave_signature != last_feed_signature)
       {
-        i2c_master_assign_nonce_starts(i2c_slave_vector, i2c_slave_rates_hps, i2c_slave_nonce_starts);
-        i2c_feed_slaves(i2c_slave_vector, job.job_id, i2c_slave_nonce_starts, (float)job.difficulty, job.header76);
+        uint32_t nonce_seed = job.full_job_id ^ (job.generation * 0x9E3779B9u) ^ slave_signature;
+        i2c_master_assign_nonce_starts(i2c_slave_vector, i2c_slave_nonce_starts, i2c_slave_nonce_stride, nonce_seed);
+        i2c_feed_slaves(i2c_slave_vector, job.job_id, i2c_slave_nonce_starts, i2c_slave_nonce_stride, (float)job.difficulty, job.header76);
         #if I2C_REBALANCE_DEBUG
-        Serial.print("[I2C-MASTER] Rebalance starts: ");
+        Serial.printf("[I2C-MASTER] Stride starts (stride=%lu): ", (unsigned long)i2c_slave_nonce_stride);
         for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
         {
-          uint8_t start = (i < i2c_slave_nonce_starts.size()) ? i2c_slave_nonce_starts[i] : 0;
+          uint32_t start = (i < i2c_slave_nonce_starts.size()) ? i2c_slave_nonce_starts[i] : 0;
           float rate = I2C_REBALANCE_DEFAULT_RATE_HPS;
           auto it = i2c_slave_rates_hps.find(i2c_slave_vector[i]);
           if (it != i2c_slave_rates_hps.end())
             rate = it->second;
-          Serial.printf("0x%02X=>0x%02X(%.0f) ", (uint32_t)i2c_slave_vector[i], (uint32_t)start, (double)rate);
+          Serial.printf("0x%02X=>0x%08lX(%.0f) ", (uint32_t)i2c_slave_vector[i], (unsigned long)start, (double)rate);
         }
         Serial.println("");
         #endif
@@ -1352,6 +1367,13 @@ void runStratumWorker(void *name) {
       Serial.println("[I2C-MASTER] Failed to start worker task");
     }
   }
+  if (s_i2c_master_task_started)
+  {
+    Serial.println("[I2C-MASTER] Waiting boot scan before starting stratum...");
+    while (!s_i2c_master_boot_scan_done)
+      vTaskDelay(20 / portTICK_PERIOD_MS);
+    Serial.println("[I2C-MASTER] Boot scan finished. Continuing stratum startup.");
+  }
 #endif
 
   // connect to pool  
@@ -1406,11 +1428,12 @@ void runStratumWorker(void *name) {
       mWorker = init_mining_subscribe();
 
       // STEP 1: Pool server connection (SUBSCRIBE)
-      bool resume_attempt = s_last_subscribe_session_id.length() > 0;
+      bool resume_attempt = s_resume_subscribe_enabled && s_last_subscribe_session_id.length() > 0;
       if(!tx_mining_subscribe(client, mWorker, resume_attempt ? s_last_subscribe_session_id.c_str() : nullptr)) {
         if (resume_attempt)
         {
           Serial.println("[WORKER] Resume subscribe failed, trying fresh subscribe");
+          s_resume_subscribe_enabled = false;
           if (!tx_mining_subscribe(client, mWorker, nullptr))
           {
             client.stop();
@@ -1715,6 +1738,7 @@ void minerWorkerSw(void * task_id)
   JobResult result{};
   uint8_t hash[32];
   uint32_t wdt_counter = 0;
+  uint32_t smooth_counter = 0;
   while (1)
   {
     if (s_job_queue_sw && xQueueReceive(s_job_queue_sw, &job, 0) == pdTRUE)
@@ -1732,11 +1756,12 @@ void minerWorkerSw(void * task_id)
       const uint32_t *midstate = job.data->midstate;
       const uint32_t *bake = job.data->bake;
       const uint32_t nonce_base = job.nonce_start;
+      const uint32_t nonce_step = job.nonce_stride == 0 ? 1 : job.nonce_stride;
       const uint8_t job_in_work = job.data->id & 0xFF;
+      uint32_t nonce = nonce_base;
 
       for (uint32_t n = 0; n < job.nonce_count; ++n)
       {
-        uint32_t nonce = nonce_base + n;
         *nonce_ptr = nonce;
         if (nerd_sha256d_baked(midstate, sha_tail, bake, hash))
         {
@@ -1754,11 +1779,13 @@ void minerWorkerSw(void * task_id)
           result.nonce_count = n + 1;
           break;
         }
+        nonce += nonce_step;
       }
 
       update_hashrate(s_sw_hashes_per_ms, result.nonce_count, micros() - start_us);
       if (s_result_queue)
         xQueueSend(s_result_queue, &result, 0);
+      apply_power_smoothing(MINER_POWER_SMOOTHING_SW_JOB_INTERVAL, smooth_counter);
     }
     else
     {
@@ -1913,6 +1940,7 @@ void minerWorkerHw(void * task_id)
   JobResult result{};
   uint8_t hash[32];
   uint32_t wdt_counter = 0;
+  uint32_t smooth_counter = 0;
 
 #ifdef VALIDATION
   uint8_t doubleHash[32];
@@ -1933,18 +1961,19 @@ void minerWorkerHw(void * task_id)
       const uint8_t *sha_buffer = job.data->sha_buffer_hw + 64;
       const uint32_t *hw_midstate = job.data->hw_midstate;
       const uint32_t nonce_base = job.nonce_start;
-      const uint32_t nonce_end = nonce_base + job.nonce_count;
+      const uint32_t nonce_step = job.nonce_stride == 0 ? 1 : job.nonce_stride;
       const uint8_t job_in_work = job.data->id & 0xFF;
 
       const uint32_t start_us = micros();
       esp_sha_acquire_hardware();
       REG_WRITE(SHA_MODE_REG, SHA2_256);
-      for (uint32_t n = nonce_base; n < nonce_end; ++n)
+      uint32_t nonce = nonce_base;
+      for (uint32_t i = 0; i < job.nonce_count; ++i)
       {
         //nerd_sha_hal_wait_idle();
         nerd_sha_ll_write_digest(hw_midstate);
         //nerd_sha_hal_wait_idle();
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer, n);
+        nerd_sha_ll_fill_text_block_sha256(sha_buffer, nonce);
         //sha_ll_continue_block(SHA2_256);
         REG_WRITE(SHA_CONTINUE_REG, 1);
         
@@ -1957,10 +1986,10 @@ void minerWorkerHw(void * task_id)
         nerd_sha_hal_wait_idle();
         if (nerd_sha_ll_read_digest_if(hash))
         {
-          //Serial.printf("Hw 16bit Share, nonce=0x%X\n", n);
+          //Serial.printf("Hw 16bit Share, nonce=0x%X\n", nonce);
 #ifdef VALIDATION
           //Validation
-          ((uint32_t*)(job.data->sha_buffer_hw + 64 + 12))[0] = n;
+          ((uint32_t*)(job.data->sha_buffer_hw + 64 + 12))[0] = nonce;
           nerd_sha256d_baked(job.data->midstate, job.data->sha_buffer_hw + 64, job.data->bake, doubleHash);
           for (int i = 0; i < 32; ++i)
           {
@@ -1978,23 +2007,25 @@ void minerWorkerHw(void * task_id)
             if (isSha256Valid(hash))
             {
               result.difficulty = diff_hash;
-              result.nonce = n;
+              result.nonce = nonce;
               memcpy(result.hash, hash, sizeof(hash));
             }
           }
         }
         if (
-             (uint8_t)(n & 0xFF) == 0 &&
+             (uint8_t)(i & 0xFF) == 0 &&
              s_working_current_job_id != job_in_work)
         {
-          result.nonce_count = n - nonce_base + 1;
+          result.nonce_count = i + 1;
           break;
         }
+        nonce += nonce_step;
       }
       esp_sha_release_hardware();
       update_hashrate(s_hw_hashes_per_ms, result.nonce_count, micros() - start_us);
       if (s_result_queue)
         xQueueSend(s_result_queue, &result, 0);
+      apply_power_smoothing(MINER_POWER_SMOOTHING_HW_JOB_INTERVAL, smooth_counter);
     }
     else
     {
@@ -2149,6 +2180,7 @@ void minerWorkerHw(void * task_id)
   JobRequest job{};
   JobResult result{};
   uint8_t hash[32];
+  uint32_t smooth_counter = 0;
 
   while (1)
   {
@@ -2162,11 +2194,12 @@ void minerWorkerHw(void * task_id)
       const uint8_t *sha_buffer = job.data->sha_buffer_hw;
       const uint8_t *sha_upper = sha_buffer + 64;
       uint32_t nonce = job.nonce_start;
+      const uint32_t nonce_step = job.nonce_stride == 0 ? 1 : job.nonce_stride;
       const uint8_t job_in_work = job.data->id & 0xFF;
 
       const uint32_t start_us = micros();
       esp_sha_lock_engine(SHA2_256);
-      for (uint32_t n = 0; n < job.nonce_count; ++n, ++nonce)
+      for (uint32_t n = 0; n < job.nonce_count; ++n)
       {
         //((uint32_t*)(sha_buffer+64+12))[0] = __builtin_bswap32(nonce);
 
@@ -2211,11 +2244,13 @@ void minerWorkerHw(void * task_id)
           result.nonce_count = n + 1;
           break;
         }
+        nonce += nonce_step;
       }
       esp_sha_unlock_engine(SHA2_256);
       update_hashrate(s_hw_hashes_per_ms, result.nonce_count, micros() - start_us);
       if (s_result_queue)
         xQueueSend(s_result_queue, &result, 0);
+      apply_power_smoothing(MINER_POWER_SMOOTHING_HW_JOB_INTERVAL, smooth_counter);
     }
     else
     {

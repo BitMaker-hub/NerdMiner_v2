@@ -15,8 +15,8 @@
 #define DEFAULT_POOLURL		"public-pool.io"
 // #define DEFAULT_POOLURL		"sha256.na.mine.zpool.ca"
 #define DEFAULT_POOLPASS	"x"
-// #define DEFAULT_POOLPASS	"3,c=LTC"
-// #define DEFAULT_POOLPASS	"3,c=DGB"
+// #define DEFAULT_POOLPASS	"c=LTC"
+// #define DEFAULT_POOLPASS	"1,c=DGB"
 #define DEFAULT_WALLETID	"yourBtcAddress"
 #define DEFAULT_POOLPORT	3333
 #define DEFAULT_TIMEZONE	-3

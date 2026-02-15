@@ -10,6 +10,12 @@
 #include "utils.h"
 #include "version.h"
 
+#ifndef STRATUM_SUBSCRIBE_TIMEOUT_MS
+#define STRATUM_SUBSCRIBE_TIMEOUT_MS 8000
+#endif
+#ifndef STRATUM_SUBSCRIBE_POLL_MS
+#define STRATUM_SUBSCRIBE_POLL_MS 20
+#endif
 
 
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
@@ -70,10 +76,27 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const
     Serial.print("  Sending  : "); Serial.println(payload);
     client.print(payload);
     
-    vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
-    
-    String line = client.readStringUntil('\n');
-    if(!parse_mining_subscribe(line, mSubscribe)) return false;
+    uint32_t started = millis();
+    while ((uint32_t)(millis() - started) < STRATUM_SUBSCRIBE_TIMEOUT_MS)
+    {
+      if (!client.connected())
+        return false;
+
+      if (!client.available())
+      {
+        vTaskDelay(STRATUM_SUBSCRIBE_POLL_MS / portTICK_PERIOD_MS);
+        continue;
+      }
+
+      String line = client.readStringUntil('\n');
+      if (line.length() == 0)
+        continue;
+      if (parse_mining_subscribe(line, mSubscribe))
+        break;
+    }
+
+    if (mSubscribe.extranonce1.length() == 0)
+      return false;
 
   
     Serial.print("    sub_details: "); Serial.println(mSubscribe.sub_details);

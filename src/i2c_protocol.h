@@ -12,11 +12,12 @@ static constexpr uint8_t kI2cNoJobId = 0xFFu;
 
 struct __attribute__((__packed__)) JobI2cRequest
 {
-  // 84 bytes
+  // 91 bytes
   uint8_t cmd;
   uint8_t crc;
   uint8_t id;
-  uint8_t nonce_start;
+  uint32_t nonce_start;
+  uint32_t nonce_stride;
   float difficulty;
   uint8_t buffer[76];
 };

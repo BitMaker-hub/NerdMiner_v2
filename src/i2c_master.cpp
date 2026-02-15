@@ -90,7 +90,7 @@ std::vector<uint8_t> i2c_master_scan(uint8_t start, uint8_t end)
     return vec;
 }
 
-void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, const std::vector<uint8_t>& nonce_starts, float difficulty, const uint8_t* buffer)
+void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, const std::vector<uint32_t>& nonce_starts, uint32_t nonce_stride, float difficulty, const uint8_t* buffer)
 {
     if (slaves.empty())
         return;
@@ -99,16 +99,17 @@ void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, const std::
     request.cmd = I2C_CMD_FEED;
     request.id = id;
     request.difficulty = difficulty;
+    request.nonce_stride = nonce_stride == 0 ? 1 : nonce_stride;
     memcpy(request.buffer, buffer, sizeof(request.buffer));
 
-    uint8_t fallback_start = 0x20;
+    uint32_t fallback_start = 0x20000000u;
     for (size_t n = 0; n < slaves.size(); ++n)
     {
         if (n < nonce_starts.size())
             request.nonce_start = nonce_starts[n];
         else
             request.nonce_start = fallback_start;
-        fallback_start = (uint8_t)(fallback_start + 0x10);
+        fallback_start += request.nonce_stride;
         request.crc = i2cCommandCrc8(&request, sizeof(request));
 
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -121,17 +122,18 @@ void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, const std::
     }
 }
 
-void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, uint8_t nonce_start, float difficulty, const uint8_t* buffer)
+void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, uint32_t nonce_start, uint32_t nonce_stride, float difficulty, const uint8_t* buffer)
 {
-    std::vector<uint8_t> nonce_starts;
+    std::vector<uint32_t> nonce_starts;
     nonce_starts.reserve(slaves.size());
-    uint8_t current = nonce_start;
+    uint32_t current = nonce_start;
+    uint32_t step = nonce_stride == 0 ? 1 : nonce_stride;
     for (size_t n = 0; n < slaves.size(); ++n)
     {
         nonce_starts.push_back(current);
-        current = (uint8_t)(current + 0x10);
+        current += step;
     }
-    i2c_feed_slaves(slaves, id, nonce_starts, difficulty, buffer);
+    i2c_feed_slaves(slaves, id, nonce_starts, step, difficulty, buffer);
 }
 
 
