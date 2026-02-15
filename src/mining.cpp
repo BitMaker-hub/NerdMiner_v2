@@ -1289,15 +1289,10 @@ void runI2cMasterWorker(void *name)
 
       if (s_result_queue && !nonce_vector.empty())
       {
-        uint8_t sha_tail[64];
-        memcpy(sha_tail, job.sha_tail, sizeof(sha_tail));
-        uint32_t *nonce_ptr = (uint32_t *)(sha_tail + 12);
-
         for (size_t n = 0; n < nonce_vector.size(); ++n)
         {
           JobResult result{};
-          *nonce_ptr = nonce_vector[n];
-          if (nerd_sha256d_baked(job.midstate, sha_tail, job.bake, result.hash))
+          if (nerd_sha256d_baked_nonce(job.midstate, nonce_vector[n], job.bake, result.hash))
           {
             result.id = job.full_job_id;
             result.nonce = nonce_vector[n];
@@ -1750,9 +1745,6 @@ void minerWorkerSw(void * task_id)
       result.nonce_count = job.nonce_count;
 
       const uint32_t start_us = micros();
-      uint8_t *sha_buffer = job.data->sha_buffer_sw;
-      uint32_t *nonce_ptr = (uint32_t*)(sha_buffer + 64 + 12);
-      const uint8_t *sha_tail = sha_buffer + 64;
       const uint32_t *midstate = job.data->midstate;
       const uint32_t *bake = job.data->bake;
       const uint32_t nonce_base = job.nonce_start;
@@ -1762,8 +1754,7 @@ void minerWorkerSw(void * task_id)
 
       for (uint32_t n = 0; n < job.nonce_count; ++n)
       {
-        *nonce_ptr = nonce;
-        if (nerd_sha256d_baked(midstate, sha_tail, bake, hash))
+        if (nerd_sha256d_baked_nonce(midstate, nonce, bake, hash))
         {
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result.difficulty)
@@ -1989,8 +1980,7 @@ void minerWorkerHw(void * task_id)
           //Serial.printf("Hw 16bit Share, nonce=0x%X\n", nonce);
 #ifdef VALIDATION
           //Validation
-          ((uint32_t*)(job.data->sha_buffer_hw + 64 + 12))[0] = nonce;
-          nerd_sha256d_baked(job.data->midstate, job.data->sha_buffer_hw + 64, job.data->bake, doubleHash);
+          nerd_sha256d_baked_nonce(job.data->midstate, nonce, job.data->bake, doubleHash);
           for (int i = 0; i < 32; ++i)
           {
             if (hash[i] != doubleHash[i])
