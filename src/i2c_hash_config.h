@@ -52,7 +52,7 @@
 #define NM_I2C_HASH_CLOCK_HZ 100000
 #endif
 #ifndef NM_I2C_HASH_SLAVE_ADDRESS
-#define NM_I2C_HASH_SLAVE_ADDRESS 0x21
+#define NM_I2C_HASH_SLAVE_ADDRESS 0x24
 #endif
 
 // Map NM_* defaults into the existing macros used by the code, but only if build_flags didn't already set them.

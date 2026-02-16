@@ -8,6 +8,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifndef MINER_JOB_DEBUG_LOG
+#define MINER_JOB_DEBUG_LOG 1
+#endif
+
 #ifndef bswap_16
 #define bswap_16(a) ((((uint16_t) (a) << 8) & 0xff00) | (((uint16_t) (a) >> 8) & 0xff))
 #endif
@@ -212,7 +216,9 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     if (copy_len > 0)
       memcpy(target + target_offset, mJob.nbits.substring(2).c_str(), copy_len);
     target[TARGET_BUFFER_SIZE] = 0;
+    #if MINER_JOB_DEBUG_LOG
     Serial.print("    target: "); Serial.println(target);
+    #endif
     
     // bytearray target
     size_t size_target = to_byte_array(target, 32, mMiner.bytearray_target);
@@ -243,7 +249,9 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     
     //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
     String coinbase = mJob.coinb1 + mWorker.extranonce1 + mWorker.extranonce2 + mJob.coinb2;
+    #if MINER_JOB_DEBUG_LOG
     Serial.print("    coinbase: "); Serial.println(coinbase);
+    #endif
     size_t str_len = coinbase.length()/2;
     uint8_t bytearray[str_len];
 
@@ -326,13 +334,19 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     }
     // merkle root from merkle_result
     
-    Serial.print("    merkle sha         : ");
     char merkle_root[65] = {0};
+    #if MINER_JOB_DEBUG_LOG
+    Serial.print("    merkle sha         : ");
+    #endif
     for (int i = 0; i < 32; i++) {
+      #if MINER_JOB_DEBUG_LOG
       Serial.printf("%02x", mMiner.merkle_result[i]);
+      #endif
       snprintf(&merkle_root[i*2], 3, "%02x", mMiner.merkle_result[i]);
     }
+    #if MINER_JOB_DEBUG_LOG
     Serial.println("");
+    #endif
 
     // calculate blockheader
     // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])

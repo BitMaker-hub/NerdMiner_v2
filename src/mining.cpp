@@ -38,6 +38,15 @@
 #ifndef I2C_RUNTIME_RESCAN_MS
 #define I2C_RUNTIME_RESCAN_MS 0
 #endif
+#ifndef I2C_SLAVE_LOSS_POLL_THRESHOLD
+#define I2C_SLAVE_LOSS_POLL_THRESHOLD 64
+#endif
+#ifndef I2C_LOSS_RESCAN_MAX_ATTEMPTS
+#define I2C_LOSS_RESCAN_MAX_ATTEMPTS 2
+#endif
+#ifndef I2C_LOSS_RESCAN_INTERVAL_MS
+#define I2C_LOSS_RESCAN_INTERVAL_MS 1200
+#endif
 #ifndef I2C_MASTER_CYCLE_MS
 #define I2C_MASTER_CYCLE_MS 120
 #endif
@@ -80,6 +89,18 @@
 #ifndef ADAPTIVE_SUGGEST_DIFFICULTY
 #define ADAPTIVE_SUGGEST_DIFFICULTY 1
 #endif
+#ifndef STRATUM_LOOP_DELAY_BUSY_MS
+#define STRATUM_LOOP_DELAY_BUSY_MS 2
+#endif
+#ifndef STRATUM_LOOP_DELAY_ACTIVE_MS
+#define STRATUM_LOOP_DELAY_ACTIVE_MS 8
+#endif
+#ifndef STRATUM_LOOP_DELAY_IDLE_MS
+#define STRATUM_LOOP_DELAY_IDLE_MS 20
+#endif
+#ifndef MINER_SHARE_LOG
+#define MINER_SHARE_LOG 1
+#endif
 #ifndef SUGGEST_DIFF_FIXED_VALUE
 #define SUGGEST_DIFF_FIXED_VALUE 16384.0
 #endif
@@ -96,6 +117,20 @@
 #define SUGGEST_DIFF_SMOOTH_ALPHA_PCT 40
 #endif
 
+#ifndef ADAPTIVE_TARGET_MS_DEFAULT
+#if defined(I2C_HASH_SLAVE)
+#define ADAPTIVE_TARGET_MS_DEFAULT 180
+#else
+#define ADAPTIVE_TARGET_MS_DEFAULT 150
+#endif
+#endif
+#ifndef ADAPTIVE_TARGET_MS_MIN
+#define ADAPTIVE_TARGET_MS_MIN 80
+#endif
+#ifndef ADAPTIVE_TARGET_MS_MAX
+#define ADAPTIVE_TARGET_MS_MAX 350
+#endif
+
 //10 Jobs per second
 #if defined(CONFIG_IDF_TARGET_ESP32)
 #define NONCE_PER_JOB_SW (32 * 1024)
@@ -104,9 +139,9 @@
 #define NONCE_PER_JOB_SW (16 * 1024)
 #define NONCE_PER_JOB_HW (64 * 1024)
 #endif
-static constexpr uint32_t kAdaptiveTargetMsDefault = 150;
-static constexpr uint32_t kAdaptiveTargetMsMin = 80;
-static constexpr uint32_t kAdaptiveTargetMsMax = 350;
+static constexpr uint32_t kAdaptiveTargetMsDefault = ADAPTIVE_TARGET_MS_DEFAULT;
+static constexpr uint32_t kAdaptiveTargetMsMin = ADAPTIVE_TARGET_MS_MIN;
+static constexpr uint32_t kAdaptiveTargetMsMax = ADAPTIVE_TARGET_MS_MAX;
 static constexpr uint32_t kAdaptiveTargetStepDown = 20;
 static constexpr uint32_t kAdaptiveTargetStepUp = 10;
 static constexpr uint32_t kAdaptiveTargetWindowMs = 30000;
@@ -327,7 +362,7 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
     if (time_now < mLastRXfromPool) //32bit wrap
       mLastRXfromPool = time_now;
 
-    bool tx_idle = (time_now > mLastTXtoPool + keepAliveTime);
+    bool tx_idle = ((uint32_t)(time_now - mLastTXtoPool) >= keepAliveTime);
     if (tx_idle)
     {
       double suggest_diff = calculateSuggestedDifficulty();
@@ -339,9 +374,16 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
       mLastTXtoPool = time_now;
     }
 
+    // RX idle watchdog: reconnect if pool stops sending data/notify lines.
+    bool rx_idle = ((uint32_t)(time_now - mLastRXfromPool) >= inactivityTime);
+    if (rx_idle)
+    {
+      Serial.printf("  No data from stratum for %lu s. Reconnecting...\n", inactivityTime / 1000UL);
+      return true;
+    }
+
     (void)currentDifficulty;
     (void)elapsedKHs;
-    (void)inactivityTime;
     mStart0Hashrate = 0;
     return false;
 }
@@ -415,6 +457,15 @@ static inline uint32_t clamp_u32(uint32_t v, uint32_t lo, uint32_t hi)
   return v;
 }
 
+static inline uint32_t nonce_stride_advance_u32(uint32_t cursor, uint32_t stride, uint32_t nonce_count)
+{
+  if (nonce_count == 0)
+    return cursor;
+  uint32_t step = stride == 0 ? 1 : stride;
+  uint64_t adv = (uint64_t)step * (uint64_t)nonce_count;
+  return (uint32_t)(cursor + adv);
+}
+
 static inline uint32_t calc_nonce_per_job_sw()
 {
   uint32_t hpm = s_sw_hashes_per_ms;
@@ -483,17 +534,8 @@ static uint32_t mac_nonce_offset()
   return cached;
 }
 
-static bool is_stale_error(const String &line)
+static bool is_stale_error_doc(const JsonDocument &doc)
 {
-  static StaticJsonDocument<256> doc;
-  static StaticJsonDocument<64> filter;
-
-  filter.clear();
-  filter["error"] = true;
-  doc.clear();
-  DeserializationError error = deserializeJson(doc, line, DeserializationOption::Filter(filter));
-  if (error)
-    return false;
   if (!doc.containsKey("error"))
     return false;
   if (doc["error"].isNull())
@@ -506,9 +548,6 @@ static bool is_stale_error(const String &line)
     return true;
   return false;
 }
-
-
-
 
 void initMiningQueues()
 {
@@ -604,6 +643,18 @@ static uint32_t RandomGet()
 #endif
 #ifndef I2C_SLAVE_DEBUG
 #define I2C_SLAVE_DEBUG 0
+#endif
+#ifndef I2C_SLAVE_ACTIVE_DELAY_MS
+#define I2C_SLAVE_ACTIVE_DELAY_MS 1
+#endif
+#ifndef I2C_SLAVE_IDLE_DELAY_MS
+#define I2C_SLAVE_IDLE_DELAY_MS 3
+#endif
+#ifndef I2C_SLAVE_LINK_TIMEOUT_MS
+#define I2C_SLAVE_LINK_TIMEOUT_MS 45000
+#endif
+#ifndef I2C_SLAVE_READY_BEACON_MS
+#define I2C_SLAVE_READY_BEACON_MS 5000
 #endif
 
 static constexpr int kI2cSlaveRxBufLen = 256;
@@ -792,6 +843,8 @@ void runI2cSlaveWorker(void *name)
   uint32_t invalid_cmd_count = 0;
   uint32_t rx_overflow_count = 0;
   uint32_t last_status_ms = millis();
+  uint32_t last_master_contact_ms = millis();
+  uint32_t last_ready_beacon_ms = 0;
   while (1)
   {
     int rx_len = i2c_slave_read_buffer((i2c_port_t)I2C_HASH_BUS_PORT, rx_chunk, sizeof(rx_chunk), 20 / portTICK_PERIOD_MS);
@@ -886,6 +939,9 @@ void runI2cSlaveWorker(void *name)
           }
         }
 
+        last_master_contact_ms = millis();
+        last_ready_beacon_ms = 0;
+
         offset += frame_len;
       }
 
@@ -898,12 +954,45 @@ void runI2cSlaveWorker(void *name)
     }
     else if (job_data && active_job_id != kI2cNoJobId)
     {
+      uint32_t now_ms = millis();
+      if ((uint32_t)(now_ms - last_master_contact_ms) >= I2C_SLAVE_LINK_TIMEOUT_MS)
+      {
+        Serial.printf("[I2C-SLAVE] Link timeout (%lu ms). Returning to ready mode.\n",
+                      (unsigned long)I2C_SLAVE_LINK_TIMEOUT_MS);
+        resetMiningQueuesOnly();
+        job_data = nullptr;
+        active_job_id = kI2cNoJobId;
+        s_current_job_data = nullptr;
+        s_working_current_job_id = 0xFF;
+        nonce_state.cursor = 0;
+        nonce_state.stride = 1;
+        i2c_slave_publish_result(idle);
+        last_ready_beacon_ms = now_ms;
+        if (I2C_SLAVE_IDLE_DELAY_MS > 0)
+          vTaskDelay(I2C_SLAVE_IDLE_DELAY_MS / portTICK_PERIOD_MS);
+        else
+          taskYIELD();
+        continue;
+      }
+
       i2c_slave_refill_job_queues(job_data, nonce_state);
-      vTaskDelay(2 / portTICK_PERIOD_MS);
+      if (I2C_SLAVE_ACTIVE_DELAY_MS > 0)
+        vTaskDelay(I2C_SLAVE_ACTIVE_DELAY_MS / portTICK_PERIOD_MS);
+      else
+        taskYIELD();
     }
     else
     {
-      vTaskDelay(5 / portTICK_PERIOD_MS);
+      uint32_t now_ms = millis();
+      if (last_ready_beacon_ms == 0 || (uint32_t)(now_ms - last_ready_beacon_ms) >= I2C_SLAVE_READY_BEACON_MS)
+      {
+        i2c_slave_publish_result(idle);
+        last_ready_beacon_ms = now_ms;
+      }
+      if (I2C_SLAVE_IDLE_DELAY_MS > 0)
+        vTaskDelay(I2C_SLAVE_IDLE_DELAY_MS / portTICK_PERIOD_MS);
+      else
+        taskYIELD();
     }
 
     wdt_counter++;
@@ -953,7 +1042,10 @@ struct I2cMasterJobShared
 {
   bool active;
   uint8_t job_id;
+  uint8_t local_nonce_lanes;
+  uint8_t total_nonce_lanes;
   uint32_t full_job_id;
+  uint32_t nonce_seed;
   double difficulty;
   uint8_t header76[76];
   uint8_t sha_tail[64];
@@ -965,7 +1057,10 @@ struct I2cMasterJobShared
 struct I2cMasterJobSnapshot
 {
   uint8_t job_id;
+  uint8_t local_nonce_lanes;
+  uint8_t total_nonce_lanes;
   uint32_t full_job_id;
+  uint32_t nonce_seed;
   double difficulty;
   uint8_t header76[76];
   uint8_t sha_tail[64];
@@ -983,6 +1078,11 @@ static volatile bool s_i2c_master_boot_scan_done = false;
 static bool i2c_master_has_workers()
 {
   return s_i2c_master_slave_count > 0;
+}
+
+static uint8_t i2c_master_worker_count()
+{
+  return s_i2c_master_slave_count;
 }
 
 static void i2c_master_add_processed_hashes(uint32_t hashes_done)
@@ -1005,6 +1105,9 @@ static uint32_t i2c_master_take_processed_hashes()
 
 static void i2c_master_set_active_job(uint32_t full_job_id,
                                       double difficulty,
+                                      uint32_t nonce_seed,
+                                      uint8_t local_nonce_lanes,
+                                      uint8_t total_nonce_lanes,
                                       const uint8_t *blockheader,
                                       const uint32_t *midstate,
                                       const uint32_t *bake)
@@ -1018,7 +1121,12 @@ static void i2c_master_set_active_job(uint32_t full_job_id,
     next_generation = 1;
   s_i2c_master_job.active = true;
   s_i2c_master_job.job_id = (uint8_t)(full_job_id & 0xFF);
+  s_i2c_master_job.local_nonce_lanes = local_nonce_lanes == 0 ? 1 : local_nonce_lanes;
+  if (total_nonce_lanes < s_i2c_master_job.local_nonce_lanes)
+    total_nonce_lanes = s_i2c_master_job.local_nonce_lanes;
+  s_i2c_master_job.total_nonce_lanes = total_nonce_lanes;
   s_i2c_master_job.full_job_id = full_job_id;
+  s_i2c_master_job.nonce_seed = nonce_seed;
   s_i2c_master_job.difficulty = difficulty;
   memcpy(s_i2c_master_job.header76, blockheader, sizeof(s_i2c_master_job.header76));
   memcpy(s_i2c_master_job.sha_tail, blockheader + 64, sizeof(s_i2c_master_job.sha_tail));
@@ -1049,7 +1157,10 @@ static bool i2c_master_read_job_snapshot(I2cMasterJobSnapshot &snapshot)
   if (active)
   {
     snapshot.job_id = s_i2c_master_job.job_id;
+    snapshot.local_nonce_lanes = s_i2c_master_job.local_nonce_lanes;
+    snapshot.total_nonce_lanes = s_i2c_master_job.total_nonce_lanes;
     snapshot.full_job_id = s_i2c_master_job.full_job_id;
+    snapshot.nonce_seed = s_i2c_master_job.nonce_seed;
     snapshot.difficulty = s_i2c_master_job.difficulty;
     memcpy(snapshot.header76, s_i2c_master_job.header76, sizeof(snapshot.header76));
     memcpy(snapshot.sha_tail, s_i2c_master_job.sha_tail, sizeof(snapshot.sha_tail));
@@ -1061,21 +1172,12 @@ static bool i2c_master_read_job_snapshot(I2cMasterJobSnapshot &snapshot)
   return active;
 }
 
-static uint32_t i2c_master_slaves_signature(const std::vector<uint8_t> &slaves)
-{
-  uint32_t sig = 2166136261u;
-  for (size_t i = 0; i < slaves.size(); ++i)
-  {
-    sig ^= (uint32_t)slaves[i];
-    sig *= 16777619u;
-  }
-  return sig ^ (uint32_t)slaves.size();
-}
-
 static void i2c_master_assign_nonce_starts(const std::vector<uint8_t> &slaves,
                                            std::vector<uint32_t> &nonce_starts,
                                            uint32_t &nonce_stride,
-                                           uint32_t seed)
+                                           uint32_t seed,
+                                           uint8_t local_nonce_lanes,
+                                           uint8_t total_nonce_lanes)
 {
   nonce_starts.clear();
   if (slaves.empty())
@@ -1084,14 +1186,22 @@ static void i2c_master_assign_nonce_starts(const std::vector<uint8_t> &slaves,
     return;
   }
 
-  nonce_stride = (uint32_t)slaves.size();
+  uint32_t local_lanes = local_nonce_lanes == 0 ? 1 : (uint32_t)local_nonce_lanes;
+  uint32_t total_lanes = total_nonce_lanes;
+  if (total_lanes <= local_lanes)
+    total_lanes = local_lanes + (uint32_t)slaves.size();
+  nonce_stride = total_lanes;
   if (nonce_stride == 0)
     nonce_stride = 1;
+  uint32_t slave_lanes = nonce_stride > local_lanes ? (nonce_stride - local_lanes) : 1;
 
   nonce_starts.resize(slaves.size(), 0);
   for (size_t i = 0; i < slaves.size(); ++i)
   {
-    nonce_starts[i] = seed + (uint32_t)i;
+    uint32_t lane = (uint32_t)i;
+    if (lane >= slave_lanes)
+      lane %= slave_lanes;
+    nonce_starts[i] = seed + local_lanes + lane;
   }
 }
 
@@ -1108,8 +1218,13 @@ void runI2cMasterWorker(void *name)
   bool i2c_master_ready = false;
   uint32_t i2c_last_scan = 0;
   uint32_t last_feed_generation = 0;
-  uint32_t last_feed_signature = 0;
   uint32_t wdt_counter = 0;
+  uint8_t slave_miss_polls[128] = {0};
+  bool slave_lost_reported[128] = {false};
+  bool force_refeed_current_job = false;
+  bool loss_recovery_pending = false;
+  uint8_t loss_recovery_attempts = 0;
+  uint32_t loss_recovery_next_scan = 0;
 
   auto scan_i2c_workers = [&](bool verbose)
   {
@@ -1145,12 +1260,35 @@ void runI2cMasterWorker(void *name)
         Serial.println("");
       }
     }
+    bool present[128] = {false};
+    for (size_t n = 0; n < i2c_slave_vector.size(); ++n)
+    {
+      present[(uint8_t)i2c_slave_vector[n]] = true;
+    }
+    for (uint16_t addr = 0; addr < 128; ++addr)
+    {
+      if (!present[addr])
+      {
+        slave_miss_polls[addr] = 0;
+        slave_lost_reported[addr] = false;
+      }
+    }
     if (changed)
     {
-      last_feed_signature = 0;
       i2c_slave_nonce_starts.clear();
       i2c_slave_nonce_stride = 1;
+      force_refeed_current_job = true;
     }
+  };
+
+  auto has_lost_worker = [&]() -> bool
+  {
+    for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
+    {
+      if (slave_lost_reported[(uint8_t)i2c_slave_vector[i]])
+        return true;
+    }
+    return false;
   };
 
   uint32_t boot_scan_rounds = I2C_BOOT_SCAN_ROUNDS;
@@ -1178,19 +1316,54 @@ void runI2cMasterWorker(void *name)
     }
     #endif
 
+    if (loss_recovery_pending && I2C_LOSS_RESCAN_MAX_ATTEMPTS > 0)
+    {
+      uint32_t now_scan = millis();
+      bool due = (loss_recovery_next_scan == 0) || ((uint32_t)(now_scan - loss_recovery_next_scan) < 0x80000000u);
+      if (due)
+      {
+        loss_recovery_attempts++;
+        Serial.printf("[I2C-MASTER] Loss recovery rescan attempt %u/%u\n",
+                      (unsigned)loss_recovery_attempts,
+                      (unsigned)I2C_LOSS_RESCAN_MAX_ATTEMPTS);
+        scan_i2c_workers(true);
+        if (!has_lost_worker())
+        {
+          Serial.println("[I2C-MASTER] Loss recovery: topology stabilized.");
+          loss_recovery_pending = false;
+          loss_recovery_attempts = 0;
+          loss_recovery_next_scan = 0;
+        }
+        else if (loss_recovery_attempts >= I2C_LOSS_RESCAN_MAX_ATTEMPTS)
+        {
+          Serial.println("[I2C-MASTER] Loss recovery: max attempts reached, stopping rescans.");
+          loss_recovery_pending = false;
+        }
+        else
+        {
+          loss_recovery_next_scan = now_scan + I2C_LOSS_RESCAN_INTERVAL_MS;
+        }
+      }
+    }
+
     I2cMasterJobSnapshot job{};
     bool has_job = i2c_master_read_job_snapshot(job);
 
     if (has_job && !i2c_slave_vector.empty())
     {
-      uint32_t slave_signature = i2c_master_slaves_signature(i2c_slave_vector);
-      if (job.generation != last_feed_generation || slave_signature != last_feed_signature)
+      if (job.generation != last_feed_generation || force_refeed_current_job)
       {
-        uint32_t nonce_seed = job.full_job_id ^ (job.generation * 0x9E3779B9u) ^ slave_signature;
-        i2c_master_assign_nonce_starts(i2c_slave_vector, i2c_slave_nonce_starts, i2c_slave_nonce_stride, nonce_seed);
+        i2c_master_assign_nonce_starts(i2c_slave_vector,
+                                       i2c_slave_nonce_starts,
+                                       i2c_slave_nonce_stride,
+                                       job.nonce_seed,
+                                       job.local_nonce_lanes,
+                                       job.total_nonce_lanes);
         i2c_feed_slaves(i2c_slave_vector, job.job_id, i2c_slave_nonce_starts, i2c_slave_nonce_stride, (float)job.difficulty, job.header76);
         #if I2C_REBALANCE_DEBUG
-        Serial.printf("[I2C-MASTER] Stride starts (stride=%lu): ", (unsigned long)i2c_slave_nonce_stride);
+        Serial.printf("[I2C-MASTER] Stride starts (stride=%lu, local=%u): ",
+                      (unsigned long)i2c_slave_nonce_stride,
+                      (unsigned)job.local_nonce_lanes);
         for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
         {
           uint32_t start = (i < i2c_slave_nonce_starts.size()) ? i2c_slave_nonce_starts[i] : 0;
@@ -1199,7 +1372,7 @@ void runI2cMasterWorker(void *name)
         Serial.println("");
         #endif
         last_feed_generation = job.generation;
-        last_feed_signature = slave_signature;
+        force_refeed_current_job = false;
       }
 
       uint32_t time_start = millis();
@@ -1208,6 +1381,45 @@ void runI2cMasterWorker(void *name)
         vTaskDelay(I2C_MASTER_POST_HIT_DELAY_MS / portTICK_PERIOD_MS);
       i2c_harvest_slaves(i2c_slave_vector, job.job_id, i2c_harvest_buffer);
       uint32_t time_end = millis();
+
+      bool responded[128] = {false};
+      for (size_t i = 0; i < i2c_harvest_buffer.size(); ++i)
+      {
+        responded[(uint8_t)i2c_harvest_buffer[i].address] = true;
+      }
+      for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
+      {
+        uint8_t addr = i2c_slave_vector[i];
+        if (responded[addr])
+        {
+          if (slave_lost_reported[addr])
+          {
+            Serial.printf("[I2C-MASTER] Slave 0x%02X recovered after %u missed polls\n",
+                          (unsigned)addr,
+                          (unsigned)slave_miss_polls[addr]);
+          }
+          slave_miss_polls[addr] = 0;
+          slave_lost_reported[addr] = false;
+        }
+        else
+        {
+          if (slave_miss_polls[addr] < 255)
+            slave_miss_polls[addr]++;
+          if (!slave_lost_reported[addr] && slave_miss_polls[addr] >= I2C_SLAVE_LOSS_POLL_THRESHOLD)
+          {
+            Serial.printf("[I2C-MASTER] WARN slave 0x%02X no response for %u polls (possible disconnect)\n",
+                          (unsigned)addr,
+                          (unsigned)slave_miss_polls[addr]);
+            slave_lost_reported[addr] = true;
+            if (I2C_LOSS_RESCAN_MAX_ATTEMPTS > 0 && !loss_recovery_pending)
+            {
+              loss_recovery_pending = true;
+              loss_recovery_attempts = 0;
+              loss_recovery_next_scan = 0;
+            }
+          }
+        }
+      }
 
       uint32_t nonces_done = 0;
       for (size_t i = 0; i < i2c_harvest_buffer.size(); ++i)
@@ -1300,6 +1512,19 @@ void runStratumWorker(void *name) {
   // connect to pool  
   double currentPoolDifficulty = DEFAULT_DIFFICULTY;
   uint32_t nonce_pool = 0;
+  bool use_partitioned_nonce_ranges = false;
+#ifdef HARDWARE_SHA265
+  constexpr uint8_t local_nonce_lanes = 2;
+#else
+  constexpr uint8_t local_nonce_lanes = 1;
+#endif
+  uint8_t current_total_nonce_lanes = local_nonce_lanes;
+  uint32_t sw_nonce_cursor = 0;
+  uint32_t sw_nonce_stride = 1;
+#ifdef HARDWARE_SHA265
+  uint32_t hw_nonce_cursor = 0;
+  uint32_t hw_nonce_stride = 1;
+#endif
   uint32_t job_pool = 0xFFFFFFFF;
   uint32_t last_job_time = millis();
   uint32_t hw_midstate[8] = {0};
@@ -1308,6 +1533,7 @@ void runStratumWorker(void *name) {
   #if defined(CONFIG_IDF_TARGET_ESP32)
   uint8_t sha_buffer_swap[128] = {0};
   #endif
+  StaticJsonDocument<BUFFER_JSON_DOC> stratum_doc;
 
   while(true) {
       
@@ -1391,10 +1617,11 @@ void runStratumWorker(void *name) {
       last_job_time = time_now;
     }
 
-    //Check if pool is down for almost 5minutes and then restart connection with pool (1min=600000ms)
+    // Reconnect if pool stops sending data beyond configured inactivity window.
     if(checkPoolInactivity(KEEPALIVE_TIME_ms, POOLINACTIVITY_TIME_ms, currentPoolDifficulty)){
       //Restart connection
-      Serial.println("  Detected more than 2 min without data form stratum server. Closing socket and reopening...");
+      Serial.printf("  Detected more than %lu s without data from stratum server. Closing socket and reopening...\n",
+                    POOLINACTIVITY_TIME_ms / 1000UL);
       client.stop();
       isMinerSuscribed=false;
       MiningJobStop(job_pool, s_submition_map);
@@ -1414,18 +1641,27 @@ void runStratumWorker(void *name) {
       }
     }
 
-    //Read pending messages from pool
+    bool processed_pool_message = false;
+
+    // Read pending messages from pool (single JSON parse per line).
     while(client.connected() && client.available())
     {
       String line = client.readStringUntil('\n');
-      if (line.length() == 0)
-        break;
+      if (!verifyPayload(&line))
+        continue;
+
+      processed_pool_message = true;
       mLastRXfromPool = millis();
-      //Serial.println("  Received message from pool");      
-      stratum_method result = parse_mining_method(line);
+      stratum_doc.clear();
+      DeserializationError parse_error = deserializeJson(stratum_doc, line);
+      bool doc_valid = (parse_error == DeserializationError::Ok);
+      stratum_method result = STRATUM_PARSE_ERROR;
+      if (doc_valid)
+        result = parse_mining_method_doc(stratum_doc);
+
       switch (result)
       {
-          case MINING_NOTIFY:         if(parse_mining_notify(line, mJob))
+          case MINING_NOTIFY:         if(parse_mining_notify_doc(stratum_doc, mJob))
                                       {
                                           if (s_result_queue)
                                             xQueueReset(s_result_queue);
@@ -1472,16 +1708,45 @@ void runStratumWorker(void *name) {
                                             ((uint32_t*)sha_buffer_swap)[i] = __builtin_bswap32(((const uint32_t*)(mMiner.bytearray_blockheader))[i]);
                                           #endif
 
+                                          uint32_t nonce_seed = 0;
                                           #ifdef RANDOM_NONCE
-                                          nonce_pool = RandomGet() & RANDOM_NONCE_MASK;
+                                          nonce_seed = RandomGet() & RANDOM_NONCE_MASK;
                                           #else
                                             const uint32_t mac_offset = mac_nonce_offset() & 0x0FFFFFFF;
                                             #ifdef I2C_HASH_MASTER
                                             if (i2c_master_has_workers())
-                                              nonce_pool = 0x10000000 + mac_offset;
+                                              nonce_seed = 0x10000000 + mac_offset;
                                             else
                                             #endif
-                                              nonce_pool = 0xDA54E700 + mac_offset;  //nonce 0x00000000 is not possible, start from some random nonce
+                                              nonce_seed = 0xDA54E700 + mac_offset;  //nonce 0x00000000 is not possible, start from some random nonce
+                                          #endif
+                                          nonce_pool = nonce_seed;
+                                          use_partitioned_nonce_ranges = false;
+                                          current_total_nonce_lanes = local_nonce_lanes;
+                                          sw_nonce_cursor = nonce_seed;
+                                          sw_nonce_stride = 1;
+                                          #ifdef HARDWARE_SHA265
+                                          hw_nonce_cursor = nonce_seed + 1;
+                                          hw_nonce_stride = 1;
+                                          #endif
+                                          #ifdef I2C_HASH_MASTER
+                                          uint8_t active_slave_count = i2c_master_worker_count();
+                                          if (active_slave_count > 0)
+                                          {
+                                            uint32_t total_stride = (uint32_t)local_nonce_lanes + (uint32_t)active_slave_count;
+                                            if (total_stride == 0)
+                                              total_stride = 1;
+                                            if (total_stride > 255)
+                                              total_stride = 255;
+                                            use_partitioned_nonce_ranges = true;
+                                            current_total_nonce_lanes = (uint8_t)total_stride;
+                                            sw_nonce_cursor = nonce_seed;
+                                            sw_nonce_stride = total_stride;
+                                            #ifdef HARDWARE_SHA265
+                                            hw_nonce_cursor = nonce_seed + 1;
+                                            hw_nonce_stride = total_stride;
+                                            #endif
+                                          }
                                           #endif
                                           
 
@@ -1509,15 +1774,34 @@ void runStratumWorker(void *name) {
                                           #endif
                                           for (uint32_t i = 0; i < kJobQueueTargetDepth; ++i)
                                           {
-                                            JobPush(s_job_queue_sw, job_data, nonce_pool, sw_nonce_count);
-                                            nonce_pool += sw_nonce_count;
-                                            #ifdef HARDWARE_SHA265
-                                            JobPush(s_job_queue_hw, job_data, nonce_pool, hw_nonce_count);
-                                            nonce_pool += hw_nonce_count;
-                                            #endif
+                                            if (use_partitioned_nonce_ranges)
+                                            {
+                                              JobPush(s_job_queue_sw, job_data, sw_nonce_cursor, sw_nonce_count, sw_nonce_stride);
+                                              sw_nonce_cursor = nonce_stride_advance_u32(sw_nonce_cursor, sw_nonce_stride, sw_nonce_count);
+                                              #ifdef HARDWARE_SHA265
+                                              JobPush(s_job_queue_hw, job_data, hw_nonce_cursor, hw_nonce_count, hw_nonce_stride);
+                                              hw_nonce_cursor = nonce_stride_advance_u32(hw_nonce_cursor, hw_nonce_stride, hw_nonce_count);
+                                              #endif
+                                            }
+                                            else
+                                            {
+                                              JobPush(s_job_queue_sw, job_data, nonce_pool, sw_nonce_count);
+                                              nonce_pool += sw_nonce_count;
+                                              #ifdef HARDWARE_SHA265
+                                              JobPush(s_job_queue_hw, job_data, nonce_pool, hw_nonce_count);
+                                              nonce_pool += hw_nonce_count;
+                                              #endif
+                                            }
                                           }
                                           #ifdef I2C_HASH_MASTER
-                                          i2c_master_set_active_job(job_pool, currentPoolDifficulty, mMiner.bytearray_blockheader, diget_mid, bake);
+                                          i2c_master_set_active_job(job_pool,
+                                                                    currentPoolDifficulty,
+                                                                    nonce_seed,
+                                                                    local_nonce_lanes,
+                                                                    current_total_nonce_lanes,
+                                                                    mMiner.bytearray_blockheader,
+                                                                    diget_mid,
+                                                                    bake);
                                           #endif
                                       } else
                                       {
@@ -1527,10 +1811,10 @@ void runStratumWorker(void *name) {
                                         MiningJobStop(job_pool, s_submition_map);
                                       }
                                       break;
-          case MINING_SET_DIFFICULTY: parse_mining_set_difficulty(line, currentPoolDifficulty);
+          case MINING_SET_DIFFICULTY: parse_mining_set_difficulty_doc(stratum_doc, currentPoolDifficulty);
                                       break;
           case STRATUM_SUCCESS:       {
-                                        unsigned long id = parse_extract_id(line);
+                                        unsigned long id = parse_extract_id_doc(stratum_doc);
                                         auto it = s_submition_map.find(id);
                                         if (it != s_submition_map.end())
                                         {
@@ -1549,8 +1833,8 @@ void runStratumWorker(void *name) {
                                       }
                                       break;
           case STRATUM_PARSE_ERROR:   {
-                                        unsigned long id = parse_extract_id(line);
-                                        if (is_stale_error(line))
+                                        unsigned long id = doc_valid ? parse_extract_id_doc(stratum_doc) : 0;
+                                        if (doc_valid && is_stale_error_doc(stratum_doc))
                                           stales++;
                                         auto it = s_submition_map.find(id);
                                         if (it != s_submition_map.end())
@@ -1560,16 +1844,18 @@ void runStratumWorker(void *name) {
                                         }
                                       }
                                       break;
-          default:                    Serial.println("  Parsed JSON: unknown"); break;
+          default:
+                                      #ifdef DEBUG_MINING
+                                      Serial.println("  Parsed JSON: unknown");
+                                      #endif
+                                      break;
 
       }
     }
 
     JobResult job_results[kJobResultsMax];
     size_t job_results_count = 0;
-    vTaskDelay(50 / portTICK_PERIOD_MS); //Small delay
 
-    
     if (job_pool != 0xFFFFFFFF)
     {
       #ifdef I2C_HASH_MASTER
@@ -1590,17 +1876,41 @@ void runStratumWorker(void *name) {
       {
         while (s_job_queue_sw && uxQueueMessagesWaiting(s_job_queue_sw) < kJobQueueTargetDepth)
         {
-          if (!JobPush(s_job_queue_sw, job_data, nonce_pool, sw_nonce_count))
+          bool pushed = false;
+          if (use_partitioned_nonce_ranges)
+          {
+            pushed = JobPush(s_job_queue_sw, job_data, sw_nonce_cursor, sw_nonce_count, sw_nonce_stride);
+            if (pushed)
+              sw_nonce_cursor = nonce_stride_advance_u32(sw_nonce_cursor, sw_nonce_stride, sw_nonce_count);
+          }
+          else
+          {
+            pushed = JobPush(s_job_queue_sw, job_data, nonce_pool, sw_nonce_count);
+            if (pushed)
+              nonce_pool += sw_nonce_count;
+          }
+          if (!pushed)
             break;
-          nonce_pool += sw_nonce_count;
         }
         #ifdef HARDWARE_SHA265
         const uint32_t hw_nonce_count = calc_nonce_per_job_hw();
         while (s_job_queue_hw && uxQueueMessagesWaiting(s_job_queue_hw) < kJobQueueTargetDepth)
         {
-          if (!JobPush(s_job_queue_hw, job_data, nonce_pool, hw_nonce_count))
+          bool pushed = false;
+          if (use_partitioned_nonce_ranges)
+          {
+            pushed = JobPush(s_job_queue_hw, job_data, hw_nonce_cursor, hw_nonce_count, hw_nonce_stride);
+            if (pushed)
+              hw_nonce_cursor = nonce_stride_advance_u32(hw_nonce_cursor, hw_nonce_stride, hw_nonce_count);
+          }
+          else
+          {
+            pushed = JobPush(s_job_queue_hw, job_data, nonce_pool, hw_nonce_count);
+            if (pushed)
+              nonce_pool += hw_nonce_count;
+          }
+          if (!pushed)
             break;
-          nonce_pool += hw_nonce_count;
         }
         #endif
       }
@@ -1623,12 +1933,14 @@ void runStratumWorker(void *name) {
           MiningJobStop(job_pool, s_submition_map);
           break;
         }
+        #if MINER_SHARE_LOG
         Serial.print("   - Current diff share: "); Serial.println(res->difficulty,12);
         Serial.print("   - Current pool diff : "); Serial.println(currentPoolDifficulty,12);
         Serial.print("   - TX SHARE: ");
         for (size_t i = 0; i < 32; i++)
             Serial.printf("%02x", res->hash[i]);
         Serial.println("");
+        #endif
         mLastTXtoPool = millis();
 
         auto sub_ptr = std::make_shared<Submition>();
@@ -1644,6 +1956,27 @@ void runStratumWorker(void *name) {
           s_submition_map.erase(s_submition_map.begin());
         s_submition_map[sumbit_id] = sub_ptr;
       }
+    }
+
+    uint32_t loop_delay_ms = STRATUM_LOOP_DELAY_IDLE_MS;
+    if (client.connected() && client.available())
+      loop_delay_ms = STRATUM_LOOP_DELAY_BUSY_MS;
+    else if (processed_pool_message || job_results_count > 0)
+      loop_delay_ms = STRATUM_LOOP_DELAY_BUSY_MS;
+    else if (job_pool != 0xFFFFFFFF)
+      loop_delay_ms = STRATUM_LOOP_DELAY_ACTIVE_MS;
+
+    if (loop_delay_ms > 0)
+    {
+      TickType_t delay_ticks = loop_delay_ms / portTICK_PERIOD_MS;
+      if (delay_ticks > 0)
+        vTaskDelay(delay_ticks);
+      else
+        taskYIELD();
+    }
+    else
+    {
+      taskYIELD();
     }
   }
 }

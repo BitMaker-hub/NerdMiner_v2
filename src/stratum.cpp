@@ -16,6 +16,9 @@
 #ifndef STRATUM_SUBSCRIBE_POLL_MS
 #define STRATUM_SUBSCRIBE_POLL_MS 20
 #endif
+#ifndef STRATUM_VERBOSE_LOG
+#define STRATUM_VERBOSE_LOG 1
+#endif
 
 
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
@@ -41,9 +44,18 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> &doc) {
   
   if (!doc.containsKey("error")) return false;
   
-  if (doc["error"].size() == 0) return false;
+  if (doc["error"].size() == 0 || doc["error"].isNull()) return false;
 
-  Serial.printf("ERROR: %d | reason: %s \n", (const int) doc["error"][0], (const char*) doc["error"][1]);
+  const int code = (const int)doc["error"][0];
+  const char *reason = (const char*)doc["error"][1];
+  bool stale_like = (code == 21);
+  if (reason != nullptr)
+  {
+    stale_like = stale_like || strstr(reason, "stale") || strstr(reason, "Stale") ||
+                 strstr(reason, "job not found") || strstr(reason, "Job not found");
+  }
+  if (!stale_like || STRATUM_VERBOSE_LOG)
+    Serial.printf("ERROR: %d | reason: %s \n", code, reason ? reason : "");
 
   return true;  
 }
@@ -116,7 +128,9 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const
 bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
 {
     if(!verifyPayload(&line)) return false;
+    #if STRATUM_VERBOSE_LOG
     Serial.print("  Receiving: "); Serial.println(line);
+    #endif
    
     DeserializationError error = deserializeJson(doc, line);
 
@@ -169,24 +183,38 @@ bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass)
 stratum_method parse_mining_method(String line)
 {
     if(!verifyPayload(&line)) return STRATUM_PARSE_ERROR;
+    #if STRATUM_VERBOSE_LOG
     Serial.print("  Receiving: "); Serial.println(line);
+    #endif
     
     DeserializationError error = deserializeJson(doc, line);
+    if (error)
+      return STRATUM_PARSE_ERROR;
 
-    if (error || checkError(doc)) return STRATUM_PARSE_ERROR;
+    return parse_mining_method_doc(doc);
+}
 
-    if (!doc.containsKey("method")) {
+stratum_method parse_mining_method_doc(const StaticJsonDocument<BUFFER_JSON_DOC>& doc)
+{
+    if (checkError(doc))
+      return STRATUM_PARSE_ERROR;
+
+    if (!doc.containsKey("method"))
+    {
       // "error":null means success
       if (doc["error"].isNull())
         return STRATUM_SUCCESS;
-      else
-        return STRATUM_UNKNOWN;
+      return STRATUM_UNKNOWN;
     }
+    const char *method = doc["method"];
+    if (method == nullptr)
+      return STRATUM_UNKNOWN;
+
     stratum_method result = STRATUM_UNKNOWN;
 
-    if (strcmp("mining.notify", (const char*) doc["method"]) == 0) {
+    if (strcmp("mining.notify", method) == 0) {
         result = MINING_NOTIFY;
-    } else if (strcmp("mining.set_difficulty", (const char*) doc["method"]) == 0) {
+    } else if (strcmp("mining.set_difficulty", method) == 0) {
         result = MINING_SET_DIFFICULTY;
     }
 
@@ -195,22 +223,31 @@ stratum_method parse_mining_method(String line)
 
 bool parse_mining_notify(String line, mining_job& mJob)
 {
-    Serial.println("    Parsing Method [MINING NOTIFY]");
     if(!verifyPayload(&line)) return false;
+    #if STRATUM_VERBOSE_LOG
+    Serial.println("    Parsing Method [MINING NOTIFY]");
+    #endif
    
     DeserializationError error = deserializeJson(doc, line);
+    if (error)
+      return false;
 
-    if (error) return false;
-    if (!doc.containsKey("params")) return false;
+    return parse_mining_notify_doc(doc, mJob);
+}
 
-    mJob.job_id = String((const char*) doc["params"][0]);
-    mJob.prev_block_hash = String((const char*) doc["params"][1]);
-    mJob.coinb1 = String((const char*) doc["params"][2]);
-    mJob.coinb2 = String((const char*) doc["params"][3]);
+bool parse_mining_notify_doc(StaticJsonDocument<BUFFER_JSON_DOC>& doc, mining_job& mJob)
+{
+    if (!doc.containsKey("params"))
+      return false;
+
+    mJob.job_id = String((const char*)doc["params"][0]);
+    mJob.prev_block_hash = String((const char*)doc["params"][1]);
+    mJob.coinb1 = String((const char*)doc["params"][2]);
+    mJob.coinb2 = String((const char*)doc["params"][3]);
     mJob.merkle_branch = doc["params"][4];
-    mJob.version = String((const char*) doc["params"][5]);
-    mJob.nbits = String((const char*) doc["params"][6]);
-    mJob.ntime = String((const char*) doc["params"][7]);
+    mJob.version = String((const char*)doc["params"][5]);
+    mJob.nbits = String((const char*)doc["params"][6]);
+    mJob.ntime = String((const char*)doc["params"][7]);
     mJob.clean_jobs = doc["params"][8]; //bool
 
     #ifdef DEBUG_MINING
@@ -248,7 +285,9 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
         mJob.ntime.c_str(),
         String(nonce, HEX).c_str()
         );
+    #if STRATUM_VERBOSE_LOG
     Serial.print("  Sending  : "); Serial.print(payload);
+    #endif
     client.print(payload);
     //Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
 
@@ -257,15 +296,26 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
 
 bool parse_mining_set_difficulty(String line, double& difficulty)
 {
-    Serial.println("    Parsing Method [SET DIFFICULTY]");
     if(!verifyPayload(&line)) return false;
+    #if STRATUM_VERBOSE_LOG
+    Serial.println("    Parsing Method [SET DIFFICULTY]");
+    #endif
    
     DeserializationError error = deserializeJson(doc, line);
+    if (error)
+      return false;
 
-    if (error) return false;
-    if (!doc.containsKey("params")) return false;
+    return parse_mining_set_difficulty_doc(doc, difficulty);
+}
 
+bool parse_mining_set_difficulty_doc(const StaticJsonDocument<BUFFER_JSON_DOC>& doc, double& difficulty)
+{
+    if (!doc.containsKey("params"))
+      return false;
+
+    #if STRATUM_VERBOSE_LOG
     Serial.print("    difficulty: "); Serial.println((double)doc["params"][0],12);
+    #endif
     difficulty = (double)doc["params"][0];
 
     return true;
@@ -289,11 +339,14 @@ unsigned long parse_extract_id(String line)
     DeserializationError error = deserializeJson(doc, line);
     if (error)
         return 0;
-    
+
+    return parse_extract_id_doc(doc);
+}
+
+unsigned long parse_extract_id_doc(const StaticJsonDocument<BUFFER_JSON_DOC>& doc)
+{
     if (!doc.containsKey("id"))
-        return 0;
+      return 0;
 
-    unsigned long id = doc["id"];
-
-    return id;
+    return doc["id"];
 }

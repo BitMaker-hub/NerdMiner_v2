@@ -21,6 +21,12 @@
 #ifndef I2C_SLAVE_SW_CORE
 #define I2C_SLAVE_SW_CORE 0
 #endif
+#ifndef I2C_SLAVE_TASK_PRIORITY
+#define I2C_SLAVE_TASK_PRIORITY 5
+#endif
+#ifndef I2C_SLAVE_SW_TASK_PRIORITY
+#define I2C_SLAVE_SW_TASK_PRIORITY 2
+#endif
 #endif
 
 #ifdef TOUCH_ENABLE
@@ -706,7 +712,7 @@ void setup()
   #endif
   (void)res2;
   #else
-  BaseType_t res2 = xTaskCreatePinnedToCore(runI2cSlaveWorker, "I2C-Slave", 12000, (void*)"(I2C-Slave)", 4, NULL, 0);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runI2cSlaveWorker, "I2C-Slave", 12000, (void*)"(I2C-Slave)", I2C_SLAVE_TASK_PRIORITY, NULL, 0);
   (void)res2;
   #endif
 
@@ -719,20 +725,26 @@ void setup()
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
   #ifdef HARDWARE_SHA265
-    // Keep HW miner on core 1. In slave mode the SW miner can run on core 0.
+    // Keep HW miner on core 1.
     xTaskCreatePinnedToCore(minerWorkerHw, "MinerHw-0", 4096, (void*)0, 4, &minerTask1, 1);
   #else
+    #if defined(I2C_HASH_SLAVE)
+    xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-0", 6000, (void*)0, I2C_SLAVE_SW_TASK_PRIORITY, &minerTask1, 1);
+    #else
     xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-0", 6000, (void*)0, 3, &minerTask1, 1);
+    #endif
   #endif
   esp_task_wdt_add(minerTask1);
 
 #if (SOC_CPU_CORES_NUM >= 2)
   #if defined(I2C_HASH_SLAVE)
   constexpr BaseType_t swCore = I2C_SLAVE_SW_CORE;
+  constexpr UBaseType_t swPrio = I2C_SLAVE_SW_TASK_PRIORITY;
   #else
   constexpr BaseType_t swCore = 1;
+  constexpr UBaseType_t swPrio = 3;
   #endif
-  xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-1", 6000, (void*)1, 3, &minerTask2, swCore);
+  xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-1", 6000, (void*)1, swPrio, &minerTask2, swCore);
   esp_task_wdt_add(minerTask2);
 #endif
 
