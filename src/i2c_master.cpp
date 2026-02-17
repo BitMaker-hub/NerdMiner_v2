@@ -16,10 +16,31 @@
 #ifndef I2C_HASH_CLOCK_HZ
 #define I2C_HASH_CLOCK_HZ 100000
 #endif
+#ifndef I2C_MASTER_DIAG_IMMEDIATE_LOG
+#define I2C_MASTER_DIAG_IMMEDIATE_LOG 0
+#endif
 #define I2C_MASTER_TX_BUF_LEN 0
 #define I2C_MASTER_RX_BUF_LEN 0
 
 static i2c_config_t s_i2c_config;
+static I2cMasterDiagSnapshot s_i2c_diag = {};
+
+static inline void i2c_diag_mark_err(esp_err_t err, uint8_t addr)
+{
+    s_i2c_diag.last_err = (int32_t)err;
+    s_i2c_diag.last_err_addr = addr;
+    s_i2c_diag.last_err_ms = millis();
+}
+
+void i2c_master_diag_reset()
+{
+    memset(&s_i2c_diag, 0, sizeof(s_i2c_diag));
+}
+
+void i2c_master_diag_snapshot(I2cMasterDiagSnapshot &snapshot)
+{
+    snapshot = s_i2c_diag;
+}
 
 static bool i2c_probe_hash_slave(uint8_t addr)
 {
@@ -117,8 +138,20 @@ void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, const std::
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write(cmd, (const uint8_t*)&request, sizeof(request), true);
         i2c_master_stop(cmd);
-        i2c_master_cmd_begin(I2C_HASH_BUS_PORT, cmd, 10 / portTICK_PERIOD_MS);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_HASH_BUS_PORT, cmd, 10 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
+        if (ret == ESP_OK)
+        {
+            s_i2c_diag.feed_tx_ok++;
+        }
+        else
+        {
+            s_i2c_diag.feed_tx_err++;
+            i2c_diag_mark_err(ret, slaves[n]);
+            #if I2C_MASTER_DIAG_IMMEDIATE_LOG
+            Serial.printf("[I2C-MASTER][diag] FEED write failed addr=0x%02X err=%d\n", (unsigned)slaves[n], (int)ret);
+            #endif
+        }
     }
 }
 
@@ -149,8 +182,20 @@ void i2c_hit_slaves(const std::vector<uint8_t>& slaves)
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write(cmd, request, sizeof(request), true);
         i2c_master_stop(cmd);
-        i2c_master_cmd_begin(I2C_HASH_BUS_PORT, cmd, 10 / portTICK_PERIOD_MS);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_HASH_BUS_PORT, cmd, 10 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
+        if (ret == ESP_OK)
+        {
+            s_i2c_diag.hit_tx_ok++;
+        }
+        else
+        {
+            s_i2c_diag.hit_tx_err++;
+            i2c_diag_mark_err(ret, slaves[n]);
+            #if I2C_MASTER_DIAG_IMMEDIATE_LOG
+            Serial.printf("[I2C-MASTER][diag] HIT write failed addr=0x%02X err=%d\n", (unsigned)slaves[n], (int)ret);
+            #endif
+        }
     }
 }
 
@@ -169,19 +214,39 @@ void i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id, std::vec
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_READ, true);
         i2c_master_read(cmd, (uint8_t*)&result, sizeof(result), I2C_MASTER_LAST_NACK);
         i2c_master_stop(cmd);
+        uint32_t rx_t0 = millis();
         esp_err_t ret = i2c_master_cmd_begin(I2C_HASH_BUS_PORT, cmd, 10 / portTICK_PERIOD_MS);
+        uint32_t rx_ms = (uint32_t)(millis() - rx_t0);
+        if (rx_ms > s_i2c_diag.max_rx_ms)
+            s_i2c_diag.max_rx_ms = rx_ms;
         i2c_cmd_link_delete(cmd);
         if (ret != ESP_OK)
+        {
+            s_i2c_diag.harvest_rx_err++;
+            i2c_diag_mark_err(ret, slaves[n]);
+            #if I2C_MASTER_DIAG_IMMEDIATE_LOG
+            Serial.printf("[I2C-MASTER][diag] RX read failed addr=0x%02X err=%d\n", (unsigned)slaves[n], (int)ret);
+            #endif
             continue;
+        }
 
         uint8_t crc = i2cCommandCrc8(&result, sizeof(result));
 
         if (crc != result.crc)
+        {
+            s_i2c_diag.harvest_crc_err++;
             continue;
+        }
         if (result.cmd != I2C_CMD_SLAVE_RESULT)
+        {
+            s_i2c_diag.harvest_cmd_err++;
             continue;
+        }
         if (result.id != id)
+        {
+            s_i2c_diag.harvest_id_err++;
             continue;
+        }
 
         I2cSlaveHarvest item{};
         item.address = slaves[n];
@@ -189,6 +254,7 @@ void i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uint8_t id, std::vec
         item.processed_nonce = result.processed_nonce;
         item.has_nonce = (result.nonce != kI2cInvalidNonce);
         results.push_back(item);
+        s_i2c_diag.harvest_rx_ok++;
     }
 }
 

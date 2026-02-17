@@ -17,7 +17,7 @@
 #define STRATUM_SUBSCRIBE_POLL_MS 20
 #endif
 #ifndef STRATUM_VERBOSE_LOG
-#define STRATUM_VERBOSE_LOG 1
+#define STRATUM_VERBOSE_LOG 0
 #endif
 
 
@@ -74,9 +74,11 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const
     const bool use_resume = (resume_id != nullptr && resume_id[0] != '\0');
     #ifndef HAN
     if (use_resume)
-      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);
+      // snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MYMinerV2/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);
     else
-      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+      // snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
+      snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"MYMinerV2/%s\"]}\n", id, CURRENT_VERSION);
     #else
     if (use_resume)
       snprintf(payload, sizeof(payload), "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\", \"%s\"]}\n", id, CURRENT_VERSION, resume_id);

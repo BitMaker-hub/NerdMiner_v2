@@ -59,6 +59,15 @@
 #ifndef I2C_REBALANCE_DEBUG
 #define I2C_REBALANCE_DEBUG 0
 #endif
+#ifndef I2C_MASTER_DIAG_LOG
+#define I2C_MASTER_DIAG_LOG 0
+#endif
+#ifndef I2C_MASTER_DIAG_LOG_MS
+#define I2C_MASTER_DIAG_LOG_MS 10000
+#endif
+#ifndef I2C_MASTER_DIAG_WARN_CYCLE_MS
+#define I2C_MASTER_DIAG_WARN_CYCLE_MS 120
+#endif
 #ifndef WIFI_RECONNECT_INTERVAL_MS
 #define WIFI_RECONNECT_INTERVAL_MS 10000
 #endif
@@ -99,7 +108,7 @@
 #define STRATUM_LOOP_DELAY_IDLE_MS 20
 #endif
 #ifndef MINER_SHARE_LOG
-#define MINER_SHARE_LOG 1
+#define MINER_SHARE_LOG 0
 #endif
 #ifndef SUGGEST_DIFF_FIXED_VALUE
 #define SUGGEST_DIFF_FIXED_VALUE 16384.0
@@ -1225,6 +1234,16 @@ void runI2cMasterWorker(void *name)
   bool loss_recovery_pending = false;
   uint8_t loss_recovery_attempts = 0;
   uint32_t loss_recovery_next_scan = 0;
+  #if I2C_MASTER_DIAG_LOG
+  uint32_t diag_last_log_ms = millis();
+  uint32_t diag_cycle_count = 0;
+  uint64_t diag_cycle_total_ms = 0;
+  uint32_t diag_cycle_max_ms = 0;
+  uint32_t diag_resp_total = 0;
+  uint32_t diag_expected_total = 0;
+  uint32_t diag_empty_cycles = 0;
+  i2c_master_diag_reset();
+  #endif
 
   auto scan_i2c_workers = [&](bool verbose)
   {
@@ -1440,10 +1459,30 @@ void runI2cMasterWorker(void *name)
         }
       }
       i2c_master_add_processed_hashes(nonces_done);
+      uint32_t elapsed = 0;
+      if (time_end > time_start)
+        elapsed = time_end - time_start;
+
+      #if I2C_MASTER_DIAG_LOG
+      diag_cycle_count++;
+      diag_cycle_total_ms += elapsed;
+      if (elapsed > diag_cycle_max_ms)
+        diag_cycle_max_ms = elapsed;
+      diag_resp_total += (uint32_t)i2c_harvest_buffer.size();
+      diag_expected_total += (uint32_t)i2c_slave_vector.size();
+      if (i2c_harvest_buffer.empty())
+        diag_empty_cycles++;
+      if (I2C_MASTER_DIAG_WARN_CYCLE_MS > 0 && elapsed >= I2C_MASTER_DIAG_WARN_CYCLE_MS)
+      {
+        Serial.printf("[I2C-MASTER][diag] Slow cycle %lu ms, responded %u/%u\n",
+                      (unsigned long)elapsed,
+                      (unsigned)i2c_harvest_buffer.size(),
+                      (unsigned)i2c_slave_vector.size());
+      }
+      #endif
 
       if (time_end > time_start)
       {
-        uint32_t elapsed = time_end - time_start;
         if (I2C_MASTER_CYCLE_MS > 0 && elapsed < I2C_MASTER_CYCLE_MS)
           vTaskDelay((I2C_MASTER_CYCLE_MS - elapsed) / portTICK_PERIOD_MS);
       }
@@ -1459,6 +1498,53 @@ void runI2cMasterWorker(void *name)
       else
         vTaskDelay(1);
     }
+
+    #if I2C_MASTER_DIAG_LOG
+    uint32_t now_diag_ms = millis();
+    if ((uint32_t)(now_diag_ms - diag_last_log_ms) >= I2C_MASTER_DIAG_LOG_MS)
+    {
+      I2cMasterDiagSnapshot diag{};
+      i2c_master_diag_snapshot(diag);
+      const uint32_t cycle_avg_ms = (diag_cycle_count > 0) ? (uint32_t)(diag_cycle_total_ms / diag_cycle_count) : 0;
+      const uint32_t resp_x10 = (diag_expected_total > 0) ? (uint32_t)(((uint64_t)diag_resp_total * 1000ULL) / (uint64_t)diag_expected_total) : 0;
+
+      Serial.printf("[I2C-MASTER][diag] cycle avg/max=%lu/%lu ms, resp=%lu/%lu (%lu.%lu%%), empty=%lu, "
+                    "feed ok/err=%lu/%lu, hit ok/err=%lu/%lu, rx ok/err=%lu/%lu, crc=%lu, cmd=%lu, id=%lu, max_rx=%lu ms, stales=%lu\n",
+                    (unsigned long)cycle_avg_ms,
+                    (unsigned long)diag_cycle_max_ms,
+                    (unsigned long)diag_resp_total,
+                    (unsigned long)diag_expected_total,
+                    (unsigned long)(resp_x10 / 10),
+                    (unsigned long)(resp_x10 % 10),
+                    (unsigned long)diag_empty_cycles,
+                    (unsigned long)diag.feed_tx_ok,
+                    (unsigned long)diag.feed_tx_err,
+                    (unsigned long)diag.hit_tx_ok,
+                    (unsigned long)diag.hit_tx_err,
+                    (unsigned long)diag.harvest_rx_ok,
+                    (unsigned long)diag.harvest_rx_err,
+                    (unsigned long)diag.harvest_crc_err,
+                    (unsigned long)diag.harvest_cmd_err,
+                    (unsigned long)diag.harvest_id_err,
+                    (unsigned long)diag.max_rx_ms,
+                    (unsigned long)stales);
+      if (diag.last_err != 0)
+      {
+        Serial.printf("[I2C-MASTER][diag] last i2c err=%ld at 0x%02X (%lu ms ago)\n",
+                      (long)diag.last_err,
+                      (unsigned)diag.last_err_addr,
+                      (unsigned long)((uint32_t)(now_diag_ms - diag.last_err_ms)));
+      }
+      i2c_master_diag_reset();
+      diag_cycle_count = 0;
+      diag_cycle_total_ms = 0;
+      diag_cycle_max_ms = 0;
+      diag_resp_total = 0;
+      diag_expected_total = 0;
+      diag_empty_cycles = 0;
+      diag_last_log_ms = now_diag_ms;
+    }
+    #endif
 
     wdt_counter++;
     if (wdt_counter >= 8)
