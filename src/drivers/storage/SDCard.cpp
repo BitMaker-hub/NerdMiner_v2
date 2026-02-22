@@ -1,11 +1,25 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <string.h>
 
 #include "storage.h"
 #include "nvMemory.h"
 #include "../devices/device.h"
 #include  "SDCard.h"
+
+static void copyCString(char *dst, size_t dstSize, const char *src)
+{
+    if (dst == nullptr || dstSize == 0)
+        return;
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
 
 #if defined (BUILD_SDMMC_1) || defined(BUILD_SDMMC_4)
 #include <SD_MMC.h>
@@ -115,8 +129,8 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->WifiPW = json[JSON_KEY_PASW] | Settings->WifiPW;
                     }
                     Settings->PoolAddress = json[JSON_KEY_POOLURL] | Settings->PoolAddress;
-                    strcpy(Settings->PoolPassword, json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
-                    strcpy(Settings->BtcWallet, json[JSON_KEY_WALLETID] | Settings->BtcWallet);
+                    copyCString(Settings->PoolPassword, sizeof(Settings->PoolPassword), json[JSON_KEY_POOLPASS] | Settings->PoolPassword);
+                    copyCString(Settings->BtcWallet, sizeof(Settings->BtcWallet), json[JSON_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))

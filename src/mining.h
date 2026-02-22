@@ -8,7 +8,7 @@
 #define TARGET_NONCE    471136297U
 #define DEFAULT_DIFFICULTY  0.00015
 #define KEEPALIVE_TIME_ms       30000
-#define POOLINACTIVITY_TIME_ms  60000
+#define POOLINACTIVITY_TIME_ms  360000
 
 //#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #define HARDWARE_SHA265
@@ -19,7 +19,9 @@
 void runMonitor(void *name);
 
 void runStratumWorker(void *name);
+void runI2cSlaveWorker(void *name);
 void runMiner(void *name);
+void initMiningQueues();
 
 void minerWorkerSw(void * task_id);
 void minerWorkerHw(void * task_id);

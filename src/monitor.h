@@ -13,11 +13,7 @@
 #define UPDATE_PERIOD_h   5
 
 //API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
-
-//#define getBTCAPI "https://api.coindesk.com/v1/bpi/currentprice.json" -- doesn't work anymore
-//#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT" -- updates infrequently
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-
+#define getBTCAPI "https://api.coinbase.com/v2/prices/BTC-USD/spot"
 #define UPDATE_BTC_min   1
 
 //API Block height
@@ -69,6 +65,7 @@ typedef struct{
 typedef struct {
   String completedShares;
   String totalMHashes;
+  String stales;
   String totalKHashes;
   String currentHashRate;
   String templates;

@@ -24,7 +24,7 @@
 #include <math.h>
 #include <string.h>
 
-//#pragma GCC optimize ("Ofast")
+#pragma GCC optimize ("Ofast")
 //#pragma GCC optimize ("jump-tables")
 //#pragma GCC optimize ("tree-switch-conversion")
 //#pragma GCC optimize ("no-stack-check")
@@ -486,13 +486,13 @@ IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, const uint8_t* dataIn, u
 }
 
 
-IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+static IRAM_ATTR bool nerd_sha256d_baked_core(const uint32_t* digest, uint32_t nonce_be, const uint32_t* bake, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
     //*********** Init 1rst SHA ***********
 
     //W0 W1 W2 is same !!
-    uint32_t W[64] = { bake[0], bake[1], bake[2], GET_UINT32_BE(dataIn, 12),
+    uint32_t W[64] = { bake[0], bake[1], bake[2], nonce_be,
                 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 640 };
     W[16] = bake[3];
@@ -741,4 +741,14 @@ IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
 #endif
     return true;
+}
+
+IRAM_ATTR bool nerd_sha256d_baked_nonce(const uint32_t* digest, uint32_t nonce, const uint32_t* bake, uint8_t* doubleHash)
+{
+    return nerd_sha256d_baked_core(digest, __builtin_bswap32(nonce), bake, doubleHash);
+}
+
+IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+{
+    return nerd_sha256d_baked_core(digest, GET_UINT32_BE(dataIn, 12), bake, doubleHash);
 }

@@ -1,4 +1,5 @@
 #include "display.h"
+#include <Arduino.h>
 
 #ifdef NO_DISPLAY
 DisplayDriver *currentDisplayDriver = &noDisplayDriver;
@@ -60,10 +61,6 @@ DisplayDriver *currentDisplayDriver = &m5stickCPlusDriver;
 DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #endif
 
-#ifdef ST7735S_DISPLAY
-DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
-#endif
-
 
 // Initialize the display
 void initDisplay()
@@ -117,6 +114,19 @@ void drawCurrentScreen(unsigned long mElapsed)
 void animateCurrentScreen(unsigned long frame)
 {
   currentDisplayDriver->animateCurrentScreen(frame);
+}
+
+bool isDisplayActive()
+{
+#if defined(TFT_BL)
+#if defined(TFT_BACKLIGHT_ON)
+  return digitalRead(TFT_BL) == TFT_BACKLIGHT_ON;
+#else
+  return digitalRead(TFT_BL) != LOW;
+#endif
+#else
+  return true;
+#endif
 }
 
 // Do LED stuff

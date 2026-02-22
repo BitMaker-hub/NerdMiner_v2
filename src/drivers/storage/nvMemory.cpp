@@ -5,9 +5,23 @@
 #include <SPIFFS.h>
 #include <FS.h>
 #include <ArduinoJson.h>
+#include <string.h>
 
 #include "../devices/device.h"
 #include "storage.h"
+
+static void copyCString(char *dst, size_t dstSize, const char *src)
+{
+    if (dst == nullptr || dstSize == 0)
+        return;
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
 
 nvMemory::nvMemory() : Initialized_(false){};
 
@@ -91,8 +105,8 @@ bool nvMemory::loadConfig(TSettings* Settings)
                 if (!error)
                 {
                     Settings->PoolAddress = json[JSON_SPIFFS_KEY_POOLURL] | Settings->PoolAddress;
-                    strcpy(Settings->PoolPassword, json[JSON_SPIFFS_KEY_POOLPASS] | Settings->PoolPassword);
-                    strcpy(Settings->BtcWallet, json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
+                    copyCString(Settings->PoolPassword, sizeof(Settings->PoolPassword), json[JSON_SPIFFS_KEY_POOLPASS] | Settings->PoolPassword);
+                    copyCString(Settings->BtcWallet, sizeof(Settings->BtcWallet), json[JSON_SPIFFS_KEY_WALLETID] | Settings->BtcWallet);
                     if (json.containsKey(JSON_SPIFFS_KEY_POOLPORT))
                         Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))

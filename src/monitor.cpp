@@ -5,11 +5,19 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <list>
+#include <time.h>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
+
+#ifndef MONITOR_NTP_LOG
+#define MONITOR_NTP_LOG 0
+#endif
+#ifndef MONITOR_NTP_RETRY_MS
+#define MONITOR_NTP_RETRY_MS 60000UL
+#endif
 
 extern uint32_t templates;
 extern uint32_t hashes;
@@ -20,6 +28,7 @@ extern uint64_t upTime;
 
 extern uint32_t shares; // increase if blockhash has 32 bits of zeroes
 extern uint32_t valids; // increased if blockhash <= targethalfshares
+extern uint32_t stales; // stale/late shares reported by pool
 
 extern double best_diff; // track best diff
 
@@ -64,7 +73,6 @@ void updateGlobalData(void){
             
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setTimeout(10000);
         try {
         http.begin(getGlobalHash);
         int httpCode = http.GET();
@@ -72,7 +80,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
@@ -97,7 +105,7 @@ void updateGlobalData(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
             String temp = "";
             if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
@@ -114,7 +122,6 @@ void updateGlobalData(void){
         
         http.end();
         } catch(...) {
-          Serial.println("Global data HTTP error caught");
           http.end();
         }
     }
@@ -129,7 +136,6 @@ String getBlockHeight(void){
         if (WiFi.status() != WL_CONNECTED) return current_block;
             
         HTTPClient http;
-        http.setTimeout(10000);
         try {
         http.begin(getHeightAPI);
         int httpCode = http.GET();
@@ -144,7 +150,6 @@ String getBlockHeight(void){
         }        
         http.end();
         } catch(...) {
-          Serial.println("Height HTTP error caught");
           http.end();
         }
     }
@@ -158,16 +163,9 @@ String getBTCprice(void){
     
     if((mBTCUpdate == 0) || (millis() - mBTCUpdate > UPDATE_BTC_min * 60 * 1000)){
     
-        if (WiFi.status() != WL_CONNECTED) {
-            static char price_buffer[16];
-            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-            return String(price_buffer);
-        }
+        if (WiFi.status() != WL_CONNECTED) return "$" + String(bitcoin_price);
         
         HTTPClient http;
-        http.setTimeout(10000);
-        bool priceUpdated = false;
-
         try {
         http.begin(getBTCAPI);
         int httpCode = http.GET();
@@ -175,12 +173,9 @@ String getBTCprice(void){
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
 
-            StaticJsonDocument<1024> doc;
+            DynamicJsonDocument doc(1024);
             deserializeJson(doc, payload);
-          
-            if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
-                bitcoin_price = doc["bitcoin"]["usd"];
-            }
+            if (doc.containsKey("data") && doc["data"].containsKey("amount")) bitcoin_price = doc["data"]["amount"];
 
             doc.clear();
 
@@ -189,33 +184,49 @@ String getBTCprice(void){
         
         http.end();
         } catch(...) {
-          Serial.println("BTC price HTTP error caught");
           http.end();
         }
-    }  
+    }
   
-  static char price_buffer[16];
-  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-  return String(price_buffer);
+  return "$" + String(bitcoin_price);
 }
 
 unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
+static unsigned long mLastNtpAttempt = 0;
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
   //Check if need an NTP call to check current time
-  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
+  const unsigned long now = millis();
+  const bool needs_initial_sync = (mTriggerUpdate == 0);
+  const bool needs_periodic_sync = (!needs_initial_sync) && ((now - mTriggerUpdate) > UPDATE_PERIOD_h * 60 * 60 * 1000UL);
+  const bool retry_window_elapsed = (mLastNtpAttempt == 0) || ((now - mLastNtpAttempt) > MONITOR_NTP_RETRY_MS);
+  if ((needs_periodic_sync || needs_initial_sync) && retry_window_elapsed)
+  {
+    mLastNtpAttempt = now;
     if(WiFi.status() == WL_CONNECTED) {
-        if(timeClient.update()) mTriggerUpdate = millis(); //NTP call to get current time
-        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
-        Serial.print("TimeClient NTPupdateTime ");
+        if (timeClient.update())
+        {
+          mTriggerUpdate = now;
+          initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
+          #if MONITOR_NTP_LOG
+          Serial.println("TimeClient NTPupdateTime");
+          #endif
+        }
+        else
+        {
+          #if MONITOR_NTP_LOG
+          Serial.println("TimeClient NTP update failed");
+          #endif
+        }
     }
   }
 
-  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  const unsigned long time_base = (mTriggerUpdate == 0) ? now : mTriggerUpdate;
+  unsigned long elapsedTime = (now - time_base) / 1000; // Tiempo transcurrido en segundos
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
   // convierte la hora actual en horas, minutos y segundos
@@ -230,14 +241,12 @@ String getDate(){
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
   // Convierte la hora actual (epoch time) en una estructura tm
-  struct tm *tm = localtime((time_t *)&currentTime);
-
-  int year = tm->tm_year + 1900; // tm_year es el número de años desde 1900
-  int month = tm->tm_mon + 1;    // tm_mon es el mes del año desde 0 (enero) hasta 11 (diciembre)
-  int day = tm->tm_mday;         // tm_mday es el día del mes
-
+  time_t now_epoch = (time_t)currentTime;
+  struct tm tm_buf{};
+  if (localtime_r(&now_epoch, &tm_buf) == nullptr)
+    return String("00/00/0000");
   char currentDate[20];
-  sprintf(currentDate, "%02d/%02d/%04d", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
+  sprintf(currentDate, "%02d/%02d/%04d", tm_buf.tm_mday, tm_buf.tm_mon + 1, tm_buf.tm_year + 1900);
 
   return String(currentDate);
 }
@@ -249,7 +258,6 @@ String getTime(void){
   char LocalHour[10];
   sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
   
-  String mystring(LocalHour);
   return LocalHour;
 }
 
@@ -336,6 +344,7 @@ mining_data getMiningData(unsigned long mElapsed)
   sprintf(timeMining, "%01d  %02d:%02d:%02d", days, hours, mins, secs);
 
   data.completedShares = shares;
+  data.stales = stales;
   data.totalMHashes = Mhashes;
   data.totalKHashes = totalKHashes;
   data.currentHashRate = getCurrentHashRate(mElapsed);
@@ -411,7 +420,7 @@ String getPoolAPIUrl(void) {
         poolAPIUrl = "https://public-pool.io:40557/api/client/";
     } 
     else {
-        if (Settings.PoolAddress == "pool.nerdminers.org") {
+        if (Settings.PoolAddress == "nerdminers.org") {
             poolAPIUrl = "https://pool.nerdminers.org/users/";
         }
         else {
@@ -419,8 +428,6 @@ String getPoolAPIUrl(void) {
                 case 3333:
                     if (Settings.PoolAddress == "pool.sethforprivacy.com")
                         poolAPIUrl = "https://pool.sethforprivacy.com/api/client/";
-                    if (Settings.PoolAddress == "pool.solomining.de")
-                        poolAPIUrl = "https://pool.solomining.de/api/client/";
                     // Add more cases for other addresses with port 3333 if needed
                     break;
                 case 2018:
@@ -442,7 +449,7 @@ pool_data getPoolData(void){
         if (WiFi.status() != WL_CONNECTED) return pData;            
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
-        http.setTimeout(10000);        
+        http.setReuse(true);        
         try {          
           String btcWallet = Settings.BtcWallet;
           // Serial.println(btcWallet);
@@ -462,7 +469,7 @@ pool_data getPoolData(void){
               filter["workersCount"] = true;
               filter["workers"][0]["sessionId"] = true;
               filter["workers"][0]["hashRate"] = true;
-              StaticJsonDocument<2048> doc;
+              DynamicJsonDocument doc(2048);
               deserializeJson(doc, payload, DeserializationOption::Filter(filter));
               //Serial.println(serializeJsonPretty(doc, Serial));
               if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
@@ -513,3 +520,4 @@ pool_data getPoolData(void){
     }
     return pData;
 }
+

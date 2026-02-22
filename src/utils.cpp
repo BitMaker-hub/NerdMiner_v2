@@ -8,6 +8,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifndef MINER_JOB_DEBUG_LOG
+#define MINER_JOB_DEBUG_LOG 0
+#endif
+
 #ifndef bswap_16
 #define bswap_16(a) ((((uint16_t) (a) << 8) & 0xff00) | (((uint16_t) (a) >> 8) & 0xff))
 #endif
@@ -36,7 +40,7 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
             if (!*in)
                 return count;
             *out = (*out << 4) | hex(*in++);
-            *out++;
+            out++;
             count++;
         }
         return count;
@@ -47,6 +51,35 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
         }
         return count;
     }
+}
+
+static inline void copyCString(char *dst, size_t dst_size, const char *src)
+{
+    if (dst == nullptr || dst_size == 0)
+        return;
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, dst_size - 1);
+    dst[dst_size - 1] = '\0';
+}
+
+static inline size_t appendCString(char *dst, size_t dst_size, size_t offset, const char *src)
+{
+    if (dst == nullptr || dst_size == 0 || offset >= dst_size)
+        return offset;
+    if (src == nullptr)
+        src = "";
+
+    size_t src_len = strlen(src);
+    size_t room = dst_size - offset - 1;
+    size_t copy_len = (src_len < room) ? src_len : room;
+    if (copy_len > 0)
+        memcpy(dst + offset, src, copy_len);
+    dst[offset + copy_len] = '\0';
+    return offset + copy_len;
 }
 
 void swap_endian_words(const char * hex_words, uint8_t * output) {
@@ -77,9 +110,8 @@ void reverse_bytes(uint8_t * data, size_t len) {
 
 static const double truediffone = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 /* Converts a little endian 256 bit value to a double */
-double le256todouble(const void *target) 
+double le256todouble(const void *target)
 {
-
 	const uint64_t *data64;
 	double dcut64;
 
@@ -95,7 +127,7 @@ double le256todouble(const void *target)
 	data64 = (const uint64_t *)(target);
 	dcut64 += *data64;
 
-  return dcut64;
+	return dcut64;
 }
 
 double diff_from_target(void *target)
@@ -122,16 +154,22 @@ bool isSha256Valid(const void* sha256)
 /****************** PREMINING CALCULATIONS ********************/
 
 
-bool checkValid(unsigned char* hash, unsigned char* target) {
+bool checkValid(const unsigned char* hash, const unsigned char* target) {
+  if (hash == nullptr || target == nullptr)
+    return false;
+
   bool valid = true;
   unsigned char diff_target[32];
-  memcpy(diff_target, &target, 32);
+  memcpy(diff_target, target, sizeof(diff_target));
   //convert target to little endian for comparison
-  reverse_bytes(diff_target, 32);
+  reverse_bytes(diff_target, sizeof(diff_target));
 
-  for(uint8_t i=31; i>=0; i--) {
+  for(int i = 31; i >= 0; --i) {
     if(hash[i] > diff_target[i]) {
       valid = false;
+      break;
+    }
+    if(hash[i] < diff_target[i]) {
       break;
     }
   }
@@ -186,18 +224,37 @@ miner_data init_miner_data(void){
   return newMinerData;
 }
 
-miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
+miner_data calculateMiningData(mining_subscribe& mWorker, const mining_job& mJob){
 
   miner_data mMiner = init_miner_data();
 
   // calculate target - target = (nbits[2:]+'00'*(int(nbits[:2],16) - 3)).zfill(64)
     
-    char target[TARGET_BUFFER_SIZE+1];
+    char target[TARGET_BUFFER_SIZE + 1];
     memset(target, '0', TARGET_BUFFER_SIZE);
-    int zeros = (int) strtol(mJob.nbits.substring(0, 2).c_str(), 0, 16) - 3;
-    memcpy(target + zeros - 2, mJob.nbits.substring(2).c_str(), mJob.nbits.length() - 2);
     target[TARGET_BUFFER_SIZE] = 0;
+
+    char nbits_exp[3] = {0, 0, 0};
+    if (mJob.nbits[0] != '\0')
+      nbits_exp[0] = mJob.nbits[0];
+    if (mJob.nbits[1] != '\0')
+      nbits_exp[1] = mJob.nbits[1];
+    int zeros = (int)strtol(nbits_exp, nullptr, 16) - 3;
+    int target_offset = zeros - 2;
+    if (target_offset < 0)
+      target_offset = 0;
+    if (target_offset > TARGET_BUFFER_SIZE)
+      target_offset = TARGET_BUFFER_SIZE;
+    size_t nbits_len = strnlen(mJob.nbits, sizeof(mJob.nbits));
+    size_t nbits_tail_len = (nbits_len > 2) ? (nbits_len - 2) : 0;
+    size_t copy_len = nbits_tail_len;
+    if ((size_t)target_offset + copy_len > TARGET_BUFFER_SIZE)
+      copy_len = TARGET_BUFFER_SIZE - (size_t)target_offset;
+    if (copy_len > 0)
+      memcpy(target + target_offset, mJob.nbits + 2, copy_len);
+    #if MINER_JOB_DEBUG_LOG
     Serial.print("    target: "); Serial.println(target);
+    #endif
     
     // bytearray target
     size_t size_target = to_byte_array(target, 32, mMiner.bytearray_target);
@@ -209,38 +266,37 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     }
 
     // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
-    //To review
-    //char extranonce2_char[2 * mWorker.extranonce2_size+1];	
-	//mWorker.extranonce2.toCharArray(extranonce2_char, 2 * mWorker.extranonce2_size + 1);
-    //getNextExtranonce2(mWorker.extranonce2_size, extranonce2_char);
     if (mWorker.extranonce2_size == 2)
-        mWorker.extranonce2 = "0001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "0001");
     else if (mWorker.extranonce2_size == 4)
-        mWorker.extranonce2 = "00000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "00000001");
     else if (mWorker.extranonce2_size == 8)
-        mWorker.extranonce2 = "0000000000000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "0000000000000001");
     else
     {
         Serial.println("Unknown extranonce2");
-        mWorker.extranonce2 = "00000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "00000001");
     }
-    //mWorker.extranonce2 = "00000002";
-    
-    //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
-    // Use char buffer instead of String concatenation to avoid memory leaks
-    static char coinbase_buffer[512]; // Static buffer to avoid repeated allocation
-    snprintf(coinbase_buffer, sizeof(coinbase_buffer), "%s%s%s%s", 
-             mJob.coinb1.c_str(), mWorker.extranonce1.c_str(), 
-             mWorker.extranonce2.c_str(), mJob.coinb2.c_str());
-    Serial.print("    coinbase: "); Serial.println(coinbase_buffer);
-    size_t str_len = strlen(coinbase_buffer)/2;
-    uint8_t bytearray[str_len];
 
-    size_t res = to_byte_array(coinbase_buffer, str_len*2, bytearray);
+    // get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
+    char coinbase[COINBASE_SIZE + STRATUM_EXTRANONCE1_SIZE + STRATUM_EXTRANONCE2_SIZE + COINBASE2_SIZE + 1];
+    size_t coinbase_len = 0;
+    coinbase[0] = '\0';
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mJob.coinb1);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mWorker.extranonce1);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mWorker.extranonce2);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mJob.coinb2);
+    #if MINER_JOB_DEBUG_LOG
+    Serial.print("    coinbase: "); Serial.println(coinbase);
+    #endif
+    size_t str_len = coinbase_len / 2;
+    uint8_t bytearray[(sizeof(coinbase) - 1) / 2];
+
+    size_t res = to_byte_array(coinbase, coinbase_len, bytearray);
 
     #ifdef DEBUG_MINING
     Serial.print("    extranonce2: "); Serial.println(mWorker.extranonce2);
-    Serial.print("    coinbase: "); Serial.println(coinbase_buffer);
+    Serial.print("    coinbase: "); Serial.println(coinbase);
     Serial.print("    coinbase bytes - size: "); Serial.println(res);
     for (size_t i = 0; i < res; i++)
         Serial.printf("%02x", bytearray[i]);
@@ -254,7 +310,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     byte shaResult[32]; // 256 bit
   
     mbedtls_sha256_starts_ret(&ctx,0);
-    mbedtls_sha256_update_ret(&ctx, bytearray, str_len);
+    mbedtls_sha256_update_ret(&ctx, bytearray, res);
     mbedtls_sha256_finish_ret(&ctx, interResult);
 
     mbedtls_sha256_starts_ret(&ctx,0);
@@ -315,22 +371,35 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     }
     // merkle root from merkle_result
     
+    char merkle_root[65] = {0};
+    #if MINER_JOB_DEBUG_LOG
     Serial.print("    merkle sha         : ");
-    char merkle_root[65];
+    #endif
     for (int i = 0; i < 32; i++) {
+      #if MINER_JOB_DEBUG_LOG
       Serial.printf("%02x", mMiner.merkle_result[i]);
+      #endif
       snprintf(&merkle_root[i*2], 3, "%02x", mMiner.merkle_result[i]);
     }
-    merkle_root[65] = 0;
+    #if MINER_JOB_DEBUG_LOG
     Serial.println("");
+    #endif
 
     // calculate blockheader
     // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])
-    String blockheader = mJob.version + mJob.prev_block_hash + String(merkle_root) + mJob.ntime + mJob.nbits + "00000000";
-    str_len = blockheader.length()/2;
-    
+    char blockheader[161];
+    size_t blockheader_len = 0;
+    blockheader[0] = '\0';
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.version);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.prev_block_hash);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, merkle_root);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.ntime);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.nbits);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, "00000000");
+    str_len = blockheader_len / 2;
+
     //uint8_t bytearray_blockheader[str_len];
-    res = to_byte_array(blockheader.c_str(), str_len*2, mMiner.bytearray_blockheader);
+    res = to_byte_array(blockheader, blockheader_len, mMiner.bytearray_blockheader);
 
     #ifdef DEBUG_MINING
     Serial.println("    blockheader: "); Serial.print(blockheader);
@@ -520,7 +589,6 @@ void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits)
 }
 
 
-
 static const uint32_t s_crc32_table[256] =
 {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
@@ -605,4 +673,3 @@ uint32_t crc32_finish(uint32_t crc32)
 {
     return crc32 ^ 0xFFFFFFFF;
 }
-
