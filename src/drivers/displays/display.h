@@ -14,6 +14,7 @@ void drawLoadingScreen();
 void drawSetupScreen();
 void drawCurrentScreen(unsigned long mElapsed);
 void animateCurrentScreen(unsigned long frame);
+bool isDisplayActive();
 void doLedStuff(unsigned long frame);
 
 #endif // DISPLAY_H

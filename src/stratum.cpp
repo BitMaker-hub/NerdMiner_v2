@@ -4,6 +4,7 @@
 #include "stratum.h"
 #include "cJSON.h"
 #include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include "esp_log.h"
 #include "lwip/sockets.h"
@@ -24,6 +25,19 @@
 StaticJsonDocument<BUFFER_JSON_DOC> doc;
 unsigned long id = 1;
 
+static inline void copyCString(char *dst, size_t dst_size, const char *src)
+{
+  if (dst == nullptr || dst_size == 0)
+    return;
+  if (src == nullptr)
+  {
+    dst[0] = '\0';
+    return;
+  }
+  strncpy(dst, src, dst_size - 1);
+  dst[dst_size - 1] = '\0';
+}
+
 //Get next JSON RPC Id
 unsigned long getNextId(unsigned long id) {
     if (id == ULONG_MAX) {
@@ -38,6 +52,16 @@ bool verifyPayload(String* line){
   if (!line) return false;
   line->trim();
   return line->length() > 0;
+}
+
+static inline bool lineHasContent(const char *line, size_t len)
+{
+  for (size_t i = 0; i < len; ++i)
+  {
+    if (!isspace((unsigned char)line[i]))
+      return true;
+  }
+  return false;
 }
 
 bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> &doc) {
@@ -60,6 +84,21 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> &doc) {
   return true;  
 }
 
+static bool parse_mining_subscribe_doc(const StaticJsonDocument<BUFFER_JSON_DOC> &doc, mining_subscribe& mSubscribe)
+{
+    if (checkError(doc))
+      return false;
+    if (!doc.containsKey("result"))
+      return false;
+
+    const char *sub_details = doc["result"][0][0][1] | "";
+    const char *extranonce1 = doc["result"][1] | "";
+    copyCString(mSubscribe.sub_details, sizeof(mSubscribe.sub_details), sub_details);
+    copyCString(mSubscribe.extranonce1, sizeof(mSubscribe.extranonce1), extranonce1);
+    mSubscribe.extranonce2_size = doc["result"][2];
+    return true;
+}
+
 
 // STEP 1: Pool server connection (SUBSCRIBE)
     // Docs: 
@@ -68,6 +107,9 @@ bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> &doc) {
 bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const char *resume_id)
 {
     char payload[BUFFER] = {0};
+    static char line_buffer[BUFFER_JSON_DOC + 256];
+    size_t line_len = 0;
+    bool line_overflow = false;
     
     // Subscribe
     id = 1; //Initialize id messages
@@ -102,14 +144,47 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const
         continue;
       }
 
-      String line = client.readStringUntil('\n');
-      if (line.length() == 0)
-        continue;
-      if (parse_mining_subscribe(line, mSubscribe))
+      while (client.available())
+      {
+        int ch = client.read();
+        if (ch < 0)
+          break;
+        if (ch == '\r')
+          continue;
+        if (ch != '\n')
+        {
+          if (line_overflow)
+            continue;
+          if (line_len + 1 < sizeof(line_buffer))
+            line_buffer[line_len++] = (char)ch;
+          else
+            line_overflow = true;
+          continue;
+        }
+
+        if (line_overflow)
+        {
+          line_overflow = false;
+          line_len = 0;
+          continue;
+        }
+        if (!lineHasContent(line_buffer, line_len))
+        {
+          line_len = 0;
+          continue;
+        }
+
+        doc.clear();
+        DeserializationError error = deserializeJson(doc, line_buffer, line_len);
+        line_len = 0;
+        if (!error && parse_mining_subscribe_doc(doc, mSubscribe))
+          break;
+      }
+      if (mSubscribe.extranonce1[0] != '\0')
         break;
     }
 
-    if (mSubscribe.extranonce1.length() == 0)
+    if (mSubscribe.extranonce1[0] == '\0')
       return false;
 
   
@@ -117,9 +192,9 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe, const
     Serial.print("    extranonce1: "); Serial.println(mSubscribe.extranonce1);
     Serial.print("    extranonce2_size: "); Serial.println(mSubscribe.extranonce2_size);
 
-    if((mSubscribe.extranonce1.length() == 0) ) { 
+    if (mSubscribe.extranonce1[0] == '\0') {
         Serial.printf("[WORKER] >>>>>>>>> Work aborted\n"); 
-        Serial.printf("extranonce1 length: %u \n", mSubscribe.extranonce1.length());
+        Serial.printf("extranonce1 length: %u \n", (unsigned)strlen(mSubscribe.extranonce1));
         doc.clear();
         doc.garbageCollect();
         return false; 
@@ -136,26 +211,15 @@ bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
    
     DeserializationError error = deserializeJson(doc, line);
 
-    if (error || checkError(doc)) return false;
-    if (!doc.containsKey("result")) return false;
-
-    mSubscribe.sub_details = String((const char*) doc["result"][0][0][1]);
-    mSubscribe.extranonce1 = String((const char*) doc["result"][1]);
-    mSubscribe.extranonce2_size = doc["result"][2];
-
-    return true;
+    if (error)
+      return false;
+    return parse_mining_subscribe_doc(doc, mSubscribe);
 }
 
 mining_subscribe init_mining_subscribe(void)
 {
-    mining_subscribe new_mSub;
-
-    new_mSub.extranonce1 = "";
-    new_mSub.extranonce2 = "";
+    mining_subscribe new_mSub{};
     new_mSub.extranonce2_size = 0;
-    new_mSub.sub_details = "";
-
-
     return new_mSub;
 }
 
@@ -242,14 +306,22 @@ bool parse_mining_notify_doc(StaticJsonDocument<BUFFER_JSON_DOC>& doc, mining_jo
     if (!doc.containsKey("params"))
       return false;
 
-    mJob.job_id = String((const char*)doc["params"][0]);
-    mJob.prev_block_hash = String((const char*)doc["params"][1]);
-    mJob.coinb1 = String((const char*)doc["params"][2]);
-    mJob.coinb2 = String((const char*)doc["params"][3]);
+    const char *job_id = doc["params"][0] | "";
+    const char *prev_hash = doc["params"][1] | "";
+    const char *coinb1 = doc["params"][2] | "";
+    const char *coinb2 = doc["params"][3] | "";
+    const char *version = doc["params"][5] | "";
+    const char *nbits = doc["params"][6] | "";
+    const char *ntime = doc["params"][7] | "";
+
+    copyCString(mJob.job_id, sizeof(mJob.job_id), job_id);
+    copyCString(mJob.prev_block_hash, sizeof(mJob.prev_block_hash), prev_hash);
+    copyCString(mJob.coinb1, sizeof(mJob.coinb1), coinb1);
+    copyCString(mJob.coinb2, sizeof(mJob.coinb2), coinb2);
     mJob.merkle_branch = doc["params"][4];
-    mJob.version = String((const char*)doc["params"][5]);
-    mJob.nbits = String((const char*)doc["params"][6]);
-    mJob.ntime = String((const char*)doc["params"][7]);
+    copyCString(mJob.version, sizeof(mJob.version), version);
+    copyCString(mJob.nbits, sizeof(mJob.nbits), nbits);
+    copyCString(mJob.ntime, sizeof(mJob.ntime), ntime);
     mJob.clean_jobs = doc["params"][8]; //bool
 
     #ifdef DEBUG_MINING
@@ -272,9 +344,11 @@ bool parse_mining_notify_doc(StaticJsonDocument<BUFFER_JSON_DOC>& doc, mining_jo
 }
 
 
-bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce, unsigned long &submit_id)
+bool tx_mining_submit(WiFiClient& client, const mining_subscribe& mWorker, const mining_job& mJob, unsigned long nonce, unsigned long &submit_id)
 {
     char payload[BUFFER] = {0};
+    char nonce_hex[9] = {0};
+    snprintf(nonce_hex, sizeof(nonce_hex), "%08lx", nonce);
 
     // Submit
     id = getNextId(id);
@@ -282,10 +356,10 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
     sprintf(payload, "{\"id\":%u,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
         id,
         mWorker.wName,//"bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
-        mJob.job_id.c_str(),
-        mWorker.extranonce2.c_str(),
-        mJob.ntime.c_str(),
-        String(nonce, HEX).c_str()
+        mJob.job_id,
+        mWorker.extranonce2,
+        mJob.ntime,
+        nonce_hex
         );
     #if STRATUM_VERBOSE_LOG
     Serial.print("  Sending  : "); Serial.print(payload);
@@ -330,7 +404,9 @@ bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
     id = getNextId(id);
     sprintf(payload, "{\"id\":%d,\"method\":\"mining.suggest_difficulty\",\"params\":[%.10g]}\n", id, difficulty);
     
+    #if STRATUM_VERBOSE_LOG
     Serial.print("  Sending  : "); Serial.print(payload);
+    #endif
     return client.print(payload);
 
 }

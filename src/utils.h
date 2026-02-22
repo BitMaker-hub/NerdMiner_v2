@@ -21,7 +21,7 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out);
 double le256todouble(const void *target);
 double diff_from_target(void *target);
 bool isSha256Valid(const void* sha256);
-miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob);
+miner_data calculateMiningData(mining_subscribe& mWorker, const mining_job& mJob);
 bool checkValid(const unsigned char* hash, const unsigned char* target);
 void suffix_string(double val, char *buf, size_t bufsiz, int sigdigits);
 

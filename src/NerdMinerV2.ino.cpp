@@ -43,6 +43,9 @@
 #ifndef MINER_CPU_FREQ_MHZ
 #define MINER_CPU_FREQ_MHZ 240
 #endif
+#ifndef MONITOR_TASK_PRIORITY
+#define MONITOR_TASK_PRIORITY 5
+#endif
 
 #ifdef PIN_BUTTON_1
   OneButton button1(PIN_BUTTON_1);
@@ -698,7 +701,7 @@ void setup()
   initMiningQueues();
 
   #if !defined(I2C_HASH_SLAVE)
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)"(Monitor)", 5, NULL, 0);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)"(Monitor)", MONITOR_TASK_PRIORITY, NULL, 0);
   (void)res1;
   #endif
 

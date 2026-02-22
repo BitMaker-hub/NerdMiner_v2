@@ -12,6 +12,13 @@
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
 
+#ifndef MONITOR_NTP_LOG
+#define MONITOR_NTP_LOG 0
+#endif
+#ifndef MONITOR_NTP_RETRY_MS
+#define MONITOR_NTP_RETRY_MS 60000UL
+#endif
+
 extern uint32_t templates;
 extern uint32_t hashes;
 extern uint32_t Mhashes;
@@ -188,19 +195,38 @@ unsigned long mTriggerUpdate = 0;
 unsigned long initialMillis = millis();
 unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
+static unsigned long mLastNtpAttempt = 0;
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
   //Check if need an NTP call to check current time
-  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
+  const unsigned long now = millis();
+  const bool needs_initial_sync = (mTriggerUpdate == 0);
+  const bool needs_periodic_sync = (!needs_initial_sync) && ((now - mTriggerUpdate) > UPDATE_PERIOD_h * 60 * 60 * 1000UL);
+  const bool retry_window_elapsed = (mLastNtpAttempt == 0) || ((now - mLastNtpAttempt) > MONITOR_NTP_RETRY_MS);
+  if ((needs_periodic_sync || needs_initial_sync) && retry_window_elapsed)
+  {
+    mLastNtpAttempt = now;
     if(WiFi.status() == WL_CONNECTED) {
-        if(timeClient.update()) mTriggerUpdate = millis(); //NTP call to get current time
-        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
-        Serial.print("TimeClient NTPupdateTime ");
+        if (timeClient.update())
+        {
+          mTriggerUpdate = now;
+          initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
+          #if MONITOR_NTP_LOG
+          Serial.println("TimeClient NTPupdateTime");
+          #endif
+        }
+        else
+        {
+          #if MONITOR_NTP_LOG
+          Serial.println("TimeClient NTP update failed");
+          #endif
+        }
     }
   }
 
-  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
+  const unsigned long time_base = (mTriggerUpdate == 0) ? now : mTriggerUpdate;
+  unsigned long elapsedTime = (now - time_base) / 1000; // Tiempo transcurrido en segundos
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
 
   // convierte la hora actual en horas, minutos y segundos

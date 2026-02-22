@@ -13,8 +13,8 @@
 #include "timeconst.h"
 #include "drivers/displays/display.h"
 #include "drivers/storage/storage.h"
-#include <map>
-#include <memory>
+#include <ctype.h>
+#include <math.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -125,6 +125,9 @@
 #ifndef SUGGEST_DIFF_SMOOTH_ALPHA_PCT
 #define SUGGEST_DIFF_SMOOTH_ALPHA_PCT 40
 #endif
+#ifndef MINER_HEARTBEAT_LOG
+#define MINER_HEARTBEAT_LOG 0
+#endif
 
 #ifndef ADAPTIVE_TARGET_MS_DEFAULT
 #if defined(I2C_HASH_SLAVE)
@@ -144,6 +147,9 @@
 #if defined(CONFIG_IDF_TARGET_ESP32)
 #define NONCE_PER_JOB_SW (32 * 1024)
 #define NONCE_PER_JOB_HW (128 * 1024)
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
+#define NONCE_PER_JOB_SW (24 * 1024)
+#define NONCE_PER_JOB_HW (96 * 1024)
 #else
 #define NONCE_PER_JOB_SW (16 * 1024)
 #define NONCE_PER_JOB_HW (64 * 1024)
@@ -155,10 +161,17 @@ static constexpr uint32_t kAdaptiveTargetStepDown = 20;
 static constexpr uint32_t kAdaptiveTargetStepUp = 10;
 static constexpr uint32_t kAdaptiveTargetWindowMs = 30000;
 static volatile uint32_t s_adaptive_target_ms = kAdaptiveTargetMsDefault;
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+static constexpr uint32_t kAdaptiveMinSw = 8 * 1024;
+static constexpr uint32_t kAdaptiveMaxSw = 192 * 1024;
+static constexpr uint32_t kAdaptiveMinHw = 32 * 1024;
+static constexpr uint32_t kAdaptiveMaxHw = 384 * 1024;
+#else
 static constexpr uint32_t kAdaptiveMinSw = 4 * 1024;
 static constexpr uint32_t kAdaptiveMaxSw = 128 * 1024;
 static constexpr uint32_t kAdaptiveMinHw = 16 * 1024;
 static constexpr uint32_t kAdaptiveMaxHw = 256 * 1024;
+#endif
 
 // Legacy alias kept for compatibility: I2C_SLAVE -> I2C_HASH_MASTER
 
@@ -375,9 +388,13 @@ bool checkPoolInactivity(unsigned int keepAliveTime, unsigned long inactivityTim
     if (tx_idle)
     {
       double suggest_diff = calculateSuggestedDifficulty();
+      #if MINER_HEARTBEAT_LOG
       Serial.println("  Sending  : Heartbeat (suggest_difficulty)");
+      #endif
       if (!tx_suggest_difficulty(client, suggest_diff)) {
+        #if MINER_HEARTBEAT_LOG
         Serial.println("  Sending heartbeat to pool -> Detected client disconnected");
+        #endif
         return true;
       }
       mLastTXtoPool = time_now;
@@ -401,6 +418,7 @@ struct JobData
 {
   uint32_t id;
   double difficulty;
+  uint8_t pool_target_le[32];
   uint8_t sha_buffer_sw[128];
   uint8_t sha_buffer_hw[128];
   uint32_t midstate[8];
@@ -436,6 +454,7 @@ static constexpr UBaseType_t kResultQueueDepth = 16;
 #endif
 static constexpr size_t kJobResultsMax = 32;
 static constexpr size_t kMaxPendingSubmissions = 64;
+static constexpr size_t kStratumLineBufferSize = BUFFER_JSON_DOC + 512;
 
 static QueueHandle_t s_job_queue_sw = nullptr;
 #ifdef HARDWARE_SHA265
@@ -458,6 +477,33 @@ static constexpr uint8_t kJobDataPoolSize = 4;
 static JobData s_job_data_pool[kJobDataPoolSize];
 static uint8_t s_job_data_index = 0;
 static JobData *s_current_job_data = nullptr;
+static portMUX_TYPE s_local_hashes_lock = portMUX_INITIALIZER_UNLOCKED;
+static volatile uint32_t s_local_hashes_pending = 0;
+
+static inline void mining_add_local_processed_hashes(uint32_t hashes_done)
+{
+  if (hashes_done == 0)
+    return;
+  taskENTER_CRITICAL(&s_local_hashes_lock);
+  s_local_hashes_pending += hashes_done;
+  taskEXIT_CRITICAL(&s_local_hashes_lock);
+}
+
+static inline uint32_t mining_take_local_processed_hashes()
+{
+  taskENTER_CRITICAL(&s_local_hashes_lock);
+  uint32_t out = s_local_hashes_pending;
+  s_local_hashes_pending = 0;
+  taskEXIT_CRITICAL(&s_local_hashes_lock);
+  return out;
+}
+
+static inline void mining_reset_local_processed_hashes()
+{
+  taskENTER_CRITICAL(&s_local_hashes_lock);
+  s_local_hashes_pending = 0;
+  taskEXIT_CRITICAL(&s_local_hashes_lock);
+}
 
 static inline uint32_t clamp_u32(uint32_t v, uint32_t lo, uint32_t hi)
 {
@@ -558,6 +604,74 @@ static bool is_stale_error_doc(const JsonDocument &doc)
   return false;
 }
 
+static inline bool stratumLineHasContent(const char *line, size_t len)
+{
+  for (size_t i = 0; i < len; ++i)
+  {
+    if (!isspace((unsigned char)line[i]))
+      return true;
+  }
+  return false;
+}
+
+static inline int hashCompareLe(const uint8_t *lhs, const uint8_t *rhs)
+{
+  for (int i = 31; i >= 0; --i)
+  {
+    if (lhs[i] < rhs[i])
+      return -1;
+    if (lhs[i] > rhs[i])
+      return 1;
+  }
+  return 0;
+}
+
+static inline bool hashMeetsTargetLe(const uint8_t *hash_le, const uint8_t *target_le)
+{
+  return hashCompareLe(hash_le, target_le) <= 0;
+}
+
+static void poolTargetFromDifficulty(double difficulty, uint8_t out_target_le[32])
+{
+  if (out_target_le == nullptr)
+    return;
+
+  if (!(difficulty > 0.0) || !isfinite(difficulty))
+  {
+    memset(out_target_le, 0xFF, 32);
+    return;
+  }
+
+  // difficulty 1 target (Bitcoin): 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+  static const long double kTrueDiffOne = 26959535291011309493156476344723991336010898738574164086137773096960.0L;
+  static const long double kTwoPow256 = 1.1579208923731619542357098500868790785326998466564056403945758400791312964e77L;
+
+  long double target = kTrueDiffOne / (long double)difficulty;
+  if (!isfinite((double)target) || target <= 1.0L)
+  {
+    memset(out_target_le, 0, 32);
+    out_target_le[0] = 1;
+    return;
+  }
+  if (target >= kTwoPow256)
+  {
+    memset(out_target_le, 0xFF, 32);
+    return;
+  }
+
+  memset(out_target_le, 0, 32);
+  for (int i = 0; i < 32; ++i)
+  {
+    long double byte_val = fmodl(target, 256.0L);
+    if (byte_val < 0.0L)
+      byte_val = 0.0L;
+    out_target_le[i] = (uint8_t)byte_val;
+    target = floorl(target / 256.0L);
+    if (target <= 0.0L)
+      break;
+  }
+}
+
 void initMiningQueues()
 {
   if (s_job_queue_sw != nullptr)
@@ -586,12 +700,91 @@ static bool JobPush(QueueHandle_t queue, JobData *data, uint32_t nonce_start, ui
   return xQueueSend(queue, &job, 0) == pdTRUE;
 }
 
-struct Submition
+struct SubmissionState
 {
   double diff;
   bool is32bit;
   bool isValid;
 };
+
+struct SubmissionEntry
+{
+  bool used;
+  uint32_t id;
+  uint32_t stamp;
+  SubmissionState state;
+};
+
+struct SubmissionTracker
+{
+  SubmissionEntry entries[kMaxPendingSubmissions];
+  uint32_t next_stamp;
+};
+
+static void submissionTrackerClear(SubmissionTracker &tracker)
+{
+  memset(&tracker, 0, sizeof(tracker));
+}
+
+static bool submissionTrackerTake(SubmissionTracker &tracker, uint32_t id, SubmissionState &state)
+{
+  for (size_t i = 0; i < kMaxPendingSubmissions; ++i)
+  {
+    SubmissionEntry &entry = tracker.entries[i];
+    if (entry.used && entry.id == id)
+    {
+      state = entry.state;
+      entry.used = false;
+      return true;
+    }
+  }
+  return false;
+}
+
+static void submissionTrackerPut(SubmissionTracker &tracker, uint32_t id, const SubmissionState &state)
+{
+  int free_index = -1;
+  int oldest_index = -1;
+  uint32_t oldest_stamp = UINT32_MAX;
+
+  for (size_t i = 0; i < kMaxPendingSubmissions; ++i)
+  {
+    SubmissionEntry &entry = tracker.entries[i];
+    if (entry.used)
+    {
+      if (entry.id == id)
+      {
+        entry.state = state;
+        if (++tracker.next_stamp == 0)
+          tracker.next_stamp = 1;
+        entry.stamp = tracker.next_stamp;
+        return;
+      }
+      if (entry.stamp < oldest_stamp)
+      {
+        oldest_stamp = entry.stamp;
+        oldest_index = (int)i;
+      }
+    }
+    else if (free_index < 0)
+    {
+      free_index = (int)i;
+    }
+  }
+
+  int index = free_index >= 0 ? free_index : oldest_index;
+  if (index < 0)
+    return;
+
+  if (++tracker.next_stamp == 0)
+    tracker.next_stamp = 1;
+
+  SubmissionEntry &target = tracker.entries[index];
+  target.used = true;
+  target.id = id;
+  target.stamp = tracker.next_stamp;
+  target.state = state;
+}
 
 static void resetMiningQueuesOnly()
 {
@@ -603,6 +796,7 @@ static void resetMiningQueuesOnly()
   if (s_job_queue_hw)
     xQueueReset(s_job_queue_hw);
   #endif
+  mining_reset_local_processed_hashes();
   s_working_current_job_id = 0xFF;
 }
 
@@ -610,14 +804,14 @@ static void resetMiningQueuesOnly()
 static void i2c_master_clear_active_job();
 #endif
 
-static void MiningJobStop(uint32_t &job_pool, std::map<uint32_t, std::shared_ptr<Submition>> & submition_map)
+static void MiningJobStop(uint32_t &job_pool, SubmissionTracker &submission_tracker)
 {
   resetMiningQueuesOnly();
 #ifdef I2C_HASH_MASTER
   i2c_master_clear_active_job();
 #endif
   job_pool = 0xFFFFFFFF;
-  submition_map.clear();
+  submissionTrackerClear(submission_tracker);
 }
 
 #ifdef RANDOM_NONCE
@@ -735,6 +929,7 @@ static void i2c_slave_prepare_job(const JobI2cRequest &request, JobData *job_dat
   memset(job_data, 0, sizeof(*job_data));
   job_data->id = request.id;
   job_data->difficulty = request.difficulty;
+  poolTargetFromDifficulty(job_data->difficulty, job_data->pool_target_le);
 
   memcpy(job_data->sha_buffer_sw, request.buffer, sizeof(request.buffer));
   memset(job_data->sha_buffer_sw + 80, 0, sizeof(job_data->sha_buffer_sw) - 80);
@@ -779,7 +974,8 @@ static JobI2cResult i2c_slave_collect_result(uint8_t active_job_id, JobData *job
   out.cmd = I2C_CMD_SLAVE_RESULT;
   out.id = active_job_id;
   out.nonce = kI2cInvalidNonce;
-  out.processed_nonce = 0;
+  out.processed_nonce = mining_take_local_processed_hashes();
+  hashes += out.processed_nonce;
 
   double best_found_diff = -1.0;
   if (s_result_queue && job_data)
@@ -789,8 +985,6 @@ static JobI2cResult i2c_slave_collect_result(uint8_t active_job_id, JobData *job
     {
       if ((uint8_t)(res.id & 0xFF) != active_job_id)
         continue;
-      out.processed_nonce += res.nonce_count;
-      hashes += res.nonce_count;
       if (res.nonce != kI2cInvalidNonce && res.difficulty > best_found_diff)
       {
         best_found_diff = res.difficulty;
@@ -1230,6 +1424,8 @@ void runI2cMasterWorker(void *name)
   uint32_t wdt_counter = 0;
   uint8_t slave_miss_polls[128] = {0};
   bool slave_lost_reported[128] = {false};
+  uint32_t slave_nonce_cursor[128] = {0};
+  bool slave_nonce_cursor_valid[128] = {false};
   bool force_refeed_current_job = false;
   bool loss_recovery_pending = false;
   uint8_t loss_recovery_attempts = 0;
@@ -1367,6 +1563,10 @@ void runI2cMasterWorker(void *name)
 
     I2cMasterJobSnapshot job{};
     bool has_job = i2c_master_read_job_snapshot(job);
+    if (has_job && job.generation != last_feed_generation)
+    {
+      memset(slave_nonce_cursor_valid, 0, sizeof(slave_nonce_cursor_valid));
+    }
 
     if (has_job && !i2c_slave_vector.empty())
     {
@@ -1378,6 +1578,19 @@ void runI2cMasterWorker(void *name)
                                        job.nonce_seed,
                                        job.local_nonce_lanes,
                                        job.total_nonce_lanes);
+        for (size_t i = 0; i < i2c_slave_vector.size(); ++i)
+        {
+          uint8_t addr = i2c_slave_vector[i];
+          if (slave_nonce_cursor_valid[addr])
+          {
+            i2c_slave_nonce_starts[i] = slave_nonce_cursor[addr];
+          }
+          else
+          {
+            slave_nonce_cursor[addr] = i2c_slave_nonce_starts[i];
+            slave_nonce_cursor_valid[addr] = true;
+          }
+        }
         i2c_feed_slaves(i2c_slave_vector, job.job_id, i2c_slave_nonce_starts, i2c_slave_nonce_stride, (float)job.difficulty, job.header76);
         #if I2C_REBALANCE_DEBUG
         Serial.printf("[I2C-MASTER] Stride starts (stride=%lu, local=%u): ",
@@ -1445,6 +1658,12 @@ void runI2cMasterWorker(void *name)
       {
         const I2cSlaveHarvest &item = i2c_harvest_buffer[i];
         nonces_done += item.processed_nonce;
+        if (slave_nonce_cursor_valid[item.address])
+        {
+          slave_nonce_cursor[item.address] = nonce_stride_advance_u32(slave_nonce_cursor[item.address],
+                                                                      i2c_slave_nonce_stride,
+                                                                      item.processed_nonce);
+        }
         if (s_result_queue && item.has_nonce)
         {
           JobResult result{};
@@ -1570,7 +1789,8 @@ void runStratumWorker(void *name) {
   Serial.printf("### [Total Heap / Free heap / Min free heap]: %d / %d / %d \n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
   #endif
 
-  std::map<uint32_t, std::shared_ptr<Submition>> s_submition_map;
+  SubmissionTracker s_submission_tracker{};
+  submissionTrackerClear(s_submission_tracker);
 
 #ifdef I2C_HASH_MASTER
   static bool s_i2c_master_task_started = false;
@@ -1619,7 +1839,25 @@ void runStratumWorker(void *name) {
   #if defined(CONFIG_IDF_TARGET_ESP32)
   uint8_t sha_buffer_swap[128] = {0};
   #endif
-  StaticJsonDocument<BUFFER_JSON_DOC> stratum_doc;
+  static StaticJsonDocument<BUFFER_JSON_DOC> stratum_doc;
+  static char stratum_line_buffer[kStratumLineBufferSize];
+  static size_t stratum_line_len = 0;
+  static bool stratum_line_overflow = false;
+
+  auto resetStratumLineState = [&]()
+  {
+    stratum_line_len = 0;
+    stratum_line_overflow = false;
+  };
+
+  auto isDuplicateNotify = [&](const mining_job &incoming) -> bool
+  {
+    if (job_pool == 0xFFFFFFFF)
+      return false;
+    return (strcmp(mJob.job_id, incoming.job_id) == 0) &&
+           (strcmp(mJob.ntime, incoming.ntime) == 0) &&
+           (strcmp(mJob.prev_block_hash, incoming.prev_block_hash) == 0);
+  };
 
   while(true) {
       
@@ -1627,7 +1865,8 @@ void runStratumWorker(void *name) {
     if(wifi_status != WL_CONNECTED){
       // WiFi is disconnected.
       mMonitor.NerdStatus = NM_Connecting;
-      MiningJobStop(job_pool, s_submition_map);
+      MiningJobStop(job_pool, s_submission_tracker);
+      resetStratumLineState();
       static uint32_t last_wifi_reconnect = 0;
       uint32_t now = millis();
       if (now < last_wifi_reconnect) // wrap
@@ -1647,10 +1886,14 @@ void runStratumWorker(void *name) {
       continue;
     } 
 
+    if (!client.connected())
+      resetStratumLineState();
+
     if(!checkPoolConnection()){
       //If server is not reachable add random delay for connection retries
       //Generate value between 1 and 60 secs
-      MiningJobStop(job_pool, s_submition_map);
+      MiningJobStop(job_pool, s_submission_tracker);
+      resetStratumLineState();
       vTaskDelay(((1 + rand() % 60) * 1000) / portTICK_PERIOD_MS);
       continue;
     }
@@ -1670,14 +1913,16 @@ void runStratumWorker(void *name) {
           if (!tx_mining_subscribe(client, mWorker, nullptr))
           {
             client.stop();
-            MiningJobStop(job_pool, s_submition_map);
+            MiningJobStop(job_pool, s_submission_tracker);
+            resetStratumLineState();
             continue;
           }
         }
         else
         {
           client.stop();
-          MiningJobStop(job_pool, s_submition_map);
+          MiningJobStop(job_pool, s_submission_tracker);
+          resetStratumLineState();
           continue;
         }
       }
@@ -1701,6 +1946,7 @@ void runStratumWorker(void *name) {
       uint32_t time_now = millis();
       mLastTXtoPool = time_now;
       last_job_time = time_now;
+      resetStratumLineState();
     }
 
     // Reconnect if pool stops sending data beyond configured inactivity window.
@@ -1710,7 +1956,8 @@ void runStratumWorker(void *name) {
                     POOLINACTIVITY_TIME_ms / 1000UL);
       client.stop();
       isMinerSuscribed=false;
-      MiningJobStop(job_pool, s_submition_map);
+      MiningJobStop(job_pool, s_submission_tracker);
+      resetStratumLineState();
       continue; 
     }
 
@@ -1722,7 +1969,8 @@ void runStratumWorker(void *name) {
       {
         client.stop();
         isMinerSuscribed=false;
-        MiningJobStop(job_pool, s_submition_map);
+        MiningJobStop(job_pool, s_submission_tracker);
+        resetStratumLineState();
         continue;
       }
     }
@@ -1732,14 +1980,38 @@ void runStratumWorker(void *name) {
     // Read pending messages from pool (single JSON parse per line).
     while(client.connected() && client.available())
     {
-      String line = client.readStringUntil('\n');
-      if (!verifyPayload(&line))
+      int ch = client.read();
+      if (ch < 0)
+        break;
+      if (ch == '\r')
         continue;
+      if (ch != '\n')
+      {
+        if (stratum_line_overflow)
+          continue;
+        if (stratum_line_len + 1 < kStratumLineBufferSize)
+          stratum_line_buffer[stratum_line_len++] = (char)ch;
+        else
+          stratum_line_overflow = true;
+        continue;
+      }
+
+      if (stratum_line_overflow)
+      {
+        resetStratumLineState();
+        continue;
+      }
+      if (!stratumLineHasContent(stratum_line_buffer, stratum_line_len))
+      {
+        stratum_line_len = 0;
+        continue;
+      }
 
       processed_pool_message = true;
       mLastRXfromPool = millis();
       stratum_doc.clear();
-      DeserializationError parse_error = deserializeJson(stratum_doc, line);
+      DeserializationError parse_error = deserializeJson(stratum_doc, stratum_line_buffer, stratum_line_len);
+      stratum_line_len = 0;
       bool doc_valid = (parse_error == DeserializationError::Ok);
       stratum_method result = STRATUM_PARSE_ERROR;
       if (doc_valid)
@@ -1747,16 +2019,22 @@ void runStratumWorker(void *name) {
 
       switch (result)
       {
-          case MINING_NOTIFY:         if(parse_mining_notify_doc(stratum_doc, mJob))
-                                      {
-                                          if (s_result_queue)
+          case MINING_NOTIFY:         {
+                                        mining_job next_job{};
+                                        if(parse_mining_notify_doc(stratum_doc, next_job))
+                                        {
+                                          if (isDuplicateNotify(next_job))
+                                          {
+                                            last_job_time = millis();
+                                            break;
+                                          }
+
+                                          mJob = next_job;
+                                          if (mJob.clean_jobs || job_pool == 0xFFFFFFFF)
+                                            resetMiningQueuesOnly();
+                                          else if (s_result_queue)
                                             xQueueReset(s_result_queue);
-                                          if (s_job_queue_sw)
-                                            xQueueReset(s_job_queue_sw);
-                                          #ifdef HARDWARE_SHA265
-                                          if (s_job_queue_hw)
-                                            xQueueReset(s_job_queue_hw);
-                                          #endif
+
                                           //Increse templates readed
                                           templates++;
                                           job_pool++;
@@ -1839,6 +2117,7 @@ void runStratumWorker(void *name) {
                                           JobData *job_data = &s_job_data_pool[s_job_data_index++ % kJobDataPoolSize];
                                           job_data->id = job_pool;
                                           job_data->difficulty = currentPoolDifficulty;
+                                          poolTargetFromDifficulty(job_data->difficulty, job_data->pool_target_le);
                                           memcpy(job_data->sha_buffer_sw, mMiner.bytearray_blockheader, sizeof(job_data->sha_buffer_sw));
                                           #if defined(CONFIG_IDF_TARGET_ESP32)
                                           memcpy(job_data->sha_buffer_hw, sha_buffer_swap, sizeof(job_data->sha_buffer_hw));
@@ -1889,22 +2168,23 @@ void runStratumWorker(void *name) {
                                                                     diget_mid,
                                                                     bake);
                                           #endif
-                                      } else
-                                      {
-                                        Serial.println("Parsing error, need restart");
-                                        client.stop();
-                                        isMinerSuscribed=false;
-                                        MiningJobStop(job_pool, s_submition_map);
+                                        } else
+                                        {
+                                          Serial.println("Parsing error, need restart");
+                                          client.stop();
+                                          isMinerSuscribed=false;
+                                          MiningJobStop(job_pool, s_submission_tracker);
+                                          resetStratumLineState();
+                                        }
                                       }
                                       break;
           case MINING_SET_DIFFICULTY: parse_mining_set_difficulty_doc(stratum_doc, currentPoolDifficulty);
                                       break;
           case STRATUM_SUCCESS:       {
                                         unsigned long id = parse_extract_id_doc(stratum_doc);
-                                        auto it = s_submition_map.find(id);
-                                        if (it != s_submition_map.end())
+                                        SubmissionState sub{};
+                                        if (submissionTrackerTake(s_submission_tracker, id, sub))
                                         {
-                                          Submition &sub = *it->second;
                                           if (sub.diff > best_diff)
                                             best_diff = sub.diff;
                                           if (sub.is32bit)
@@ -1914,7 +2194,6 @@ void runStratumWorker(void *name) {
                                             Serial.println("CONGRATULATIONS! Valid block found");
                                             valids++;
                                           }
-                                          s_submition_map.erase(it);
                                         }
                                       }
                                       break;
@@ -1922,11 +2201,10 @@ void runStratumWorker(void *name) {
                                         unsigned long id = doc_valid ? parse_extract_id_doc(stratum_doc) : 0;
                                         if (doc_valid && is_stale_error_doc(stratum_doc))
                                           stales++;
-                                        auto it = s_submition_map.find(id);
-                                        if (it != s_submition_map.end())
+                                        SubmissionState removed{};
+                                        if (submissionTrackerTake(s_submission_tracker, id, removed))
                                         {
                                           Serial.printf("Refuse submition %d\n", id);
-                                          s_submition_map.erase(it);
                                         }
                                       }
                                       break;
@@ -1939,11 +2217,12 @@ void runStratumWorker(void *name) {
       }
     }
 
-    JobResult job_results[kJobResultsMax];
+    static JobResult job_results[kJobResultsMax];
     size_t job_results_count = 0;
 
     if (job_pool != 0xFFFFFFFF)
     {
+      hashes += mining_take_local_processed_hashes();
       #ifdef I2C_HASH_MASTER
       hashes += i2c_master_take_processed_hashes();
       #endif
@@ -2006,7 +2285,6 @@ void runStratumWorker(void *name) {
     {
       JobResult *res = &job_results[r];
 
-      hashes += res->nonce_count;
       if (res->difficulty > currentPoolDifficulty && job_pool == res->id && res->nonce != 0xFFFFFFFF)
       {
         if (!client.connected())
@@ -2016,7 +2294,8 @@ void runStratumWorker(void *name) {
         {
           client.stop();
           isMinerSuscribed = false;
-          MiningJobStop(job_pool, s_submition_map);
+          MiningJobStop(job_pool, s_submission_tracker);
+          resetStratumLineState();
           break;
         }
         #if MINER_SHARE_LOG
@@ -2029,18 +2308,18 @@ void runStratumWorker(void *name) {
         #endif
         mLastTXtoPool = millis();
 
-        auto sub_ptr = std::make_shared<Submition>();
-        sub_ptr->diff = res->difficulty;
-        sub_ptr->is32bit = (res->hash[29] == 0 && res->hash[28] == 0);
-        if (sub_ptr->is32bit)
+        SubmissionState sub{};
+        sub.diff = res->difficulty;
+        sub.is32bit = (res->hash[29] == 0 && res->hash[28] == 0);
+        if (sub.is32bit)
         {
-          sub_ptr->isValid = checkValid(res->hash, mMiner.bytearray_target);
-        } else
-          sub_ptr->isValid = false;
-
-        if (s_submition_map.size() >= kMaxPendingSubmissions)
-          s_submition_map.erase(s_submition_map.begin());
-        s_submition_map[sumbit_id] = sub_ptr;
+          sub.isValid = checkValid(res->hash, mMiner.bytearray_target);
+        }
+        else
+        {
+          sub.isValid = false;
+        }
+        submissionTrackerPut(s_submission_tracker, sumbit_id, sub);
       }
     }
 
@@ -2101,12 +2380,13 @@ void minerWorkerSw(void * task_id)
       {
         if (nerd_sha256d_baked_nonce(midstate, nonce, bake, hash))
         {
-          double diff_hash = diff_from_target(hash);
-          if (diff_hash > result.difficulty)
+          if (hashMeetsTargetLe(hash, job.data->pool_target_le))
           {
-            result.difficulty = diff_hash;
-            result.nonce = nonce;
-            memcpy(result.hash, hash, 32);
+            if (result.nonce == 0xFFFFFFFF || hashCompareLe(hash, result.hash) < 0)
+            {
+              result.nonce = nonce;
+              memcpy(result.hash, hash, 32);
+            }
           }
         }
 
@@ -2118,8 +2398,11 @@ void minerWorkerSw(void * task_id)
         nonce += nonce_step;
       }
 
+      if (result.nonce != 0xFFFFFFFF)
+        result.difficulty = diff_from_target(result.hash);
       update_hashrate(s_sw_hashes_per_ms, result.nonce_count, micros() - start_us);
-      if (s_result_queue)
+      mining_add_local_processed_hashes(result.nonce_count);
+      if (s_result_queue && result.nonce != 0xFFFFFFFF)
         xQueueSend(s_result_queue, &result, 0);
       apply_power_smoothing(MINER_POWER_SMOOTHING_SW_JOB_INTERVAL, smooth_counter);
     }
@@ -2335,15 +2618,15 @@ void minerWorkerHw(void * task_id)
             }
           }
 #endif
-          //~5 per second
-          double diff_hash = diff_from_target(hash);
-          if (diff_hash > result.difficulty)
+          if (hashMeetsTargetLe(hash, job.data->pool_target_le))
           {
             if (isSha256Valid(hash))
             {
-              result.difficulty = diff_hash;
-              result.nonce = nonce;
-              memcpy(result.hash, hash, sizeof(hash));
+              if (result.nonce == 0xFFFFFFFF || hashCompareLe(hash, result.hash) < 0)
+              {
+                result.nonce = nonce;
+                memcpy(result.hash, hash, sizeof(hash));
+              }
             }
           }
         }
@@ -2357,8 +2640,11 @@ void minerWorkerHw(void * task_id)
         nonce += nonce_step;
       }
       esp_sha_release_hardware();
+      if (result.nonce != 0xFFFFFFFF)
+        result.difficulty = diff_from_target(result.hash);
       update_hashrate(s_hw_hashes_per_ms, result.nonce_count, micros() - start_us);
-      if (s_result_queue)
+      mining_add_local_processed_hashes(result.nonce_count);
+      if (s_result_queue && result.nonce != 0xFFFFFFFF)
         xQueueSend(s_result_queue, &result, 0);
       apply_power_smoothing(MINER_POWER_SMOOTHING_HW_JOB_INTERVAL, smooth_counter);
     }
@@ -2560,15 +2846,15 @@ void minerWorkerHw(void * task_id)
         sha_ll_load(SHA2_256);
         if (nerd_sha_ll_read_digest_swap_if(hash))
         {
-          //~5 per second
-          double diff_hash = diff_from_target(hash);
-          if (diff_hash > result.difficulty)
+          if (hashMeetsTargetLe(hash, job.data->pool_target_le))
           {
             if (isSha256Valid(hash))
             {
-              result.difficulty = diff_hash;
-              result.nonce = nonce;
-              memcpy(result.hash, hash, sizeof(hash));
+              if (result.nonce == 0xFFFFFFFF || hashCompareLe(hash, result.hash) < 0)
+              {
+                result.nonce = nonce;
+                memcpy(result.hash, hash, sizeof(hash));
+              }
             }
           }
         }
@@ -2582,8 +2868,11 @@ void minerWorkerHw(void * task_id)
         nonce += nonce_step;
       }
       esp_sha_unlock_engine(SHA2_256);
+      if (result.nonce != 0xFFFFFFFF)
+        result.difficulty = diff_from_target(result.hash);
       update_hashrate(s_hw_hashes_per_ms, result.nonce_count, micros() - start_us);
-      if (s_result_queue)
+      mining_add_local_processed_hashes(result.nonce_count);
+      if (s_result_queue && result.nonce != 0xFFFFFFFF)
         xQueueSend(s_result_queue, &result, 0);
       apply_power_smoothing(MINER_POWER_SMOOTHING_HW_JOB_INTERVAL, smooth_counter);
     }
@@ -2700,6 +2989,7 @@ void runMonitor(void *name)
     uint32_t now_millis = millis();
     if (now_millis < last_update_millis)
       now_millis = last_update_millis;
+    bool display_active = isDisplayActive();
     
     uint32_t mElapsed = now_millis - mLastCheck;
     if (mElapsed >= 1000)
@@ -2717,15 +3007,21 @@ void runMonitor(void *name)
         upTime ++;
       }
 
-      drawCurrentScreen(mElapsed);
+      if (display_active)
+        drawCurrentScreen(mElapsed);
 
       // Monitor state when hashrate is 0.0
       if (elapsedKHs == 0)
       {
-        Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
-            (s_working_current_job_id != 0xFF) ? "true" : "false",
-            isMinerSuscribed ? "true" : "false",
-            client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+        static uint32_t last_zero_hash_log_ms = 0;
+        if (now_millis - last_zero_hash_log_ms >= 5000)
+        {
+          Serial.printf(">>> [i] Miner: newJob>%s / inRun>%s) - Client: connected>%s / subscribed>%s / wificonnected>%s\n",
+              (s_working_current_job_id != 0xFF) ? "true" : "false",
+              isMinerSuscribed ? "true" : "false",
+              client.connected() ? "true" : "false", isMinerSuscribed ? "true" : "false", WiFi.status() == WL_CONNECTED ? "true" : "false");
+          last_zero_hash_log_ms = now_millis;
+        }
       }
 
       #ifdef DEBUG_MEMORY
@@ -2742,7 +3038,8 @@ void runMonitor(void *name)
           currentIntervalIndex++;
       }    
     }
-    animateCurrentScreen(frame);
+    if (display_active)
+      animateCurrentScreen(frame);
     doLedStuff(frame);
 
     // Adapt target batch time based on stale shares

@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 #ifndef MINER_JOB_DEBUG_LOG
-#define MINER_JOB_DEBUG_LOG 1
+#define MINER_JOB_DEBUG_LOG 0
 #endif
 
 #ifndef bswap_16
@@ -51,6 +51,35 @@ int to_byte_array(const char *in, size_t in_size, uint8_t *out) {
         }
         return count;
     }
+}
+
+static inline void copyCString(char *dst, size_t dst_size, const char *src)
+{
+    if (dst == nullptr || dst_size == 0)
+        return;
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, dst_size - 1);
+    dst[dst_size - 1] = '\0';
+}
+
+static inline size_t appendCString(char *dst, size_t dst_size, size_t offset, const char *src)
+{
+    if (dst == nullptr || dst_size == 0 || offset >= dst_size)
+        return offset;
+    if (src == nullptr)
+        src = "";
+
+    size_t src_len = strlen(src);
+    size_t room = dst_size - offset - 1;
+    size_t copy_len = (src_len < room) ? src_len : room;
+    if (copy_len > 0)
+        memcpy(dst + offset, src, copy_len);
+    dst[offset + copy_len] = '\0';
+    return offset + copy_len;
 }
 
 void swap_endian_words(const char * hex_words, uint8_t * output) {
@@ -195,27 +224,34 @@ miner_data init_miner_data(void){
   return newMinerData;
 }
 
-miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
+miner_data calculateMiningData(mining_subscribe& mWorker, const mining_job& mJob){
 
   miner_data mMiner = init_miner_data();
 
   // calculate target - target = (nbits[2:]+'00'*(int(nbits[:2],16) - 3)).zfill(64)
     
-    char target[TARGET_BUFFER_SIZE+1];
+    char target[TARGET_BUFFER_SIZE + 1];
     memset(target, '0', TARGET_BUFFER_SIZE);
-    int zeros = (int) strtol(mJob.nbits.substring(0, 2).c_str(), 0, 16) - 3;
+    target[TARGET_BUFFER_SIZE] = 0;
+
+    char nbits_exp[3] = {0, 0, 0};
+    if (mJob.nbits[0] != '\0')
+      nbits_exp[0] = mJob.nbits[0];
+    if (mJob.nbits[1] != '\0')
+      nbits_exp[1] = mJob.nbits[1];
+    int zeros = (int)strtol(nbits_exp, nullptr, 16) - 3;
     int target_offset = zeros - 2;
     if (target_offset < 0)
       target_offset = 0;
     if (target_offset > TARGET_BUFFER_SIZE)
       target_offset = TARGET_BUFFER_SIZE;
-    size_t nbits_tail_len = (mJob.nbits.length() > 2) ? (mJob.nbits.length() - 2) : 0;
+    size_t nbits_len = strnlen(mJob.nbits, sizeof(mJob.nbits));
+    size_t nbits_tail_len = (nbits_len > 2) ? (nbits_len - 2) : 0;
     size_t copy_len = nbits_tail_len;
     if ((size_t)target_offset + copy_len > TARGET_BUFFER_SIZE)
       copy_len = TARGET_BUFFER_SIZE - (size_t)target_offset;
     if (copy_len > 0)
-      memcpy(target + target_offset, mJob.nbits.substring(2).c_str(), copy_len);
-    target[TARGET_BUFFER_SIZE] = 0;
+      memcpy(target + target_offset, mJob.nbits + 2, copy_len);
     #if MINER_JOB_DEBUG_LOG
     Serial.print("    target: "); Serial.println(target);
     #endif
@@ -230,32 +266,33 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     }
 
     // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
-    //To review
-    //char extranonce2_char[2 * mWorker.extranonce2_size+1];	
-	//mWorker.extranonce2.toCharArray(extranonce2_char, 2 * mWorker.extranonce2_size + 1);
-    //getNextExtranonce2(mWorker.extranonce2_size, extranonce2_char);
     if (mWorker.extranonce2_size == 2)
-        mWorker.extranonce2 = "0001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "0001");
     else if (mWorker.extranonce2_size == 4)
-        mWorker.extranonce2 = "00000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "00000001");
     else if (mWorker.extranonce2_size == 8)
-        mWorker.extranonce2 = "0000000000000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "0000000000000001");
     else
     {
         Serial.println("Unknown extranonce2");
-        mWorker.extranonce2 = "00000001";
+        copyCString(mWorker.extranonce2, sizeof(mWorker.extranonce2), "00000001");
     }
-    //mWorker.extranonce2 = "00000002";
-    
-    //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
-    String coinbase = mJob.coinb1 + mWorker.extranonce1 + mWorker.extranonce2 + mJob.coinb2;
+
+    // get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
+    char coinbase[COINBASE_SIZE + STRATUM_EXTRANONCE1_SIZE + STRATUM_EXTRANONCE2_SIZE + COINBASE2_SIZE + 1];
+    size_t coinbase_len = 0;
+    coinbase[0] = '\0';
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mJob.coinb1);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mWorker.extranonce1);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mWorker.extranonce2);
+    coinbase_len = appendCString(coinbase, sizeof(coinbase), coinbase_len, mJob.coinb2);
     #if MINER_JOB_DEBUG_LOG
     Serial.print("    coinbase: "); Serial.println(coinbase);
     #endif
-    size_t str_len = coinbase.length()/2;
-    uint8_t bytearray[str_len];
+    size_t str_len = coinbase_len / 2;
+    uint8_t bytearray[(sizeof(coinbase) - 1) / 2];
 
-    size_t res = to_byte_array(coinbase.c_str(), str_len*2, bytearray);
+    size_t res = to_byte_array(coinbase, coinbase_len, bytearray);
 
     #ifdef DEBUG_MINING
     Serial.print("    extranonce2: "); Serial.println(mWorker.extranonce2);
@@ -273,7 +310,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     byte shaResult[32]; // 256 bit
   
     mbedtls_sha256_starts_ret(&ctx,0);
-    mbedtls_sha256_update_ret(&ctx, bytearray, str_len);
+    mbedtls_sha256_update_ret(&ctx, bytearray, res);
     mbedtls_sha256_finish_ret(&ctx, interResult);
 
     mbedtls_sha256_starts_ret(&ctx,0);
@@ -350,11 +387,19 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
 
     // calculate blockheader
     // j.block_header = ''.join([j.version, j.prevhash, merkle_root, j.ntime, j.nbits])
-    String blockheader = mJob.version + mJob.prev_block_hash + String(merkle_root) + mJob.ntime + mJob.nbits + "00000000";
-    str_len = blockheader.length()/2;
-    
+    char blockheader[161];
+    size_t blockheader_len = 0;
+    blockheader[0] = '\0';
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.version);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.prev_block_hash);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, merkle_root);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.ntime);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, mJob.nbits);
+    blockheader_len = appendCString(blockheader, sizeof(blockheader), blockheader_len, "00000000");
+    str_len = blockheader_len / 2;
+
     //uint8_t bytearray_blockheader[str_len];
-    res = to_byte_array(blockheader.c_str(), str_len*2, mMiner.bytearray_blockheader);
+    res = to_byte_array(blockheader, blockheader_len, mMiner.bytearray_blockheader);
 
     #ifdef DEBUG_MINING
     Serial.println("    blockheader: "); Serial.print(blockheader);
