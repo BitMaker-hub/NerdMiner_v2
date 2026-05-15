@@ -172,6 +172,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   // Total hashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268, 138, TFT_BLACK);
+  render.setFontColor(TFT_WHITE);
   // Block templates
   render.setFontSize(18);
   render.drawString(data.templates.c_str(), 186, 20, 0xDEDB);
@@ -187,7 +188,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   // Valid Blocks
   render.setFontSize(24);
   render.drawString(data.valids.c_str(), 285, 56, 0xDEDB);
-
+  render.setFontColor(TFT_BLACK);
   // Print Temp
   render.setFontSize(10);
   render.rdrawString(data.temp.c_str(), 239, 1, TFT_BLACK);
@@ -290,9 +291,10 @@ void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
   render.rdrawString(data.globalHashRate.c_str(), 274, 145, TFT_BLACK);
 
   // Print BlockHeight
+  render.setFontColor(TFT_WHITE);
   render.setFontSize(28);
   render.rdrawString(data.blockHeight.c_str(), 140, 104, 0xDEDB);
-
+  render.setFontColor(TFT_BLACK);
   // Draw percentage rectangle
   int x2 = 2 + (138 * data.progressPercent / 100);
   background.fillRect(2, 149, x2, 168, 0xDEDB);
@@ -332,7 +334,9 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
 
   // Print BlockHeight
   render.setFontSize(18);
+  render.setFontColor(TFT_WHITE);
   render.rdrawString(data.blockHeight.c_str(), 254, 138, TFT_WHITE);
+  render.setFontColor(TFT_BLACK);
 
   // Print Hour
   
