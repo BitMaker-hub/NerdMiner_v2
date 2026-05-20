@@ -16,7 +16,7 @@
 
 //#define getBTCAPI "https://api.coindesk.com/v1/bpi/currentprice.json" -- doesn't work anymore
 //#define getBTCAPI "https://api.blockchain.com/v3/exchange/tickers/BTC-USDT" -- updates infrequently
-#define getBTCAPI "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+#define getBTCAPI "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT"
 
 #define UPDATE_BTC_min   1
 
