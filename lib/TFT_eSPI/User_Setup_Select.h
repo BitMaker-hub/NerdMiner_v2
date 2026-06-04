@@ -149,6 +149,9 @@
 #ifdef LILYGO_S3_T_EMBED
 #include <User_Setups/Setup210_LilyGo_T_Embed_S3.h>         // For the LilyGo T-Embed S3 based ESP32S3 with ST7789 170 x 320 TFT
 #endif
+#ifdef M5_STICKS3
+#include <User_Setups/Setup216_M5_StickS3.h>                // M5Stack StickS3 (ESP32-S3-PICO) with ST7789P3 135 x 240 TFT
+#endif
 #ifdef NERDMINER_T_QT
 #include <User_Setups/Setup211_LilyGo_T_QT_Pro_S3.h>         // For the LilyGo T-QT Pro S3 based ESP32S3 with GC9A01 128 x 128 TFT
 #endif
