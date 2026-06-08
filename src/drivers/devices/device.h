@@ -53,6 +53,8 @@
 #include "lilygoT_HMI.h"
 #elif defined(SPOTPEAR)
 #include "spotpearKeychain.h"
+#elif defined(JC3248W535)
+#include "jc3248w535.h"
 
 #else
 #error "No device defined"
