@@ -107,7 +107,7 @@ void updateGlobalData(void){
         HTTPClient http;
         http.setTimeout(10000);
         try {
-        jc_http_begin(http, String(getGlobalHash));
+        httpBeginAny(http, String(getGlobalHash));
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -132,7 +132,7 @@ void updateGlobalData(void){
 
       
         //Make third API call to get fees
-        jc_http_begin(http, String(getFees));
+        httpBeginAny(http, String(getFees));
         httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -172,7 +172,7 @@ String getBlockHeight(void){
         HTTPClient http;
         http.setTimeout(10000);
         try {
-        jc_http_begin(http, String(getHeightAPI));
+        httpBeginAny(http, String(getHeightAPI));
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -210,7 +210,7 @@ String getBTCprice(void){
         bool priceUpdated = false;
 
         try {
-        jc_http_begin(http, String(getBTCAPI));
+        httpBeginAny(http, String(getBTCAPI));
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -490,9 +490,9 @@ pool_data getPoolData(void){
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
 #ifdef SCREEN_WORKERS_ENABLE
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
-          jc_http_begin(http, poolAPIUrl+btcWallet);
+          httpBeginAny(http, poolAPIUrl+btcWallet);
 #else
-          jc_http_begin(http, String(getPublicPool)+btcWallet);
+          httpBeginAny(http, String(getPublicPool)+btcWallet);
 #endif
           int httpCode = http.GET();
           if (httpCode == HTTP_CODE_OK) {
