@@ -1,171 +1,33 @@
 // =============================================================================
-//  Guition JC3248W535 display driver for NerdMiner v2  (v0.8.11)
+//  Guition JC3248W535 display driver for NerdMiner v2  (v0.8.14)
 // =============================================================================
 //
-//  Stack: Arduino_GFX 1.6.0 + OpenFontRender 1.2 + canonical NerdMiner art
+//  Stack:
+//    * Arduino_GFX_Library 1.6.0 (pinned; 1.6.1+ breaks AXS15231B init).
+//    * OpenFontRender 1.2  (TTF rasterizer; bridged to Arduino_Canvas).
+//    * Canonical NerdMiner artwork from src/media/images_320_170.h and
+//      images_bottom_320_70.h, scaled 1.5x H both axes to fill the panel.
 //
-//  v0.8.11 changes vs v0.8.10 — toolbar harmonization round:
-//    Canonical toolbar style (from Global Stats) is now applied to all
-//    screens: Arduino_GFX built-in font @ size 2, y = sy_top(7), BLACK.
+//  Architecture:
+//    * Display:  Arduino_AXS15231B over QSPI -> 480x320 landscape (rotation=1).
+//    * Buffers:  Arduino_Canvas framebuffer in PSRAM + a separate
+//                "bg_cache" PSRAM buffer holding the rendered artwork so
+//                per-field text "erase" is a sub-rect memcpy from bg_cache
+//                back into the canvas. No more black erase boxes.
+//    * Layout:   top art y=0..220 (was 255 pre-v0.8.2), bottom y=220..320.
+//                Touch zones: top tap -> next cyclic; bottom tap -> toggle
+//                POOL / FEES bottom panel.
+//    * 5 screens:  Loading, Setup, MinerScreen, ClockScreen,
+//                  GlobalHashScreen, PriceScreen (4 cyclic).
+//    * Touch:    AXS-touch I2C @ 0x3B polled at NerdMiner's 10 Hz animate()
+//                cadence with 200 ms edge debounce.
+//    * Flush:    gfx->flush() only called when displayed strings have
+//                changed OR every JC_MAX_FLUSH_GAP_MS (5s safety net so
+//                layout edits become visible without value churn).
+//    * Touch debug overlay: compile with -D JC_TOUCH_DEBUG to enable a
+//                live counter strip at the bottom of the panel.
 //
-//    * Global Stats:
-//        - Global hashrate RIGHT 1 more character (+14 px). Total +75 from sx(190).
-//        - Toolbar unchanged (it is the canonical reference now).
-//    * Price screen:
-//        - Toolbar time: NotoBold@24 sy_top(0) -> built-in size 2 sy_top(7).
-//          X (sx(220)) preserved per user feedback.
-//    * Miner screen:
-//        - Toolbar temp + time: NotoBold@24 sy_top(0) -> built-in size 2
-//          sy_top(7) (matches Global). Temp moved RIGHT (sx(195) -> sx(214))
-//          to sit closer to time.
-//    * Clock screen toolbar already matches the canonical style — no change.
-//
-//  v0.8.10 changes vs v0.8.9 — minor position pass + flush stale fix:
-//    * Miner:
-//        - Hashrate: LEFT one character (~28 px at Digital 50px).
-//        - Uptime:   RIGHT one character (~7 px at Digital 16px).
-//    * Clock:
-//        - Big clock font 74 -> 78 ("a bit larger").
-//    * Global Stats:
-//        - Global hashrate: RIGHT 3 characters (~42 px at Digital 24).
-//        - Toolbar time:   font NotoBold 24 -> built-in size 2 to match
-//                          toolbar price. Both already on sy_top(7).
-//    * jc_shouldFlush(): force a flush every 5s even if snapshot unchanged.
-//      Prevents the "I uploaded but don't see my layout changes" bug where
-//      a value-snapshot match was suppressing the flush after layout edits.
-//
-//  v0.8.9 changes vs v0.8.8 — four-screen polish round:
-//    * Miner:
-//        - Uptime:   RIGHT 12 more (now +24 total from sx(180) baseline).
-//        - Toolbar:  temp+time brought CLOSER (time x sx(255)->sx(245),
-//                    -10) and RAISED 1 (sy_top(1)->sy_top(0)).
-//        - Hashrate: RIGHT 10 more + DOWN 5 more (now x=sx(50)-23,
-//                    y=sy_top(110)).
-//    * Clock:
-//        - Big clock font 70 -> 74 (slightly larger).
-//        - Toolbar BTC: RIGHT one char (+12) + DOWN 2 (sy 5 -> 7).
-//        - Block height: LEFT 4 more (now sx(180)-9). FONT = DigitalNumbers
-//          (TTF via OpenFontRender) @ 26 px, BLACK.
-//    * Global Stats:
-//        - Global hashrate: RIGHT 14 more (one char) to space from "EH/s".
-//        - Toolbar BTC: matched Clock toolbar (RIGHT +12, DOWN 2).
-//        - Toolbar time: y aligned to toolbar BTC (sy_top(7)) so both share
-//          the same horizontal axis.
-//    * Price:
-//        - Toolbar time: raised 1 (sy_top(1)->sy_top(0)) matching Miner/Clock.
-//
-//  v0.8.8 changes vs v0.8.7 — three-screen polish:
-//    * Miner screen:
-//        - Hashrate:       LEFT 5 + DOWN 5 (equal). x=sx(50)-33, y=sy_top(105).
-//        - Block templates RIGHT 4 (only that one of the right-column stats).
-//        - Uptime:         RIGHT 12 (~2 chars at Digital 16).
-//        - Worker count:   font 24 -> 28 (one step bigger).
-//    * Clock screen:
-//        - BTC top of art: RIGHT 3 + DOWN 2.
-//        - Block height:   DOWN 3 (was at sy 137, now 140).
-//        - Hashrate:       NOW IDENTICAL to Price screen hashrate
-//                          (sx(19), sy_top(128), slot 38, BLACK, Digital 34).
-//    * Global Stats screen:
-//        - Global hashrate: RIGHT 5 + DOWN 3 + color WHITE -> BLACK.
-//        - Medium fee + Difficulty: DOWN 3 + color light-blue -> WHITE.
-//        - Toolbar price: RIGHT 3 + DOWN 2.
-//        - Toolbar time:  DOWN 2 + switched to NotoBold @ 24 (matches Price
-//                         header time and Clock toolbar time).
-//
-//  v0.8.7 changes vs v0.8.6 — multi-screen polish:
-//    * Price screen:
-//        - Time font 22 -> 24 (slightly bigger)
-//    * Miner screen:
-//        - Header temp + time: built-in size-1 -> NotoBold @ 24 (matches
-//          Price screen header time; smoother than DigitalNumbers/T-HMI)
-//        - Uptime: moved LEFT (sx(245) -> sx(180)) and UP 2 (sy 108 -> 106)
-//        - Hashrate: moved LEFT one character (~28 screen-px) and DOWN 5
-//                    (sy 95 -> 100). Erase rect widened left.
-//    * Clock screen:
-//        - Hashrate: DOWN 5 (sy 118 -> 123), WHITE -> BLACK
-//        - Block height: LEFT 5, DOWN 2 (sy 135 -> 137), WHITE -> BLACK
-//        - Big clock: was centered cyan DigitalNumbers 70px;
-//                     now right-aligned (32px right margin) WHITE NotoBold
-//
-//  v0.8.6 changes vs v0.8.5:
-//    * Price screen:
-//        - Time:  literal up 4 (sy_top 5 -> 1) to center on header bar.
-//                 Slot enlarged to absorb the higher top so 22px font
-//                 doesn't get clipped.
-//    * Miner screen:
-//        - Hashrate:    font 65 -> 50px, color CYAN -> BLACK.
-//        - Uptime:      switched from built-in size-1 to Digital @ 16px,
-//                       and lowered 4px (sy_top 104 -> 108).
-//        - Total MH:    switched from built-in size-2 to Digital @ 22px,
-//                       and lowered 4px (sy_top 138 -> 142).
-//    * Worker count tweak DEFERRED — awaiting exact target Y from user.
-//
-//  v0.8.5 changes vs v0.8.4 — Price screen polish round 3:
-//    * BTC headline:           raised 5 more px (sy_top 51 -> 46)
-//    * Hashrate:               lowered 2 more px (sy_top 126 -> 128)
-//    * Time (top-right):       raised 1px (sy_top 6 -> 5), font 18 -> 22 px
-//                              (slot height also bumped 22 -> 26)
-//    * Bottom POOL workers ct: lowered 2 more px (+6 total from baseline)
-//
-//  v0.8.4 changes vs v0.8.3 — Price screen polish round 2:
-//    * BTC headline:           raised another 2px  (sy_top 53 -> 51)
-//    * Hashrate:               lowered another 2px (sy_top 124 -> 126)
-//    * Time (top-right):       lowered another 2px (sy_top 4 -> 6)
-//                              + switched from chunky built-in font to
-//                              smoother NotoSans Bold (TTF @ 18px) so the
-//                              clock looks less dotty.
-//    * Bottom POOL panel:      workers count ONLY lowered another 2px
-//                              (best-diff and workersHash slots untouched).
-//
-//  v0.8.3 changes vs v0.8.2 — layout polish per visual feedback:
-//    * Price screen:
-//        - BTC headline raised 2px
-//        - Time lowered 1px
-//        - Hashrate lowered 2px, color BLACK, font size 30 -> 34
-//        - Block height lowered 2px
-//    * Bottom panel (both POOL and FEES variants):
-//        - All values lowered 2 screen-px
-//        - Switched to DigitalNumbers font at 24px (was built-in size 2)
-//        - Slot height bumped to 28 to accommodate taller glyphs
-//
-//  v0.8.2 changes vs v0.8 (v0.8.1 was reverted - bypassing canvas broke
-//                         coordinates; the partial-flush experiment failed):
-//    * FLASH-REDUCTION ("only flush when values changed"):
-//        Tracks a per-screen snapshot of all displayed strings. At the end
-//        of each cyclic-screen function, compares new snapshot to cached.
-//        If nothing changed -> SKIP gfx->flush() entirely (no flash that
-//        frame). If anything changed -> flush as before. Worst case = v0.8.
-//        Best case: at idle / between value updates, panel is silent.
-//
-//    * BOUNDARY 255 -> 220 between top and bottom panels:
-//        Top:    320x170 src -> 480x220 (H=1.5x, V=1.294x; slight V squish)
-//        Bottom: 320x70  src -> 480x100 (H=1.5x, V=1.428x; slight V stretch)
-//        Touch threshold moves to y > 220 to match the new boundary.
-//
-//    * PRICE SCREEN: BTC headline right-justified and WHITE (was centered cyan)
-//
-//  v0.8 changes vs v0.7.3:
-//    * REAL TRANSPARENT TEXT OVERLAY:
-//        - Background is rendered once into a dedicated PSRAM bg-cache
-//          buffer (480x320 RGB565 = ~307 KB in PSRAM).
-//        - At driver init we copy that buffer into the canvas.
-//        - On each text update, the per-field "erase" copies the matching
-//          slice of the bg-cache back into the canvas (restoring artwork)
-//          BEFORE painting new text. No more black rectangles hiding the
-//          artwork.
-//    * FILL-WIDTH SCALING (Option C):
-//        - Top image scaled 1.5x both axes -> 480x255 (was 400x213)
-//        - Bottom image scaled 1.5x H, 0.93x V -> 480x65 (was 400x88)
-//          (Slight 7% vertical squish on the bottom panel only, so the
-//           combined height matches the 320-px screen exactly.)
-//        - No side margins; image fills the whole screen.
-//    * FOOTER HINT REMOVED:
-//        - The "tap top: next screen / tap bottom: workers <-> fees" line
-//          is gone. Total layout: top 0..255, bottom 255..320 (65px). The
-//          full panel is artwork now.
-//    * Flashing should disappear: no per-second fillScreen(BLACK), and the
-//      per-field erase is a sub-rect bg-cache memcpy (~few KB) rather than
-//      a black fill on the canvas.
+//  See git log for change history.
 // =============================================================================
 
 #include "displayDriver.h"
@@ -202,7 +64,6 @@ extern void switchToNextScreen();
 #define SRC_BOT_H       70
 
 // TOP: 1.5x both axes -> 480x255
-// v0.8.2: top shorter (220px), bottom taller (100px) per visual feedback.
 // Top scaling becomes H=1.5x, V=1.294x (was 1.5x both).
 // Bottom scaling becomes H=1.5x, V=1.428x (was 1.5x H, 0.93x V).
 #define TOP_X          0
@@ -267,7 +128,6 @@ static int    last_snapshot_lower = -1;
 
 // Returns true if a flush is needed (snapshot changed OR bg changed).
 // On true, caller calls gfx->flush() and we update the cached snapshot.
-// v0.8.10: also force a flush every N ms regardless of snapshot, so
 // LAYOUT/FONT/COLOR tweaks aren't invisible until data changes. Cost is
 // a periodic mini-flash but it makes development iterations trustworthy.
 #define JC_MAX_FLUSH_GAP_MS  5000
@@ -575,7 +435,7 @@ static bool jc_ensureBackground(int cyc, int lo) {
 // ============================================================================
 void jc3248w535_Init(void)
 {
-    Serial.println(F("[jc3248w535] init v0.8.11"));
+    Serial.println(F("[jc3248w535] init v0.8.14"));
     pinMode(LCD_BL, OUTPUT); digitalWrite(LCD_BL, HIGH);
 
     jc_bus   = new Arduino_ESP32QSPI(LCD_CS, LCD_SCK, LCD_D0, LCD_D1, LCD_D2, LCD_D3);
@@ -616,7 +476,6 @@ void jc3248w535_AlternateRotation(void) {
     int r = (gfx->getRotation() == 1) ? 3 : 1;
     gfx->setRotation(r); gfx->fillScreen(BLACK); gfx->flush();
     cached_cycle = -1; cached_lower = -1;
-    // v0.8.2: invalidate snapshot cache so next render is forced to flush
     for (int i = 0; i < SCR_COUNT; i++) last_snapshot[i] = "";
 }
 
@@ -666,7 +525,6 @@ void jc3248w535_SetupScreen(void)
 // ============================================================================
 //  Bottom panel text overlays
 // ============================================================================
-// v0.8.3: bottom-panel fields use DigitalNumbers (was built-in font),
 //         lowered 2 screen-px, font size up to 24px ("a little larger").
 //         Erase rect height bumped to 28 to cover taller glyphs.
 static void jc_drawLowerPool(unsigned long /*mElapsed*/)
@@ -674,9 +532,6 @@ static void jc_drawLowerPool(unsigned long /*mElapsed*/)
     pool_data p = getPoolData();
     jc_dynOfr(JcFont::Digital, sx(5),   sy_bot(34) + 2, sx(80) - sx(5),    28,
               BLACK, 24, "%s", p.bestDifficulty.c_str());
-    // v0.8.4: workers count ONLY lowered another 2px (other two unchanged)
-    // v0.8.5: workers count lowered another 2px (total +6 from baseline)
-    // v0.8.8: font size 24 -> 28 (one step bigger); slot height 28 -> 32.
     jc_dynOfr(JcFont::Digital, sx(146), sy_bot(34) + 6, 60,                 32,
               BLACK, 28, "%d", p.workersCount);
     jc_dynOfr(JcFont::Digital, sx(216), sy_bot(34) + 2, sx(315) - sx(216),  28,
@@ -701,17 +556,10 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
     mining_data data = getMiningData(mElapsed);
 
     // Hashrate (big, lower-left area of art)
-    // v0.8.6: smaller font (65 -> 50) and color CYAN -> BLACK.
-    // v0.8.7: moved LEFT one character (~28 screen-px at Digital 50px)
-    //         and DOWN 5 (sy_top(95) -> sy_top(100)). Slot widened LEFT.
-    // v0.8.8: moved LEFT 5 + DOWN 5 (equal). x: sx(50)-28 -> sx(50)-33.
-    // v0.8.9: moved RIGHT 10 and DOWN 5 more. x: sx(50)-33 -> sx(50)-23.
-    // v0.8.10: moved LEFT one character (~28px at Digital 50px). x -> sx(50)-51.
     jc_dynOfr(JcFont::Digital, sx(50) - 51, sy_top(110), sx(180)-(sx(50)-51), 44,
               BLACK, 50, "%s", data.currentHashRate.c_str());
 
     // Stats column on the right side of art (templates / bestDiff / shares)
-    // v0.8.8: block templates only moved RIGHT 4 px (other two unchanged).
     jc_dynOfr(JcFont::Digital, sx(186) + 4, sy_top(20), 60, 20, WHITE, 20,
               "%s", data.templates.c_str());
     jc_dynOfr(JcFont::Digital, sx(186), sy_top(48), 60, 20, WHITE, 20,
@@ -724,36 +572,31 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
               "%s", data.valids.c_str());
 
     // Time mining ("uptime"), right side near bottom of top art.
-    // v0.8.6: enlarged from built-in size-1 (~7px) to Digital @ 16px,
-    //         and moved down 4px (sy_top(104) -> sy_top(108)).
-    // v0.8.7: moved LEFT a large amount (sx(245) -> sx(180)) and slightly
-    //         up (sy_top(108) -> sy_top(106)).
-    // v0.8.8: moved RIGHT 2 characters (~12 px at Digital 16).
-    // v0.8.9: moved RIGHT 2 more characters (+24 total from sx(180)).
-    // v0.8.10: moved RIGHT one more character (~7px at Digital 16). +31 total.
     jc_dynOfr(JcFont::Digital, sx(180) + 31, sy_top(106), sx(315)-(sx(180)+31), 20,
               WHITE, 16, "%s", data.timeMining.c_str());
 
-    // Total MHashes ("million hashes")
-    // v0.8.6: enlarged from built-in size-2 (~14px) to Digital @ 22px,
-    //         and moved down 4px (sy_top(138) -> sy_top(142)).
-    jc_dynOfr(JcFont::Digital, sx(230), sy_top(142), sx(290)-sx(230), 26,
+    // Total MHashes ("million hashes") — DigitalNumbers via OFR @ 22px.
+    jc_dynOfr(JcFont::Digital, sx(234), sy_top(142), sx(290)-sx(234), 26,
               BLACK, 22, "%s", data.totalMHashes.c_str());
 
-    // Temp + time at top of art
-    // v0.8.11: harmonized to Global Stats toolbar font/y (built-in size 2,
-    //          sy_top(7)). Was NotoBold @ 24, sy_top(0).
-    //          Temp also moved RIGHT closer to time: sx(195) -> sx(214)
-    //          (leaves ~10 screen-px gap between "42C" and time start).
-    jc_dynText(sx(214), sy_top(7), 50, 14, BLACK, 2, "%sC", data.temp.c_str());
-    jc_dynText(sx(245), sy_top(7), sx(315)-sx(245), 14, BLACK, 2,
+    // Temp + time at top of art (harmonized to Global Stats toolbar style:
+    // Arduino_GFX built-in font size 2, BLACK).
+    // Temp uses degree symbol (0xF7 in many Adafruit GFX fonts ≈ '°').
+    // If 0xF7 prints as a different glyph on your panel, switch to "%sC"
+    // (plain ASCII) or draw a small circle outline geometrically.
+    // Temp: built-in size 2 (size 1 was too small to read), at sx(225).
+    //       Degree symbol (\xF7) follows the temperature.
+    jc_dynText(sx(225), sy_top(4), 50, 14, BLACK, 2, "%s\xF7", data.temp.c_str());
+    // Time: built-in size 2 at sx(243). v0.8.13's sx(257) overshot
+    // (last digit landed over a background symbol), so reverting and
+    // nudging 2 px LEFT of the v0.8.12 baseline (sx(245)).
+    jc_dynText(sx(243), sy_top(4), sx(315)-sx(243), 14, BLACK, 2,
                "%s",  data.currentTime.c_str());
 
     // Bottom panel
     if (lowerScreen == LOWER_POOL) jc_drawLowerPool(mElapsed);
     else                           jc_drawLowerFees(mElapsed);
 
-    // v0.8.2: skip flush if nothing changed since last render
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
     String snap = data.currentHashRate + "|" + data.templates + "|" + data.bestDiff
@@ -778,8 +621,6 @@ static void jc3248w535_ClockScreen(unsigned long mElapsed)
 
     // Big clock — v0.8.7: right-aligned to right half of art (32 px right
     //                     margin), color WHITE, font NotoBold.
-    // v0.8.9:  font 70 -> 74.
-    // v0.8.10: font 74 -> 78 ("a bit larger"). Slot 84 -> 90.
     jc_loadFont(JcFont::NotoBold);
     render.setFontSize(78);
     uint16_t cw = render.getTextWidth(data.currentTime.c_str());
@@ -788,30 +629,20 @@ static void jc3248w535_ClockScreen(unsigned long mElapsed)
               "%s", data.currentTime.c_str());
 
     // Hashrate lower-left
-    // v0.8.7: lowered 5px (sy_top(118) -> sy_top(123)), WHITE -> BLACK.
-    // v0.8.8: made IDENTICAL to Price screen hashrate (position + font):
-    //         sy_top(123) -> sy_top(128), slot 32 -> 38, font 32 -> 34.
     jc_dynOfr(JcFont::Digital, sx(19), sy_top(128), sx(120)-sx(19), 38,
               BLACK, 34, "%s", data.currentHashRate.c_str());
 
     // Block height lower-right — font: DigitalNumbers @ 26 px (TTF via OFR)
-    // v0.8.7: moved LEFT 5px, DOWN 2, WHITE -> BLACK.
-    // v0.8.8: lowered another 3px (sy 137 -> 140).
-    // v0.8.9: moved slightly LEFT another 4px. x: sx(180)-5 -> sx(180)-9.
     jc_dynOfr(JcFont::Digital, sx(180) - 9, sy_top(140), sx(290)-(sx(180)-9), 26,
               BLACK, 26, "%s", data.blockHeight.c_str());
 
     // BTC price top of art
-    // v0.8.8: moved slightly RIGHT 3 + DOWN 2 (sy_top(3) -> sy_top(5)).
-    // v0.8.9: moved RIGHT one more character (+12) and DOWN 2 more.
-    //         x: sx(195)+3 -> sx(195)+15; y: sy_top(5) -> sy_top(7).
     jc_dynText(sx(195) + 15, sy_top(7), sx(315)-(sx(195)+15), 14, BLACK, 2,
                "%s", data.btcPrice.c_str());
 
     if (lowerScreen == LOWER_POOL) jc_drawLowerPool(mElapsed);
     else                           jc_drawLowerFees(mElapsed);
 
-    // v0.8.2: skip flush if nothing changed
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
     String snap = data.currentTime + "|" + data.btcPrice + "|" + data.currentHashRate
@@ -832,25 +663,17 @@ static void jc3248w535_GlobalHashScreen(unsigned long mElapsed)
     coin_data data = getCoinData(mElapsed);
     clock_data ctm = getClockData(mElapsed);
 
-    // v0.8.8: toolbar price moved slightly RIGHT 3 + DOWN 2.
-    // v0.8.9: matched to Clock toolbar: RIGHT one more char (+12) + DOWN 2.
-    //         x: sx(195)+3 -> sx(195)+15; y: sy_top(5) -> sy_top(7).
     jc_dynText(sx(195) + 15, sy_top(7), 100, 14, BLACK, 2, "%s",
                data.btcPrice.c_str());
-    // v0.8.10: changed time font to match price (built-in size 2, was NotoBold@24).
     //          Both share sy_top(7) so already on same horizontal plane.
     jc_dynText(sx(265), sy_top(7), sx(315)-sx(265), 14, BLACK, 2,
                "%s", ctm.currentTime.c_str());
 
-    // v0.8.8: medium fee + difficulty lowered 3px, color light-blue -> WHITE.
     jc_dynText(sx(240), sy_top(53), sx(315)-sx(240), 18, WHITE, 2,
                "%s", data.halfHourFee.c_str());
     jc_dynText(sx(240), sy_top(88), sx(315)-sx(240), 18, WHITE, 2,
                "%s", data.netwrokDifficulty.c_str());
 
-    // v0.8.9:  RIGHT one char (~14 px) for space from "EH/s" label.
-    // v0.8.10: RIGHT 3 more characters (~42 px at Digital 24). Total +61 from sx(190).
-    // v0.8.11: RIGHT 1 more character (~14 px at Digital 24). Total +75.
     jc_dynOfr(JcFont::Digital, sx(190) + 75, sy_top(143), sx(290)-(sx(190)+75) + 60, 24,
               BLACK, 24, "%s", data.globalHashRate.c_str());
     jc_dynOfr(JcFont::Digital, sx(20), sy_top(100), sx(150)-sx(20), 36,
@@ -871,7 +694,6 @@ static void jc3248w535_GlobalHashScreen(unsigned long mElapsed)
     if (lowerScreen == LOWER_POOL) jc_drawLowerPool(mElapsed);
     else                           jc_drawLowerFees(mElapsed);
 
-    // v0.8.2: skip flush if nothing changed
     pool_data pds = getPoolData();
     String snap = data.btcPrice + "|" + ctm.currentTime + "|" + data.halfHourFee
                 + "|" + data.netwrokDifficulty + "|" + data.globalHashRate
@@ -893,7 +715,6 @@ static void jc3248w535_PriceScreen(unsigned long mElapsed)
     jc_ensureBackground(SCR_PRICE, lowerScreen);
     clock_data data = getClockData(mElapsed);
 
-    // v0.8.11: harmonized to Global Stats toolbar font/y.
     //          Was NotoBold @ 24, sy_top(0). Now built-in size 2, sy_top(7).
     //          X (sx(220)) preserved per user "x-axis seems good".
     jc_dynText(sx(220), sy_top(7), sx(315) - sx(220), 14, BLACK, 2,
@@ -902,30 +723,21 @@ static void jc3248w535_PriceScreen(unsigned long mElapsed)
     // BIG BTC price — headline of this screen
     jc_loadFont(JcFont::NotoBold);
     render.setFontSize(64);
-    // v0.8.2: right-justified with a 16px right margin, color WHITE.
-    // v0.8.3: raised 2px (sy_top(55) -> sy_top(53)).
-    // v0.8.4: raised another 2px (sy_top(53) -> sy_top(51)).
-    // v0.8.5: raised 5 more px (sy_top(51) -> sy_top(46)).
     uint16_t pw = render.getTextWidth(data.btcPrice.c_str());
     int px = JC_W - (int)pw - 16;
     if (px < 4) px = 4;
     jc_dynOfr(JcFont::NotoBold, px, sy_top(46), JC_W - px, 72, WHITE, 64,
               "%s", data.btcPrice.c_str());
 
-    // v0.8.3: hashrate lowered 2px (sy_top(122) -> sy_top(124)),
     //         BLACK (was WHITE), font size 30 -> 34
-    // v0.8.4: lowered another 2px (sy_top(124) -> sy_top(126))
-    // v0.8.5: lowered another 2px (sy_top(126) -> sy_top(128))
     jc_dynOfr(JcFont::Digital, sx(19), sy_top(128), sx(120)-sx(19), 38,
               BLACK, 34, "%s", data.currentHashRate.c_str());
-    // v0.8.3: block height lowered 2px (sy_top(135) -> sy_top(137))
     jc_dynOfr(JcFont::Digital, sx(180), sy_top(137), sx(290)-sx(180), 24,
               WHITE, 24, "%s", data.blockHeight.c_str());
 
     if (lowerScreen == LOWER_POOL) jc_drawLowerPool(mElapsed);
     else                           jc_drawLowerFees(mElapsed);
 
-    // v0.8.2: skip flush if nothing changed
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
     String snap = data.btcPrice + "|" + data.currentTime + "|" + data.currentHashRate
