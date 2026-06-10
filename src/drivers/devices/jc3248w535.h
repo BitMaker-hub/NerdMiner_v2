@@ -26,25 +26,27 @@
 // ---------------- Touch (AXS controller, I2C) --------------------------------
 #define TOUCH_SDA       4
 #define TOUCH_SCL       8
-#define TOUCH_INT      11
-#define TOUCH_RST      12
+#define TOUCH_INT      11       // ⚠ shared with SDMMC_CMD — see SD card note
+#define TOUCH_RST      12       // ⚠ shared with SDMMC_CLK — see SD card note
 #define TOUCH_I2C_ADDR  0x3B
 #define TOUCH_I2C_HZ    400000
 
-// ---------------- SD card (DEFERRED — see notes) -----------------------------
-// SD card support is NOT enabled in this build. The board's SDMMC pins
-// share GPIOs 11+12 with TOUCH_INT and TOUCH_RST respectively. v0.8.22
-// tried to enable SDMMC 1-bit mode by removing the touch pin drivers,
-// but cardAvailable() reported false on real hardware — the SDMMC
-// peripheral wasn't grabbing the pins. Needs deeper investigation,
-// likely involving GPIO matrix routing or SDMMC_HOST init params.
+// ---------------- SD card (SDMMC 1-bit mode) ---------------------------------
+// Board wiring per JC3248W535 silkscreen, matches hd2_macropad reference.
+// 1-bit SDMMC needs only CLK + CMD + D0 — D1/D2/D3 unused.
 //
-// To re-attempt:
-//   1. Add SDMMC_CLK=12, SDMMC_CMD=11, SDMMC_D0=13 macros here.
-//   2. Remove pinMode(TOUCH_INT, INPUT_PULLUP) and pinMode(TOUCH_RST, OUTPUT)
-//      calls in jc3248w535DisplayDriver.cpp Init() so SDMMC can use the pins.
-//   3. Capture serial output ("SDCard: init SD card interface." etc.) to
-//      see what the SDCard library reports.
+// IMPORTANT: SDMMC_CLK shares GPIO 12 with TOUCH_RST, and SDMMC_CMD
+// shares GPIO 11 with TOUCH_INT. The display driver does NOT call
+// pinMode(TOUCH_RST,OUTPUT) or pinMode(TOUCH_INT,INPUT_PULLUP) so the
+// SDMMC peripheral can drive these pins. The AXS-touch chip self-resets
+// at power-on (per hd2_macropad reference) and we poll touch via I2C
+// (not interrupt), so neither shared signal is needed for touch to work.
+#define SDMMC_CLK      12
+#define SDMMC_CMD      11
+#define SDMMC_D0       13
+#define SD_FREQUENCY   20000    // 20 MHz (matches T-HMI's reliability fix)
+#define SDMMC_1BIT_FIX (1)      // tells NerdMinerV2.ino.cpp to defer SD
+                                // init until after main subsystems are up
 
 // ---------------- NerdMiner expected pins ------------------------------------
 // LED — board has no dedicated user LED; reuse backlight so doLedStuff() does

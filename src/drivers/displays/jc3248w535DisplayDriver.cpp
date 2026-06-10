@@ -1,5 +1,5 @@
 // =============================================================================
-//  Guition JC3248W535 display driver for NerdMiner v2  (v0.8.27)
+//  Guition JC3248W535 display driver for NerdMiner v2  (v0.9.5)
 // =============================================================================
 //
 //  Stack:
@@ -398,8 +398,24 @@ static bool jc_readRawTouch(uint16_t &rawX, uint16_t &rawY)
 static uint32_t lastTouchEdgeMs = 0;
 static bool     touchHeld       = false;
 
+#ifdef SDMMC_1BIT_FIX
+static void jc_pollSdStatus(); // fwd decl (defined below, alongside SD includes)
+#endif
+
 static void jc_pollTouch()
 {
+#ifdef SDMMC_1BIT_FIX
+    // v0.9.2: piggyback SD-status polling on the touch tick. This runs
+    // even when JC_NO_TOUCH_POLL is set, so we keep continuous SD telemetry
+    // during the touch-disabled isolation test.
+    jc_pollSdStatus();
+#endif
+#ifdef JC_NO_TOUCH_POLL
+    // v0.9.1 A/B: touch polling disabled at build time. Used to test
+    // whether touch I2C bus activity (400 kHz @ 10 Hz) is causing
+    // electrical interference on shared SDMMC pins (GPIO 11/12).
+    return;
+#endif
     uint16_t rawX = 0, rawY = 0;
     bool pressedRaw = jc_readRawTouch(rawX, rawY);
     jc_touchPolls++;
@@ -512,6 +528,110 @@ static const unsigned short *jc_bottomArtFor(int lo) {
     }
 }
 
+// v0.9.0: SD status pixel re-added (was removed in v0.8.23 when SD
+// wasn't actually working). Now SDMMC is enabled and we can query
+// SDCrd.cardAvailable() to get a meaningful state.
+//
+//   GREEN  = SD mounted and /config.json present
+//   CYAN   = SD mounted, no /config.json (blank card)
+//   YELLOW = SD interface initialized but card not detected
+//   RED    = SD interface init failed entirely
+//
+// Drawn directly into bg_cache so it survives until next screen change.
+// 4x4 pixel block in the very-bottom-left corner of the panel.
+#ifdef SDMMC_1BIT_FIX
+#include "drivers/storage/SDCard.h"
+#include "SD_MMC.h"   // v0.9.5: needed for SD_MMC.exists() cheap probe
+extern SDCard SDCrd;
+extern TSettings Settings;
+
+// v0.9.4: SD status pixel now actually reflects reality.
+//
+// HISTORY of this bug — instructive enough to keep in the source:
+//
+//   v0.9.0: queried cardAvailable() on every bg render. The very first
+//           probe (after boot init reported "Inserted.") returned false.
+//   v0.9.1: cached the probe; same first-probe failure.
+//   v0.9.2: moved poll out of render path; ruled out touch I2C as cause.
+//   v0.9.3: enabled internal pull-ups on SDMMC pins; didn't help.
+//
+//   v0.9.4: ROOT CAUSE FOUND — NerdMiner's own wManager.cpp calls
+//           SDCrd.terminate() right after the initial config check
+//           (to "free memory"), which invokes SD_MMC.end() and sets
+//           the internal _card descriptor to NULL. From then on,
+//           cardType() returns CARD_NONE permanently, regardless of
+//           whether the physical card is present. The bus, the card,
+//           and the SDMMC peripheral were all fine the whole time.
+//
+//           Fixed by patching wManager.cpp to skip the terminate()
+//           call under #ifdef JC3248W535. SD card stays mounted for
+//           the lifetime of the device.
+//
+// jc_pollSdStatus() is called from the per-tick path (alongside
+// jc_pollTouch()) and samples at most once per JC_SD_POLL_MS so we
+// don't hammer the bus.
+#define JC_SD_POLL_MS 10000
+static uint32_t  sd_last_poll_ms     = 0;
+static uint16_t  sd_cached_color     = YELLOW;
+static bool      sd_have_polled_once = false;
+
+static const char* jc_sdColorName(uint16_t c) {
+    return c == GREEN  ? "GREEN"  :
+           c == CYAN   ? "CYAN"   :
+           c == YELLOW ? "YELLOW" : "OTHER";
+}
+
+static void jc_pollSdStatus()
+{
+#ifdef JC_NO_SD_PIXEL
+    return;
+#endif
+    uint32_t now = millis();
+    if (sd_have_polled_once && (now - sd_last_poll_ms) <= JC_SD_POLL_MS) return;
+    sd_last_poll_ms = now;
+
+    // v0.9.5: use SD_MMC.exists() rather than SDCrd.loadConfigFile() so we
+    // don't (a) re-parse the JSON on every poll, (b) print the entire
+    // config dict to serial 6 times a minute, (c) leak the user's WiFi
+    // password to the serial console every 10 seconds. cardAvailable()
+    // is also avoided here for the same reason ("Inserted." spam) — we
+    // check SD_MMC.cardType() directly.
+    uint16_t newColor;
+    if (SD_MMC.cardType() == CARD_NONE) {
+        newColor = YELLOW;        // not mounted (or driver torn down)
+    } else if (SD_MMC.exists("/config.json")) {
+        newColor = GREEN;         // card has a config file
+    } else {
+        newColor = CYAN;          // card mounted, no config
+    }
+
+    bool firstPoll = !sd_have_polled_once;
+    bool changed   = (newColor != sd_cached_color);
+    sd_cached_color = newColor;
+    sd_have_polled_once = true;
+
+    // Only log on first poll or on state change. Steady-state polling
+    // produces no serial output.
+    if (firstPoll || changed) {
+        Serial.printf("[jc3248w535] SD pixel %s @%lus: color=%s\n",
+            firstPoll ? "init" : "change",
+            (unsigned long)(now / 1000),
+            jc_sdColorName(newColor));
+    }
+}
+
+static void jc_drawSdStatusPixel()
+{
+    if (!bg_cache) return;
+    // Ensure we've at least sampled once before painting (in case the
+    // tick-driven poller hasn't fired yet at first render).
+    jc_pollSdStatus();
+    for (int dy = 0; dy < 4; dy++)
+        for (int dx = 0; dx < 4; dx++)
+            *bg_pix(2 + dx, JC_H - 6 + dy) = sd_cached_color;
+}
+#endif
+
 static void jc_renderBackground(int cyc, int lo)
 {
     if (!gfx || !bg_cache) return;
@@ -536,7 +656,13 @@ static void jc_renderBackground(int cyc, int lo)
                              SRC_W, SRC_BOT_H, BOT_X, BOT_Y, BOT_W, BOT_H);
     }
 
-    // 3) Blit the whole cache into the canvas. This is the only "big"
+    // 3) SD status pixel — painted INTO bg_cache so it survives subsequent
+    //    text overlays (they only erase their own slots).
+#if defined(SDMMC_1BIT_FIX) && !defined(JC_NO_SD_PIXEL)
+    jc_drawSdStatusPixel();
+#endif
+
+    // 4) Blit the whole cache into the canvas. This is the only "big"
     //    canvas write per screen-change; subsequent text updates only
     //    touch small rects.
     jc_blitBgCacheToCanvas();
@@ -576,7 +702,7 @@ void jc3248w535_Init(void)
     // Replaced with non-blocking output (no flush). 3 banners give a host
     // enough material to recognize the firmware if it connects late.
     for (int i = 0; i < 3; i++) {
-        Serial.println(F("[jc3248w535] init v0.8.27 ##############"));
+        Serial.println(F("[jc3248w535] init v0.9.5 (SD-stable, quiet pixel poll) ##"));
     }
     delay(50);   // brief gap to let USB-CDC enumerate if a host is plugged in
     Serial.printf("[jc3248w535] free heap=%u psram=%u\n",
@@ -601,15 +727,51 @@ void jc3248w535_Init(void)
     jc_loadFont(JcFont::Digital);
 
     Wire.begin(TOUCH_SDA, TOUCH_SCL); Wire.setClock(TOUCH_I2C_HZ);
-    pinMode(TOUCH_INT, INPUT_PULLUP);
-    pinMode(TOUCH_RST, OUTPUT);
-    digitalWrite(TOUCH_RST, LOW);  delay(50);
-    digitalWrite(TOUCH_RST, HIGH); delay(150);
+    // v0.9.0: NEITHER TOUCH_INT nor TOUCH_RST is driven by the display
+    // driver, because both pins are shared with the SDMMC subsystem
+    // (CLK=12, CMD=11). The AXS-touch chip self-resets at power-on, and
+    // we poll touch via I2C without using the INT line. Leaving these
+    // pins in their post-reset default (high-Z input) lets the SDMMC
+    // peripheral grab them when SD_MMC.begin() runs in NerdMinerV2.ino.cpp.
+    //
+    // If the AXS-touch chip on your particular board variant DOES need
+    // external RST cycling and stops responding, restore these two lines:
+    //   pinMode(TOUCH_RST, OUTPUT);
+    //   digitalWrite(TOUCH_RST, LOW);  delay(50);
+    //   digitalWrite(TOUCH_RST, HIGH); delay(150);
+    // ...and disable SD by undef'ing SDMMC_1BIT_FIX in jc3248w535.h.
+    delay(200);   // generous wait so the chip's POR has finished before we probe
     Wire.beginTransmission(TOUCH_I2C_ADDR);
     Serial.printf("[jc3248w535] touch %s @ 0x%02X\n",
                   (Wire.endTransmission() == 0) ? "OK" : "MISSING", TOUCH_I2C_ADDR);
     Serial.printf("[jc3248w535] layout top=%dx%d bot=%dx%d (fill width)\n",
                   TOP_W, TOP_H, BOT_W, BOT_H);
+
+#ifdef SDMMC_1BIT_FIX
+    // v0.9.3: enable INTERNAL PULL-UPS on the SDMMC pins before
+    // NerdMinerV2.ino.cpp calls SDCrd.initSDcard(). The Guition
+    // JC3248W535 board does NOT have onboard 10k pull-ups on its
+    // SD slot's CMD/CLK/D0 lines (verified empirically: both FAT16
+    // and FAT32 cards mount successfully at boot but cardType()
+    // returns CARD_NONE within ~1 second, because the bus lines
+    // float and the card releases its session). Enabling the
+    // ESP32-S3's internal pull-ups gives just enough drive to keep
+    // the card responding between SDMMC transactions.
+    //
+    // Per https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/sdmmc_host.html
+    // and the Arduino-ESP32 SD_MMC README: external 10k pull-ups
+    // are strongly recommended. Internal pull-ups (~45 kOhm)
+    // are weaker but often sufficient for short PCB traces.
+    //
+    // Order matters: setPins() inside SD_MMC.begin() does NOT touch
+    // the pull-up enable bit, only the GPIO matrix routing, so the
+    // pad configuration we set here survives.
+    pinMode(SDMMC_CLK, INPUT_PULLUP);
+    pinMode(SDMMC_CMD, INPUT_PULLUP);
+    pinMode(SDMMC_D0,  INPUT_PULLUP);
+    Serial.printf("[jc3248w535] SDMMC pull-ups enabled on GPIO %d/%d/%d\n",
+                  SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+#endif
 }
 
 void jc3248w535_AlternateScreenState(void) {
