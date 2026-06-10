@@ -1,5 +1,5 @@
 // =============================================================================
-//  Guition JC3248W535 display driver for NerdMiner v2  (v0.8.14)
+//  Guition JC3248W535 display driver for NerdMiner v2  (v0.8.27)
 // =============================================================================
 //
 //  Stack:
@@ -109,6 +109,25 @@ static void toggleBottomScreen() {
 // pass, so text overlays appear over real artwork instead of black boxes.
 //
 static uint16_t *bg_cache       = nullptr;
+
+// v0.8.21 PRE-RENDER SLABS — eliminate the per-screen-change scaling cost.
+//
+// jc_scaleIntoBgCache() reads the PROGMEM source art and computes every
+// destination pixel via nearest-neighbor math (~100-200 ms per top art).
+// That cost is paid on every tap-to-switch.
+//
+// These slabs hold the SCALED top and bottom artwork in PSRAM, populated
+// lazily on first use. On screen-change we memcpy the slab into bg_cache
+// (a few hundred microseconds, vs ~100ms of scaling).
+//
+// Memory budget at JC_W=480: top slab is 480x220 RGB565 = 211200 B per
+// variant (4 variants = ~824 KB). Bottom slab is 480x100 = 96000 B per
+// variant (2 variants = ~188 KB). Total ~1 MB PSRAM, well within budget
+// of our 8 MB OPI PSRAM allocation.
+#define NUM_TOP_VARIANTS  4
+#define NUM_BOT_VARIANTS  2
+static uint16_t *prerender_top[NUM_TOP_VARIANTS] = {nullptr, nullptr, nullptr, nullptr};
+static uint16_t *prerender_bot[NUM_BOT_VARIANTS] = {nullptr, nullptr};
 static int cached_cycle = -1;
 static int cached_lower = -1;
 
@@ -221,6 +240,95 @@ static void jc_blitBgCacheToCanvas()
         }
     }
     gfx->endWrite();
+}
+
+// ============================================================================
+//  Pre-render slab management — populate lazily, blit on screen change
+// ============================================================================
+static const unsigned short *jc_topArtFor(int cyc);     // fwd
+static const unsigned short *jc_bottomArtFor(int lo);   // fwd
+
+// Allocate + scale ONE top-slab variant on demand. Returns true on success.
+static bool jc_ensureTopSlab(int cyc)
+{
+    if (cyc < 0 || cyc >= NUM_TOP_VARIANTS) return false;
+    if (prerender_top[cyc]) return true;
+    size_t bytes = (size_t)TOP_W * TOP_H * sizeof(uint16_t);
+    prerender_top[cyc] = (uint16_t*)heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+    if (!prerender_top[cyc]) {
+        Serial.printf("[jc3248w535] !! top slab %d alloc fail (%u B)\n", cyc, (unsigned)bytes);
+        return false;
+    }
+    const unsigned short *src = jc_topArtFor(cyc);
+    // Scale into the slab using the same NN math as jc_scaleIntoBgCache,
+    // but writing into the slab buffer directly.
+    for (int dy = 0; dy < TOP_H; dy++) {
+        int sy_src = (dy * SRC_TOP_H) / TOP_H;
+        if (sy_src >= SRC_TOP_H) sy_src = SRC_TOP_H - 1;
+        const unsigned short *row = src + (sy_src * SRC_W);
+        uint16_t *dst_row = &prerender_top[cyc][dy * TOP_W];
+        for (int dx = 0; dx < TOP_W; dx++) {
+            int sx_src = (dx * SRC_W) / TOP_W;
+            if (sx_src >= SRC_W) sx_src = SRC_W - 1;
+            dst_row[dx] = pgm_read_word(&row[sx_src]);
+        }
+    }
+    Serial.printf("[jc3248w535] top slab %d ready (%u KB)\n", cyc, (unsigned)(bytes/1024));
+    return true;
+}
+
+// Allocate + scale ONE bottom-slab variant on demand.
+static bool jc_ensureBotSlab(int lo)
+{
+    // lo is 1..2 in our enums; slot 0 of array unused
+    int slot = (lo == LOWER_POOL) ? 0 : 1;
+    if (slot < 0 || slot >= NUM_BOT_VARIANTS) return false;
+    if (prerender_bot[slot]) return true;
+    size_t bytes = (size_t)BOT_W * BOT_H * sizeof(uint16_t);
+    prerender_bot[slot] = (uint16_t*)heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+    if (!prerender_bot[slot]) {
+        Serial.printf("[jc3248w535] !! bot slab %d alloc fail (%u B)\n", slot, (unsigned)bytes);
+        return false;
+    }
+    const unsigned short *src = jc_bottomArtFor(lo);
+    for (int dy = 0; dy < BOT_H; dy++) {
+        int sy_src = (dy * SRC_BOT_H) / BOT_H;
+        if (sy_src >= SRC_BOT_H) sy_src = SRC_BOT_H - 1;
+        const unsigned short *row = src + (sy_src * SRC_W);
+        uint16_t *dst_row = &prerender_bot[slot][dy * BOT_W];
+        for (int dx = 0; dx < BOT_W; dx++) {
+            int sx_src = (dx * SRC_W) / BOT_W;
+            if (sx_src >= SRC_W) sx_src = SRC_W - 1;
+            dst_row[dx] = pgm_read_word(&row[sx_src]);
+        }
+    }
+    Serial.printf("[jc3248w535] bot slab %d ready (%u KB)\n", slot, (unsigned)(bytes/1024));
+    return true;
+}
+
+// memcpy a top slab into bg_cache (replaces jc_scaleIntoBgCache for top).
+// Assumes the slab is already populated. Source is contiguous TOP_W rows,
+// destination region in bg_cache also has TOP_W = JC_W width, so a single
+// memcpy per row works.
+static void jc_blitTopSlabToBgCache(int cyc)
+{
+    if (!bg_cache || !prerender_top[cyc]) return;
+    for (int y = 0; y < TOP_H; y++) {
+        memcpy(bg_pix(TOP_X, TOP_Y + y),
+               &prerender_top[cyc][y * TOP_W],
+               (size_t)TOP_W * sizeof(uint16_t));
+    }
+}
+
+static void jc_blitBotSlabToBgCache(int lo)
+{
+    int slot = (lo == LOWER_POOL) ? 0 : 1;
+    if (!bg_cache || !prerender_bot[slot]) return;
+    for (int y = 0; y < BOT_H; y++) {
+        memcpy(bg_pix(BOT_X, BOT_Y + y),
+               &prerender_bot[slot][y * BOT_W],
+               (size_t)BOT_W * sizeof(uint16_t));
+    }
 }
 
 // ============================================================================
@@ -409,14 +517,28 @@ static void jc_renderBackground(int cyc, int lo)
     if (!gfx || !bg_cache) return;
     Serial.printf("[jc3248w535] bg render: cycle=%d lower=%d\n", cyc, lo);
 
-    // 1) Scale top + bottom INTO the bg cache.
-    jc_scaleIntoBgCache(jc_topArtFor(cyc),
-                         SRC_W, SRC_TOP_H, TOP_X, TOP_Y, TOP_W, TOP_H);
-    jc_scaleIntoBgCache(jc_bottomArtFor(lo),
-                         SRC_W, SRC_BOT_H, BOT_X, BOT_Y, BOT_W, BOT_H);
+    // 1) Ensure pre-rendered slabs exist; lazy-allocate on first request.
+    bool top_ok = jc_ensureTopSlab(cyc);
+    bool bot_ok = jc_ensureBotSlab(lo);
 
-    // 2) Blit the whole cache into the canvas. This is the only "big" write
-    //    per screen-change; subsequent text updates only touch small rects.
+    // 2) Compose bg_cache from slabs (fast memcpy), or fall back to the
+    //    scaling path if a slab allocation failed (PSRAM exhausted).
+    if (top_ok) {
+        jc_blitTopSlabToBgCache(cyc);
+    } else {
+        jc_scaleIntoBgCache(jc_topArtFor(cyc),
+                             SRC_W, SRC_TOP_H, TOP_X, TOP_Y, TOP_W, TOP_H);
+    }
+    if (bot_ok) {
+        jc_blitBotSlabToBgCache(lo);
+    } else {
+        jc_scaleIntoBgCache(jc_bottomArtFor(lo),
+                             SRC_W, SRC_BOT_H, BOT_X, BOT_Y, BOT_W, BOT_H);
+    }
+
+    // 3) Blit the whole cache into the canvas. This is the only "big"
+    //    canvas write per screen-change; subsequent text updates only
+    //    touch small rects.
     jc_blitBgCacheToCanvas();
 }
 
@@ -435,7 +557,30 @@ static bool jc_ensureBackground(int cyc, int lo) {
 // ============================================================================
 void jc3248w535_Init(void)
 {
-    Serial.println(F("[jc3248w535] init v0.8.14"));
+    // v0.8.26: when ARDUINO_USB_CDC_ON_BOOT=1 and ARDUINO_USB_MODE=1 are set,
+    // `Serial` is an HWCDC instance attached to the built-in USB-Serial/JTAG.
+    // HWCDC::write() BLOCKS (default 100 ms timeout per call) when the TX
+    // ring buffer fills and no USB host is draining it. Multiple println()
+    // calls back-to-back on a headless boot can stack timeouts and stall
+    // init for many seconds — which is what was making the screen stay
+    // black until picocom attached and started reading bytes.
+    //
+    // Setting the timeout to 0 makes write() drop data silently if no host
+    // is reading. With a host attached, behavior is unchanged.
+#if defined(ARDUINO_USB_CDC_ON_BOOT) && defined(ARDUINO_USB_MODE)
+    Serial.setTxTimeoutMs(0);
+#endif
+
+    // v0.8.25: HWCDC Serial.flush() BLOCKS forever if no USB host is reading
+    // the buffer (e.g., normal headless boot with no serial monitor open).
+    // Replaced with non-blocking output (no flush). 3 banners give a host
+    // enough material to recognize the firmware if it connects late.
+    for (int i = 0; i < 3; i++) {
+        Serial.println(F("[jc3248w535] init v0.8.27 ##############"));
+    }
+    delay(50);   // brief gap to let USB-CDC enumerate if a host is plugged in
+    Serial.printf("[jc3248w535] free heap=%u psram=%u\n",
+                  ESP.getFreeHeap(), ESP.getFreePsram());
     pinMode(LCD_BL, OUTPUT); digitalWrite(LCD_BL, HIGH);
 
     jc_bus   = new Arduino_ESP32QSPI(LCD_CS, LCD_SCK, LCD_D0, LCD_D1, LCD_D2, LCD_D3);
@@ -584,13 +729,23 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
     // Temp uses degree symbol (0xF7 in many Adafruit GFX fonts ≈ '°').
     // If 0xF7 prints as a different glyph on your panel, switch to "%sC"
     // (plain ASCII) or draw a small circle outline geometrically.
-    // Temp: built-in size 2 (size 1 was too small to read), at sx(225).
-    //       Degree symbol (\xF7) follows the temperature.
-    jc_dynText(sx(225), sy_top(4), 50, 14, BLACK, 2, "%s\xF7", data.temp.c_str());
-    // Time: built-in size 2 at sx(243). v0.8.13's sx(257) overshot
-    // (last digit landed over a background symbol), so reverting and
-    // nudging 2 px LEFT of the v0.8.12 baseline (sx(245)).
-    jc_dynText(sx(243), sy_top(4), sx(315)-sx(243), 14, BLACK, 2,
+    // Temp: built-in size 2 numeric value, then a small filled-circle degree
+    // mark hand-drawn (\xF7 rendered as a math symbol on this font).
+    // Slot covers number + a few px on the right for the circle.
+    jc_dynText(sx(225), sy_top(4), 40, 14, BLACK, 2, "%s", data.temp.c_str());
+    {
+        // Compute right edge of the rendered temp string to place the
+        // degree symbol just after it. Each char in size-2 built-in font
+        // is ~12 screen-px wide.
+        int chars = (int)strlen(data.temp.c_str());
+        int dot_x = sx(225) + chars * 12 + 2;   // +2 px gap
+        int dot_y = sy_top(4) + 2;              // slightly above baseline
+        // Draw a small circle (degree mark)
+        gfx->drawCircle(dot_x, dot_y, 2, BLACK);
+    }
+    // Time: built-in size 2 at sx(249). v0.8.16.1's sx(253) had a tiny
+    // bit of room on the right; nudged 4 px left.
+    jc_dynText(sx(249), sy_top(4), sx(315)-sx(249), 14, BLACK, 2,
                "%s",  data.currentTime.c_str());
 
     // Bottom panel

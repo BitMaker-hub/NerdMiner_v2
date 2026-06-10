@@ -58,7 +58,7 @@ typedef struct{
   float progressPercent;
   int remainingBlocks;
   int halfHourFee;
-#ifdef NERDMINER_T_HMI
+#if defined(NERDMINER_T_HMI) || defined(JC3248W535)
   int fastestFee;
   int hourFee;
   int economyFee;
@@ -104,7 +104,7 @@ typedef struct {
   String btcPrice;
   String currentTime;
   String halfHourFee;
-#ifdef NERDMINER_T_HMI
+#if defined(NERDMINER_T_HMI) || defined(JC3248W535)
   String hourFee;
   String fastestFee;
   String economyFee;

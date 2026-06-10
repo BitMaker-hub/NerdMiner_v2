@@ -31,6 +31,21 @@
 #define TOUCH_I2C_ADDR  0x3B
 #define TOUCH_I2C_HZ    400000
 
+// ---------------- SD card (DEFERRED — see notes) -----------------------------
+// SD card support is NOT enabled in this build. The board's SDMMC pins
+// share GPIOs 11+12 with TOUCH_INT and TOUCH_RST respectively. v0.8.22
+// tried to enable SDMMC 1-bit mode by removing the touch pin drivers,
+// but cardAvailable() reported false on real hardware — the SDMMC
+// peripheral wasn't grabbing the pins. Needs deeper investigation,
+// likely involving GPIO matrix routing or SDMMC_HOST init params.
+//
+// To re-attempt:
+//   1. Add SDMMC_CLK=12, SDMMC_CMD=11, SDMMC_D0=13 macros here.
+//   2. Remove pinMode(TOUCH_INT, INPUT_PULLUP) and pinMode(TOUCH_RST, OUTPUT)
+//      calls in jc3248w535DisplayDriver.cpp Init() so SDMMC can use the pins.
+//   3. Capture serial output ("SDCard: init SD card interface." etc.) to
+//      see what the SDCard library reports.
+
 // ---------------- NerdMiner expected pins ------------------------------------
 // LED — board has no dedicated user LED; reuse backlight so doLedStuff() does
 // something visible (briefly dims the screen during "Connecting" blinks).
