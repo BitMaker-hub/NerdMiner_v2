@@ -149,6 +149,8 @@
 #ifdef LILYGO_S3_T_EMBED
 #include <User_Setups/Setup210_LilyGo_T_Embed_S3.h>         // For the LilyGo T-Embed S3 based ESP32S3 with ST7789 170 x 320 TFT
 #endif
+#ifdef M5_STICKS3
+#include <User_Setups/Setup216_M5_StickS3.h>                // M5Stack StickS3 (ESP32-S3-PICO) with ST7789P3 135 x 240 TFT
 #ifdef M5_CARDPUTER_ADV
 #include <User_Setups/Setup215_M5_Cardputer_Adv.h>          // M5Stack Cardputer Adv (ESP32-S3) with ST7789V2 240 x 135 TFT
 #endif
