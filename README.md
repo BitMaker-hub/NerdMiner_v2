@@ -121,17 +121,17 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
-1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:  
+1. Create a file named "config.json" in your card's root, containing the the following structure. Adjust the settings to your needs:
 ```
-{  
-  "SSID": "myWifiSSID",  
-  "WifiPW": "myWifiPassword",  
-  "PoolUrl": "public-pool.io",  
-  "PoolPort": 21496,
+{
+  "SSID": "myWifiSSID",
+  "WifiPW": "myWifiPassword",
+  "PoolUrl": "public-pool.io",
+  "PoolPort": 3333,
   "PoolPassword": "x",
-  "BtcWallet": "walletID",  
-  "Timezone": 2,  
-  "SaveStats": false  
+  "BtcWallet": "walletID",
+  "Timezone": 2,
+  "SaveStats": false
 }
 ```
 
@@ -145,7 +145,7 @@ Recommended low difficulty share pools:
 
 | Pool URL          | Port  | Web URL                    | Status                                                             |
 | ----------------- | ----- | -------------------------- | ------------------------------------------------------------------ |
-| public-pool.io    | 21496 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
+| public-pool.io    | 3333 | https://web.public-pool.io | Open Source Solo Bitcoin Mining Pool supporting open source miners |
 | pool.nerdminers.org    | 3333  | https://nerdminers.org     | The official Nerdminer pool site - Mantained by @golden-guy |
 | pool.nerdminer.io | 3333  | https://nerdminer.io       | Mantained by CHMEX                                                 |
 | pool.pyblock.xyz  | 3333  | https://pool.pyblock.xyz/  | Mantained by curly60e                                              |

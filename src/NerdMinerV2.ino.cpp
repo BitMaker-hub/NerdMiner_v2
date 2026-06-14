@@ -60,6 +60,7 @@ const char* ntpServer = "pool.ntp.org";
 void setup()
 {
       //Init pin 15 to eneble 5V external power (LilyGo bug)
+      //Also used as power-hold latch on M5StickC Plus2 (GPIO4)
   #ifdef PIN_ENABLE5V
       pinMode(PIN_ENABLE5V, OUTPUT);
       digitalWrite(PIN_ENABLE5V, HIGH);
