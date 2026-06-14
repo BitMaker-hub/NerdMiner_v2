@@ -44,7 +44,9 @@ DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
 DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 #endif
 
-#ifdef V1_DISPLAY
+#if defined(M5_STICKS3)
+DisplayDriver *currentDisplayDriver = &m5StickS3Driver;
+#elif defined(V1_DISPLAY)
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
@@ -63,6 +65,7 @@ DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 #ifdef ST7735S_DISPLAY
 DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #endif
+
 
 
 // Initialize the display
