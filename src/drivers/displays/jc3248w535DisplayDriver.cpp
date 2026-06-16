@@ -1,33 +1,24 @@
 // =============================================================================
-//  Guition JC3248W535 display driver for NerdMiner v2  (v0.9.5)
+//  Guition JC3248W535 display driver for NerdMiner v2  (v0.9.17d)
 // =============================================================================
 //
-//  Stack:
-//    * Arduino_GFX_Library 1.6.0 (pinned; 1.6.1+ breaks AXS15231B init).
-//    * OpenFontRender 1.2  (TTF rasterizer; bridged to Arduino_Canvas).
-//    * Canonical NerdMiner artwork from src/media/images_320_170.h and
-//      images_bottom_320_70.h, scaled 1.5x H both axes to fill the panel.
+//  Stack: Arduino_GFX_Library 1.6.0 (pinned), OpenFontRender 1.2 (TTF),
+//         NerdMiner artwork scaled 1.5x to fill 480x320 panel.
 //
-//  Architecture:
-//    * Display:  Arduino_AXS15231B over QSPI -> 480x320 landscape (rotation=1).
-//    * Buffers:  Arduino_Canvas framebuffer in PSRAM + a separate
-//                "bg_cache" PSRAM buffer holding the rendered artwork so
-//                per-field text "erase" is a sub-rect memcpy from bg_cache
-//                back into the canvas. No more black erase boxes.
-//    * Layout:   top art y=0..220 (was 255 pre-v0.8.2), bottom y=220..320.
-//                Touch zones: top tap -> next cyclic; bottom tap -> toggle
-//                POOL / FEES bottom panel.
-//    * 5 screens:  Loading, Setup, MinerScreen, ClockScreen,
-//                  GlobalHashScreen, PriceScreen (4 cyclic).
-//    * Touch:    AXS-touch I2C @ 0x3B polled at NerdMiner's 10 Hz animate()
-//                cadence with 200 ms edge debounce.
-//    * Flush:    gfx->flush() only called when displayed strings have
-//                changed OR every JC_MAX_FLUSH_GAP_MS (5s safety net so
-//                layout edits become visible without value churn).
-//    * Touch debug overlay: compile with -D JC_TOUCH_DEBUG to enable a
-//                live counter strip at the bottom of the panel.
+//  Architecture: 480x320 landscape via QSPI AXS15231B (rotation=1).
+//    PSRAM bg_cache for transparent text erase (sub-rect memcpy, no black boxes).
+//    Layout: top art 0..220, bottom 220..320; touch top=cyclic next, bottom=toggle pool/fees.
+//    5 cyclic screens (Miner, Clock, Global, Price, Slideshow) + Loading/Setup.
+//    Touch: AXS-touch I2C @0x3B, 10 Hz, 200 ms debounce.
+//    Flush: only on value change or every 60s. Compile -D JC_TOUCH_DEBUG for overlay.
 //
-//  See git log for change history.
+//  v0.9.16a: Backlight gating — JC_FLUSH() wraps LOW/HIGH around every panel push.
+//  v0.9.17d: (a) JC_FLUSH preserves intentional BL-off, (b) slideshow re-entry
+//              state fix, (c) partial-flush fallback, (d) fixed-slot right-aligned text.
+//  v0.9.17: (a) doLedStuff() no-op (LED==BL on this board), (b) font remnant fix via
+//             high-water-mark erase rects, (c) JC_NO_SNAPSHOT build flag for A/B testing.
+//  v0.9.16: Hysteresis quantizers replace round-to-nearest to eliminate per-tick flush oscillation.
+//
 // =============================================================================
 
 #include "displayDriver.h"
@@ -38,6 +29,7 @@
 #include <Arduino_GFX_Library.h>
 #include <Wire.h>
 #include <esp_heap_caps.h>
+#include <math.h>   // v0.9.16: fabsf() for hysteresis quantizers
 
 #include "monitor.h"
 #include "drivers/storage/storage.h"
@@ -58,14 +50,15 @@ extern void switchToNextScreen();
 // ============================================================================
 #define JC_W           480
 #define JC_H           320
+// Panel-native portrait (CASET/RASET coordinate space).
+#define JC_NATIVE_W    320
+#define JC_NATIVE_H    480
 
 #define SRC_W          320
 #define SRC_TOP_H      170
 #define SRC_BOT_H       70
 
-// TOP: 1.5x both axes -> 480x255
-// Top scaling becomes H=1.5x, V=1.294x (was 1.5x both).
-// Bottom scaling becomes H=1.5x, V=1.428x (was 1.5x H, 0.93x V).
+// Top: H=1.5x, V=1.294x. Bottom: H=1.5x, V=1.428x.
 #define TOP_X          0
 #define TOP_Y          0
 #define TOP_W          480
@@ -76,11 +69,10 @@ extern void switchToNextScreen();
 #define BOT_W          480
 #define BOT_H          100
 
-// Translate source-image coords to on-screen coords for text-slot placement.
-// Top uses the 1.5x both-axes scale.
+// Source->screen coord helpers (top: 1.5x both axes).
 static inline int sx     (int srcX) { return (srcX * TOP_W) / SRC_W; }       // *1.5
 static inline int sy_top (int srcY) { return TOP_Y + (srcY * TOP_H) / SRC_TOP_H; } // *1.5
-// Bottom uses 1.5x H, ~0.93x V (BOT_H / SRC_BOT_H = 65/70).
+// Bottom: 1.5x H, ~0.93x V.
 static inline int sy_bot (int srcY) { return BOT_Y + (srcY * BOT_H) / SRC_BOT_H; }
 
 // ============================================================================
@@ -91,39 +83,29 @@ static Arduino_AXS15231B *jc_panel = nullptr;
 static Arduino_Canvas    *gfx      = nullptr;
 
 // Cyclic-screen IDs
-enum : int { SCR_MINER = 0, SCR_CLOCK = 1, SCR_GLOBAL = 2, SCR_PRICE = 3, SCR_COUNT = 4 };
+enum : int { SCR_MINER = 0, SCR_CLOCK = 1, SCR_GLOBAL = 2, SCR_PRICE = 3, SCR_SLIDESHOW = 4, SCR_COUNT = 5 };
 enum : int { LOWER_POOL = 1, LOWER_FEES = 2 };
 static int lowerScreen = LOWER_POOL;
+
+// Tracks current screen for context-sensitive bottom-tap (slideshow vs pool/fees toggle).
+static int jc_currentScreen = SCR_MINER;
+
+// Forward decl so jc_pollTouch() can advance slideshow images.
+static void jc_slideshowAdvance();
 
 static void toggleBottomScreen() {
     lowerScreen = (lowerScreen == LOWER_POOL) ? LOWER_FEES : LOWER_POOL;
 }
 
 // ============================================================================
-//  BACKGROUND CACHE — the v0.8 transparency story
+//  BACKGROUND CACHE — PSRAM copy of rendered artwork for text erase
 // ============================================================================
-//
-// bg_cache holds a fully-rendered framebuffer-shaped copy of the current
-// (cyclic, lower) artwork. It lives in PSRAM (~307 KB) and is regenerated
-// only when the combo changes. The canvas is restored from it on each draw
-// pass, so text overlays appear over real artwork instead of black boxes.
-//
+// bg_cache (~307 KB PSRAM) holds the current artwork; regenerated only on
+// combo change. Canvas is restored from it before each text overlay.
 static uint16_t *bg_cache       = nullptr;
 
-// v0.8.21 PRE-RENDER SLABS — eliminate the per-screen-change scaling cost.
-//
-// jc_scaleIntoBgCache() reads the PROGMEM source art and computes every
-// destination pixel via nearest-neighbor math (~100-200 ms per top art).
-// That cost is paid on every tap-to-switch.
-//
-// These slabs hold the SCALED top and bottom artwork in PSRAM, populated
-// lazily on first use. On screen-change we memcpy the slab into bg_cache
-// (a few hundred microseconds, vs ~100ms of scaling).
-//
-// Memory budget at JC_W=480: top slab is 480x220 RGB565 = 211200 B per
-// variant (4 variants = ~824 KB). Bottom slab is 480x100 = 96000 B per
-// variant (2 variants = ~188 KB). Total ~1 MB PSRAM, well within budget
-// of our 8 MB OPI PSRAM allocation.
+// Pre-render slabs: scaled artwork cached in PSRAM (~1 MB total) to avoid
+// ~100ms per-screen-change scaling cost. Populated lazily, memcpy'd into bg_cache.
 #define NUM_TOP_VARIANTS  4
 #define NUM_BOT_VARIANTS  2
 static uint16_t *prerender_top[NUM_TOP_VARIANTS] = {nullptr, nullptr, nullptr, nullptr};
@@ -132,33 +114,119 @@ static int cached_cycle = -1;
 static int cached_lower = -1;
 
 // ============================================================================
-//  Flash mitigation — "only flush when displayed values change"
-//
-//  Each cyclic screen builds a small snapshot String of every value it draws.
-//  At end of screen function we compare snapshot to its cached counterpart;
-//  if identical, gfx->flush() is SKIPPED (no panel push, no visible flash).
-//  When the background combo (cycle, lower) changes we always force a flush.
-//
-//  Snapshot is per-screen, indexed by SCR_* IDs. 4 slots, one per cyclic.
+//  Flash mitigation — skip gfx->flush() when displayed values unchanged
 // ============================================================================
+// Each cyclic screen builds a snapshot String; flush is skipped if it matches
+// the cached version. Per-screen, indexed by SCR_* IDs. Force-flush on bg change.
 static String last_snapshot[SCR_COUNT];
 static int    last_snapshot_cycle = -1;     // tracks (cycle,lower) at last flush
 static int    last_snapshot_lower = -1;
 
-// Returns true if a flush is needed (snapshot changed OR bg changed).
-// On true, caller calls gfx->flush() and we update the cached snapshot.
-// LAYOUT/FONT/COLOR tweaks aren't invisible until data changes. Cost is
-// a periodic mini-flash but it makes development iterations trustworthy.
-#define JC_MAX_FLUSH_GAP_MS  5000
-static uint32_t last_flush_ms[SCR_COUNT] = {0, 0, 0, 0};
+// Force-flush safety net (60s) so layout/font edits become visible. v0.9.14:
+// bumped from 5s to 60s so quantized snapshots reduce flash cadence to ~once/min.
+#define JC_MAX_FLUSH_GAP_MS  60000
+static uint32_t last_flush_ms[SCR_COUNT] = {0, 0, 0, 0, 0};
+
+// Side-channel: set by jc_shouldFlush() when bg changed, consumed by jc_endOfFrameFlush().
+static bool jc_last_bg_changed = false;
+
+// v0.9.16a: backlight gating — panel push with BL off (~35ms, imperceptible).
+// v0.9.17d: JC_FLUSH preserves intentional backlight-off (AlternateScreenState).
+#define JC_BL_PIN 1
+#define JC_FLUSH() do {                                      \
+        uint8_t _bl_was = digitalRead(JC_BL_PIN);              \
+        digitalWrite(JC_BL_PIN, LOW);                          \
+        gfx->flush();                                          \
+        if (_bl_was) digitalWrite(JC_BL_PIN, HIGH);            \
+    } while(0)
+
+// ===========================================================================
+//  Snapshot quantization helpers (hysteresis-based, v0.9.16)
+// ===========================================================================
+// Quantize snapshot strings only — displayed values stay at full resolution.
+// Hysteresis: reported value updates only when raw moves >= deadband away
+// from last reported value, preventing per-tick oscillation at boundaries.
+
+// Hashrate quantizer: deadband absorbs ~13 KH/s hardware wobble (248-261 KH/s).
+#define JC_HASHRATE_DEADBAND 15.0f
+
+
+static String jc_qHashrateH(const String &hr, float *state) {
+    float f = hr.toFloat();
+    if (f <= 0.0f) return hr;
+    if (*state < -0.5f || fabsf(f - *state) >= JC_HASHRATE_DEADBAND) {
+        *state = f;
+    }
+    int q = ((int)(*state + 0.5f) + 5) / 10 * 10;
+    return String("q") + String(q);
+}
+
+// Truncate "HH:MM:SS" to "HH:MM" by dropping last 3 chars if they match ":XX".
+static String jc_qTimeMin(const String &t) {
+    int n = t.length();
+    if (n >= 3 && t.charAt(n - 3) == ':') return t.substring(0, n - 3);
+    return t;
+}
+
+// Temperature quantizer: 2°C deadband absorbs ±1°C sensor jitter.
+#define JC_TEMP_DEADBAND 2.0f
+static float jc_temp_state = -1000.0f;   // sentinel: force first update
+
+static String jc_qTemp(const String &t) {
+    if (t.length() == 0) return t;
+    float f = t.toFloat();
+    if (f == 0.0f && t.charAt(0) != '0') return t;   // non-numeric, pass through
+
+    if (jc_temp_state < -999.0f || fabsf(f - jc_temp_state) >= JC_TEMP_DEADBAND) {
+        jc_temp_state = f;
+    }
+    int q = (int)(jc_temp_state + (jc_temp_state >= 0 ? 0.5f : -0.5f));
+    return String("t") + String(q);
+}
+
+// Per-call-site hysteresis state for hashrate quantizer (sentinel = -1000.0f).
+static float jc_hr_state_miner       = -1000.0f;
+static float jc_hr_state_miner_pool  = -1000.0f;
+static float jc_hr_state_clock       = -1000.0f;
+static float jc_hr_state_clock_pool  = -1000.0f;
+static float jc_hr_state_global_pool = -1000.0f;
+static float jc_hr_state_price       = -1000.0f;
+static float jc_hr_state_price_pool  = -1000.0f;
+
+// Diagnostic: log snapshot string + screen, throttled to once per JC_SNAPSHOT_LOG_MS.
+#ifdef JC_LOG_SNAPSHOTS
+#define JC_SNAPSHOT_LOG_MS 1000
+static uint32_t jc_last_snapshot_log_ms[SCR_COUNT] = {0, 0, 0, 0, 0};
+static inline void jc_logSnapshot(int scr, const String &snap) {
+    uint32_t now = millis();
+    if (now - jc_last_snapshot_log_ms[scr] < JC_SNAPSHOT_LOG_MS) return;
+    jc_last_snapshot_log_ms[scr] = now;
+    Serial.printf("[jc3248w535] SNAP scr=%d: %s\n", scr, snap.c_str());
+}
+#else
+static inline void jc_logSnapshot(int /*scr*/, const String & /*snap*/) {}
+#endif
 
 static bool jc_shouldFlush(int scr, const String &snap)
 {
+#ifdef JC_NO_SNAPSHOT
+    // JC_NO_SNAPSHOT: force full flush every tick (bypass all quantization).
+    uint32_t now = millis();
+    jc_last_bg_changed = true;
+    jc_logSnapshot(scr, snap);
+    last_snapshot[scr] = snap;
+    last_snapshot_cycle = cached_cycle;
+    last_snapshot_lower = cached_lower;
+    last_flush_ms[scr] = now;
+    return true;
+#else
     bool bg_changed = (cached_cycle != last_snapshot_cycle) ||
                       (cached_lower != last_snapshot_lower);
     bool data_changed = (last_snapshot[scr] != snap);
     uint32_t now = millis();
     bool stale = (now - last_flush_ms[scr]) > JC_MAX_FLUSH_GAP_MS;
+    jc_last_bg_changed = bg_changed;
+    jc_logSnapshot(scr, snap);
     if (bg_changed || data_changed || stale) {
         last_snapshot[scr] = snap;
         last_snapshot_cycle = cached_cycle;
@@ -167,6 +235,7 @@ static bool jc_shouldFlush(int scr, const String &snap)
         return true;
     }
     return false;
+#endif
 }
 
 static inline uint16_t *bg_pix(int x, int y) { return &bg_cache[y * JC_W + x]; }
@@ -186,8 +255,7 @@ static bool jc_allocBgCache() {
     return true;
 }
 
-// Restore a rectangular region of the canvas from the bg cache.
-// This is what we call before drawing new text into a slot.
+// Restore canvas rect from bg cache (call before drawing new text).
 static void jc_restoreRect(int x, int y, int w, int h)
 {
     if (!gfx || !bg_cache) return;
@@ -206,6 +274,120 @@ static void jc_restoreRect(int x, int y, int w, int h)
     }
     gfx->endWrite();
 }
+
+// ============================================================================
+//  Per-slot overlay canvases (v0.9.12, dormant — see note below)
+// ============================================================================
+// Probe v0.4-v0.6 confirmed Arduino_Canvas secondary overlay works on this
+// hardware (flush pushes only the small region). CRITICAL: must restore bg
+// pixels before each text draw to avoid artifacts.
+// STATUS: output offsets don't affect placement on this hardware (v0.9.16);
+// infrastructure dormant pending investigation. No screen functions use it.
+
+// Forward decl
+class Arduino_Canvas;
+
+// Slot table (24 slots; ~10 used on Miner screen).
+#define JC_MAX_OVERLAY_SLOTS 24
+
+struct JcOverlaySlot {
+    int             lx, ly, lw, lh;     // logical landscape rect
+    Arduino_Canvas *canvas;
+};
+static JcOverlaySlot jc_slots[JC_MAX_OVERLAY_SLOTS];
+static int           jc_slot_count   = 0;
+
+// Get or create overlay canvas for slot; nullptr on failure (fall back to main canvas).
+static Arduino_Canvas* jc_getOrCreateSlotOverlay(int lx, int ly, int lw, int lh) {
+    // Look for existing matching slot
+    for (int i = 0; i < jc_slot_count; i++) {
+        const JcOverlaySlot &s = jc_slots[i];
+        if (s.lx == lx && s.ly == ly && s.lw == lw && s.lh == lh) {
+            return s.canvas;
+        }
+    }
+    if (jc_slot_count >= JC_MAX_OVERLAY_SLOTS) {
+        Serial.println(F("[jc3248w535] !! slot table full, falling back to main canvas"));
+        return nullptr;
+    }
+    // Native portrait dims for overlay: width=lh, height=lw (transposed for rotation 1).
+    // Native origin: output_x = JC_NATIVE_W - ly - lh, output_y = lx.
+    int native_x = JC_NATIVE_W - ly - lh;
+    int native_y = lx;
+    Arduino_Canvas *ov = new Arduino_Canvas(lh, lw, jc_panel, native_x, native_y, 0);
+    if (!ov || !ov->begin(GFX_SKIP_OUTPUT_BEGIN)) {
+        Serial.printf("[jc3248w535] !! slot overlay alloc/begin FAILED for (%d,%d,%d,%d)\n",
+                      lx, ly, lw, lh);
+        if (ov) delete ov;
+        return nullptr;
+    }
+    ov->setRotation(1);
+    jc_slots[jc_slot_count++] = { lx, ly, lw, lh, ov };
+    Serial.printf("[jc3248w535] slot[%d] overlay: logical (%d,%d,%d,%d) -> native (%d,%d,%d,%d), %u bytes\n",
+                  jc_slot_count - 1, lx, ly, lw, lh, native_x, native_y, lh, lw,
+                  (unsigned)(lw * lh * 2));
+    return ov;
+}
+
+// Restore overlay fb from bg_cache (rotation-1 inversion: fb[ov_lx * lh + (lh-1 - ov_ly)]).
+static void jc_restoreOverlayFromBgCache(Arduino_Canvas *ov,
+                                          int lx, int ly, int lw, int lh) {
+    if (!ov || !bg_cache) return;
+    uint16_t *fb = ov->getFramebuffer();
+    if (!fb) return;
+    for (int ov_ly = 0; ov_ly < lh; ov_ly++) {
+        uint16_t *src_row = &bg_cache[(ly + ov_ly) * JC_W + lx];
+        for (int ov_lx = 0; ov_lx < lw; ov_lx++) {
+            fb[ov_lx * lh + (lh - 1 - ov_ly)] = src_row[ov_lx];
+        }
+    }
+}
+
+// ============================================================================
+//  Partial-region panel push (v0.9.6, opt-in: -D JC_USE_PARTIAL_FLUSH=1)
+// ============================================================================
+// No longer required for flicker — snapshot quantization (v0.9.16) fixed that.
+// Retained as opt-in for further perf work. EXPERIMENTAL: coordinate transform
+// unvalidated (probe v0.9); v0.8.1 had an RST-line incident with partial pushes.
+// Staging buffer in PSRAM, lazily grown (max ~73 KB for clock display slot).
+
+// End-of-frame flush. force=true on screen transitions. v0.9.16a: backlight gated.
+static void jc_endOfFrameFlush(bool force)
+{
+#ifdef JC_USE_PARTIAL_FLUSH
+    if (force) {
+        if (gfx) {
+            JC_FLUSH();
+        }
+    }
+    // else: partial pushes already handled by jc_dynText / jc_dynOfr.
+#else
+    if (gfx) {
+        JC_FLUSH();
+    }
+#endif
+}
+
+#ifdef JC_USE_PARTIAL_FLUSH
+// v0.9.17d: jc_pushRect replaced with full-flush fallback. The coordinate
+// transform was unvalidated (probe v0.9) and caused RST-line incidents (v0.8.1).
+// Retaining the define so existing build configs don't break, but it now
+// falls back to a full JC_FLUSH(). Remove this block entirely in v0.10
+// if/when a corrected partial push is validated.
+static void jc_pushRect(int /*lx*/, int /*ly*/, int /*lw*/, int /*lh*/)
+{
+    JC_FLUSH();
+}
+
+static inline void jc_flushOrPushRect(int /*x*/, int /*y*/, int /*w*/, int /*h*/)
+{
+    JC_FLUSH();
+}
+#else
+// Full-flush fallback: no-op here; end-of-frame gfx->flush() does the work.
+static inline void jc_flushOrPushRect(int /*x*/, int /*y*/, int /*w*/, int /*h*/) {}
+#endif
+
 
 // ============================================================================
 //  Image scaler — RGB565 nearest-neighbor, writes into bg_cache (not canvas)
@@ -260,8 +442,7 @@ static bool jc_ensureTopSlab(int cyc)
         return false;
     }
     const unsigned short *src = jc_topArtFor(cyc);
-    // Scale into the slab using the same NN math as jc_scaleIntoBgCache,
-    // but writing into the slab buffer directly.
+        // NN scale into slab buffer directly.
     for (int dy = 0; dy < TOP_H; dy++) {
         int sy_src = (dy * SRC_TOP_H) / TOP_H;
         if (sy_src >= SRC_TOP_H) sy_src = SRC_TOP_H - 1;
@@ -306,10 +487,7 @@ static bool jc_ensureBotSlab(int lo)
     return true;
 }
 
-// memcpy a top slab into bg_cache (replaces jc_scaleIntoBgCache for top).
-// Assumes the slab is already populated. Source is contiguous TOP_W rows,
-// destination region in bg_cache also has TOP_W = JC_W width, so a single
-// memcpy per row works.
+// memcpy slab into bg_cache (TOP_W == JC_W so single memcpy per row).
 static void jc_blitTopSlabToBgCache(int cyc)
 {
     if (!bg_cache || !prerender_top[cyc]) return;
@@ -337,14 +515,22 @@ static void jc_blitBotSlabToBgCache(int lo)
 static OpenFontRender render;
 static bool           render_loaded = false;
 
+// OFR callback target: set jc_ofr_target to redirect to a different canvas.
+static Arduino_GFX   *jc_ofr_target = nullptr;
+static inline Arduino_GFX *jc_ofr_dest() {
+    return jc_ofr_target ? jc_ofr_target : (Arduino_GFX*)gfx;
+}
+
 static void jc_ofr_drawPixel(int32_t x, int32_t y, uint16_t c) {
-    if (gfx) gfx->writePixel((int16_t)x, (int16_t)y, c);
+    Arduino_GFX *d = jc_ofr_dest();
+    if (d) d->writePixel((int16_t)x, (int16_t)y, c);
 }
 static void jc_ofr_drawHLine(int32_t x, int32_t y, int32_t w, uint16_t c) {
-    if (gfx) gfx->writeFastHLine((int16_t)x, (int16_t)y, (int16_t)w, c);
+    Arduino_GFX *d = jc_ofr_dest();
+    if (d) d->writeFastHLine((int16_t)x, (int16_t)y, (int16_t)w, c);
 }
-static void jc_ofr_startWrite(void) { if (gfx) gfx->startWrite(); }
-static void jc_ofr_endWrite(void)   { if (gfx) gfx->endWrite();   }
+static void jc_ofr_startWrite(void) { Arduino_GFX *d = jc_ofr_dest(); if (d) d->startWrite(); }
+static void jc_ofr_endWrite(void)   { Arduino_GFX *d = jc_ofr_dest(); if (d) d->endWrite();   }
 
 enum class JcFont { Digital, NotoBold };
 static JcFont jc_currentFont = JcFont::Digital;
@@ -405,16 +591,10 @@ static void jc_pollSdStatus(); // fwd decl (defined below, alongside SD includes
 static void jc_pollTouch()
 {
 #ifdef SDMMC_1BIT_FIX
-    // v0.9.2: piggyback SD-status polling on the touch tick. This runs
-    // even when JC_NO_TOUCH_POLL is set, so we keep continuous SD telemetry
-    // during the touch-disabled isolation test.
-    jc_pollSdStatus();
+    jc_pollSdStatus();  // piggyback SD poll on touch tick
 #endif
 #ifdef JC_NO_TOUCH_POLL
-    // v0.9.1 A/B: touch polling disabled at build time. Used to test
-    // whether touch I2C bus activity (400 kHz @ 10 Hz) is causing
-    // electrical interference on shared SDMMC pins (GPIO 11/12).
-    return;
+    return;  // touch polling disabled (isolation test for SDMMC pin interference)
 #endif
     uint16_t rawX = 0, rawY = 0;
     bool pressedRaw = jc_readRawTouch(rawX, rawY);
@@ -439,6 +619,10 @@ static void jc_pollTouch()
         if (ty <= BOT_Y) {
             Serial.printf("[jc3248w535] TAP TOP (%u,%u) -> next cyclic\n", tx, ty);
             switchToNextScreen();
+        } else if (jc_currentScreen == SCR_SLIDESHOW) {
+            // v0.9.8: bottom tap advances image instead of toggling pool/fees.
+            Serial.printf("[jc3248w535] TAP BOT (%u,%u) -> next image\n", tx, ty);
+            jc_slideshowAdvance();
         } else {
             Serial.printf("[jc3248w535] TAP BOT (%u,%u) -> toggle lower\n", tx, ty);
             toggleBottomScreen();
@@ -468,35 +652,81 @@ static void jc_drawTouchDiag()
 #endif
 
 // ============================================================================
-//  Drawing helpers — "dyn" variants restore bg from cache before painting
+//  High-water-mark size tracker (v0.9.17) — prevents font remnants
+// ============================================================================
+// Records max width/height per call-site (x,y); erase rect never shrinks.
+// Safe on screen change (bg_cache fully regenerated).
+#define JC_MAX_SIZE_SLOTS 32
+struct JcSizeSlot { int x, y, max_w, max_h; };
+static JcSizeSlot jc_sslots[JC_MAX_SIZE_SLOTS];
+static int jc_sslot_count = 0;
+
+static void jc_trackSize(int x, int y, int w, int h, int *out_w, int *out_h) {
+    for (int i = 0; i < jc_sslot_count; i++) {
+        if (jc_sslots[i].x == x && jc_sslots[i].y == y) {
+            if (w > jc_sslots[i].max_w) jc_sslots[i].max_w = w;
+            if (h > jc_sslots[i].max_h) jc_sslots[i].max_h = h;
+            *out_w = jc_sslots[i].max_w;
+            *out_h = jc_sslots[i].max_h;
+            return;
+        }
+    }
+    if (jc_sslot_count < JC_MAX_SIZE_SLOTS) {
+        jc_sslots[jc_sslot_count] = {x, y, w, h};
+        jc_sslot_count++;
+    }
+    *out_w = w;
+    *out_h = h;
+}
+
+// ============================================================================
+//  Drawing helpers — "dyn" variants restore bg from cache first
 // ============================================================================
 static void jc_textAt(int x, int y, uint16_t color, uint8_t size, const char *fmt, ...) {
     char buf[96]; va_list a; va_start(a, fmt); vsnprintf(buf, sizeof(buf), fmt, a); va_end(a);
     gfx->setTextColor(color); gfx->setTextSize(size); gfx->setCursor(x, y); gfx->print(buf);
 }
 
-// Erase via bg-cache restore, then paint Arduino_GFX built-in font text.
+// Erase via bg-cache restore, paint built-in font text, push rect.
+// v0.9.17: high-water-mark w+h prevents remnant pixels on text shrink.
 static void jc_dynText(int x, int y, int w, int h, uint16_t color, uint8_t size,
                        const char *fmt, ...) {
     char buf[96]; va_list a; va_start(a, fmt); vsnprintf(buf, sizeof(buf), fmt, a); va_end(a);
-    jc_restoreRect(x, y, w, h);
-    gfx->setTextColor(color); gfx->setTextSize(size); gfx->setCursor(x, y); gfx->print(buf);
+    gfx->setTextSize(size);
+    int16_t tbx, tby; uint16_t tbw = 0, tbh;
+    gfx->getTextBounds(buf, x, y, &tbx, &tby, &tbw, &tbh);
+    int ew = (tbw > (uint16_t)w) ? (int)tbw : w;
+    int eh = (tbh > (uint16_t)h) ? (int)tbh : h;
+    // v0.9.17b: 20% descent padding for glyph overhang.
+    eh = (eh * 6 + 4) / 5;   // ceil(eh * 1.20)
+    jc_trackSize(x, y, ew, eh, &ew, &eh);
+    jc_restoreRect(x, y, ew, eh);
+    gfx->setTextColor(color); gfx->setCursor(x, y); gfx->print(buf);
+    jc_flushOrPushRect(x, y, ew, eh);
 }
 
-// Erase via bg-cache restore, then paint OpenFontRender TTF text.
+// Erase via bg-cache restore, paint OFR TTF text, push rect.
+// v0.9.17: high-water-mark w+h prevents remnant pixels on text shrink.
 static void jc_dynOfr(JcFont face, int x, int y, int w, int h, uint16_t color,
                       uint16_t size_px, const char *fmt, ...) {
     if (!render_loaded) return;
     char buf[64]; va_list a; va_start(a, fmt); vsnprintf(buf, sizeof(buf), fmt, a); va_end(a);
-    jc_restoreRect(x, y, w, h);
     jc_loadFont(face);
     render.setFontSize(size_px);
+    uint16_t actual_w = render.getTextWidth(buf);
+    int ew = (actual_w > (uint16_t)w) ? (int)actual_w : w;
+    // v0.9.17b: 20% descent padding — TTF glyphs extend below em-square.
+    int eh = ((int)size_px > h) ? (int)size_px : h;
+    eh = (eh * 6 + 4) / 5;   // ceil(eh * 1.20)
+    jc_trackSize(x, y, ew, eh, &ew, &eh);
+    jc_restoreRect(x, y, ew, eh);
     render.setFontColor(color);
     render.setCursor(x, y);
     render.printf("%s", buf);
+    jc_flushOrPushRect(x, y, ew, eh);
 }
 
-// Direct OFR draw without erase (for one-shot static labels on loading/setup)
+// OFR draw without erase (for one-shot static labels)
 static void jc_ofrText(JcFont face, int x, int y, uint16_t color, uint16_t size_px,
                        const char *fmt, ...) {
     if (!render_loaded) return;
@@ -508,8 +738,32 @@ static void jc_ofrText(JcFont face, int x, int y, uint16_t color, uint16_t size_
     render.printf("%s", buf);
 }
 
+// v0.9.17d: right-aligned variant — keys the size-tracker slot by a fixed
+// anchor (slot_key, y) instead of the dynamic (x, y).  The erase rect always
+// covers [slot_key .. JC_W] x [y .. y+eh], so no matter how text width changes,
+// the old pixels are always cleaned up.
+static void jc_dynOfrSlot(JcFont face, int slot_key, int y, uint16_t color,
+                           uint16_t size_px, const char *fmt, ...) {
+    if (!render_loaded) return;
+    char buf[64]; va_list a; va_start(a, fmt); vsnprintf(buf, sizeof(buf), fmt, a); va_end(a);
+    jc_loadFont(face);
+    render.setFontSize(size_px);
+    uint16_t actual_w = render.getTextWidth(buf);
+    int x = JC_W - (int)actual_w - 32;  // 32px right margin
+    if (x < 4) x = 4;
+    int eh = (int)size_px;
+    eh = (eh * 6 + 4) / 5;   // 20% descent padding
+    int ew = JC_W - slot_key;  // erase from anchor to right edge
+    jc_trackSize(slot_key, y, ew, eh, &ew, &eh);
+    jc_restoreRect(slot_key, y, ew, eh);
+    render.setFontColor(color);
+    render.setCursor(x, y);
+    render.printf("%s", buf);
+    jc_flushOrPushRect(slot_key, y, ew, eh);
+}
+
 // ============================================================================
-//  Background renderer — fills bg_cache then blits to canvas
+//  Background renderer — populates bg_cache then blits to canvas
 // ============================================================================
 static const unsigned short *jc_topArtFor(int cyc) {
     switch (cyc) {
@@ -528,48 +782,19 @@ static const unsigned short *jc_bottomArtFor(int lo) {
     }
 }
 
-// v0.9.0: SD status pixel re-added (was removed in v0.8.23 when SD
-// wasn't actually working). Now SDMMC is enabled and we can query
-// SDCrd.cardAvailable() to get a meaningful state.
-//
-//   GREEN  = SD mounted and /config.json present
-//   CYAN   = SD mounted, no /config.json (blank card)
-//   YELLOW = SD interface initialized but card not detected
-//   RED    = SD interface init failed entirely
-//
-// Drawn directly into bg_cache so it survives until next screen change.
-// 4x4 pixel block in the very-bottom-left corner of the panel.
+// SD status pixel: GREEN=config present, CYAN=blank card, YELLOW=no card, RED=init failed.
+// 4x4 px in bottom-left corner, drawn into bg_cache (survives until screen change).
+
 #ifdef SDMMC_1BIT_FIX
 #include "drivers/storage/SDCard.h"
 #include "SD_MMC.h"   // v0.9.5: needed for SD_MMC.exists() cheap probe
 extern SDCard SDCrd;
 extern TSettings Settings;
 
-// v0.9.4: SD status pixel now actually reflects reality.
-//
-// HISTORY of this bug — instructive enough to keep in the source:
-//
-//   v0.9.0: queried cardAvailable() on every bg render. The very first
-//           probe (after boot init reported "Inserted.") returned false.
-//   v0.9.1: cached the probe; same first-probe failure.
-//   v0.9.2: moved poll out of render path; ruled out touch I2C as cause.
-//   v0.9.3: enabled internal pull-ups on SDMMC pins; didn't help.
-//
-//   v0.9.4: ROOT CAUSE FOUND — NerdMiner's own wManager.cpp calls
-//           SDCrd.terminate() right after the initial config check
-//           (to "free memory"), which invokes SD_MMC.end() and sets
-//           the internal _card descriptor to NULL. From then on,
-//           cardType() returns CARD_NONE permanently, regardless of
-//           whether the physical card is present. The bus, the card,
-//           and the SDMMC peripheral were all fine the whole time.
-//
-//           Fixed by patching wManager.cpp to skip the terminate()
-//           call under #ifdef JC3248W535. SD card stays mounted for
-//           the lifetime of the device.
-//
-// jc_pollSdStatus() is called from the per-tick path (alongside
-// jc_pollTouch()) and samples at most once per JC_SD_POLL_MS so we
-// don't hammer the bus.
+// v0.9.4: ROOT CAUSE of false "no card" readings was wManager.cpp calling
+// SDCrd.terminate() after config check, which tore down the SD bus.
+// Fixed by patching wManager.cpp to skip terminate() under #ifdef JC3248W535.
+// Polls at most once per JC_SD_POLL_MS from the per-tick path.
 #define JC_SD_POLL_MS 10000
 static uint32_t  sd_last_poll_ms     = 0;
 static uint16_t  sd_cached_color     = YELLOW;
@@ -590,12 +815,7 @@ static void jc_pollSdStatus()
     if (sd_have_polled_once && (now - sd_last_poll_ms) <= JC_SD_POLL_MS) return;
     sd_last_poll_ms = now;
 
-    // v0.9.5: use SD_MMC.exists() rather than SDCrd.loadConfigFile() so we
-    // don't (a) re-parse the JSON on every poll, (b) print the entire
-    // config dict to serial 6 times a minute, (c) leak the user's WiFi
-    // password to the serial console every 10 seconds. cardAvailable()
-    // is also avoided here for the same reason ("Inserted." spam) — we
-    // check SD_MMC.cardType() directly.
+    // v0.9.5: SD_MMC.exists() + cardType() avoids JSON re-parse and WiFi password leakage.
     uint16_t newColor;
     if (SD_MMC.cardType() == CARD_NONE) {
         newColor = YELLOW;        // not mounted (or driver torn down)
@@ -610,8 +830,7 @@ static void jc_pollSdStatus()
     sd_cached_color = newColor;
     sd_have_polled_once = true;
 
-    // Only log on first poll or on state change. Steady-state polling
-    // produces no serial output.
+    // Log only on first poll or state change.
     if (firstPoll || changed) {
         Serial.printf("[jc3248w535] SD pixel %s @%lus: color=%s\n",
             firstPoll ? "init" : "change",
@@ -623,8 +842,7 @@ static void jc_pollSdStatus()
 static void jc_drawSdStatusPixel()
 {
     if (!bg_cache) return;
-    // Ensure we've at least sampled once before painting (in case the
-    // tick-driven poller hasn't fired yet at first render).
+    // Ensure at least one poll before first paint.
     jc_pollSdStatus();
     for (int dy = 0; dy < 4; dy++)
         for (int dx = 0; dx < 4; dx++)
@@ -637,12 +855,11 @@ static void jc_renderBackground(int cyc, int lo)
     if (!gfx || !bg_cache) return;
     Serial.printf("[jc3248w535] bg render: cycle=%d lower=%d\n", cyc, lo);
 
-    // 1) Ensure pre-rendered slabs exist; lazy-allocate on first request.
+    // Ensure pre-rendered slabs exist; fall back to scaling path if PSRAM exhausted.
     bool top_ok = jc_ensureTopSlab(cyc);
     bool bot_ok = jc_ensureBotSlab(lo);
 
-    // 2) Compose bg_cache from slabs (fast memcpy), or fall back to the
-    //    scaling path if a slab allocation failed (PSRAM exhausted).
+    // Compose bg_cache from slabs (fast memcpy) or fall back to NN scaling.
     if (top_ok) {
         jc_blitTopSlabToBgCache(cyc);
     } else {
@@ -656,15 +873,12 @@ static void jc_renderBackground(int cyc, int lo)
                              SRC_W, SRC_BOT_H, BOT_X, BOT_Y, BOT_W, BOT_H);
     }
 
-    // 3) SD status pixel — painted INTO bg_cache so it survives subsequent
-    //    text overlays (they only erase their own slots).
+    // SD status pixel (painted into bg_cache, survives text overlays).
 #if defined(SDMMC_1BIT_FIX) && !defined(JC_NO_SD_PIXEL)
     jc_drawSdStatusPixel();
 #endif
 
-    // 4) Blit the whole cache into the canvas. This is the only "big"
-    //    canvas write per screen-change; subsequent text updates only
-    //    touch small rects.
+    // Blit full bg_cache to canvas (only big canvas write per screen-change).
     jc_blitBgCacheToCanvas();
 }
 
@@ -683,37 +897,34 @@ static bool jc_ensureBackground(int cyc, int lo) {
 // ============================================================================
 void jc3248w535_Init(void)
 {
-    // v0.8.26: when ARDUINO_USB_CDC_ON_BOOT=1 and ARDUINO_USB_MODE=1 are set,
-    // `Serial` is an HWCDC instance attached to the built-in USB-Serial/JTAG.
-    // HWCDC::write() BLOCKS (default 100 ms timeout per call) when the TX
-    // ring buffer fills and no USB host is draining it. Multiple println()
-    // calls back-to-back on a headless boot can stack timeouts and stall
-    // init for many seconds — which is what was making the screen stay
-    // black until picocom attached and started reading bytes.
-    //
-    // Setting the timeout to 0 makes write() drop data silently if no host
-    // is reading. With a host attached, behavior is unchanged.
+    // HWCDC Serial.write() BLOCKS (100ms timeout) when no USB host drains TX buffer.
+    // Timeout=0 makes write() drop data silently on headless boot.
 #if defined(ARDUINO_USB_CDC_ON_BOOT) && defined(ARDUINO_USB_MODE)
     Serial.setTxTimeoutMs(0);
 #endif
 
-    // v0.8.25: HWCDC Serial.flush() BLOCKS forever if no USB host is reading
-    // the buffer (e.g., normal headless boot with no serial monitor open).
-    // Replaced with non-blocking output (no flush). 3 banners give a host
-    // enough material to recognize the firmware if it connects late.
+    // Non-blocking serial (flush BLOCKS forever on headless boot). 3 banners for late connect.
     for (int i = 0; i < 3; i++) {
-        Serial.println(F("[jc3248w535] init v0.9.5 (SD-stable, quiet pixel poll) ##"));
+#ifdef JC_USE_PARTIAL_FLUSH
+        Serial.println(F("[jc3248w535] init v0.9.17d (BL gating; no-op LED; remnant fix) ##"));
+#else
+        Serial.println(F("[jc3248w535] init v0.9.17d (BL gating; no-op LED; remnant fix) ##"));
+#endif
     }
     delay(50);   // brief gap to let USB-CDC enumerate if a host is plugged in
     Serial.printf("[jc3248w535] free heap=%u psram=%u\n",
                   ESP.getFreeHeap(), ESP.getFreePsram());
-    pinMode(LCD_BL, OUTPUT); digitalWrite(LCD_BL, HIGH);
 
     jc_bus   = new Arduino_ESP32QSPI(LCD_CS, LCD_SCK, LCD_D0, LCD_D1, LCD_D2, LCD_D3);
     jc_panel = new Arduino_AXS15231B(jc_bus, GFX_NOT_DEFINED, 0, false, 320, 480);
     gfx      = new Arduino_Canvas(320, 480, jc_panel, 0, 0, 0);
     if (!gfx || !gfx->begin()) { Serial.println(F("[jc3248w535] gfx->begin() FAILED")); return; }
-    gfx->setRotation(1); gfx->fillScreen(BLACK); gfx->flush();
+
+    // v0.9.16a: reclaim BL GPIO after gfx->begin() (library may reconfigure pins).
+    pinMode(JC_BL_PIN, OUTPUT);
+    digitalWrite(JC_BL_PIN, HIGH);
+
+    gfx->setRotation(1); gfx->fillScreen(BLACK); JC_FLUSH();
 
     if (!jc_allocBgCache()) {
         Serial.println(F("[jc3248w535] !! bg_cache alloc failed; transparency will fail"));
@@ -727,20 +938,12 @@ void jc3248w535_Init(void)
     jc_loadFont(JcFont::Digital);
 
     Wire.begin(TOUCH_SDA, TOUCH_SCL); Wire.setClock(TOUCH_I2C_HZ);
-    // v0.9.0: NEITHER TOUCH_INT nor TOUCH_RST is driven by the display
-    // driver, because both pins are shared with the SDMMC subsystem
-    // (CLK=12, CMD=11). The AXS-touch chip self-resets at power-on, and
-    // we poll touch via I2C without using the INT line. Leaving these
-    // pins in their post-reset default (high-Z input) lets the SDMMC
-    // peripheral grab them when SD_MMC.begin() runs in NerdMinerV2.ino.cpp.
-    //
-    // If the AXS-touch chip on your particular board variant DOES need
-    // external RST cycling and stops responding, restore these two lines:
-    //   pinMode(TOUCH_RST, OUTPUT);
-    //   digitalWrite(TOUCH_RST, LOW);  delay(50);
+    // TOUCH_INT/RST not driven — shared with SDMMC (CLK=12, CMD=11). Chip self-resets.
+    // If your board variant needs external RST, restore:
+    //   pinMode(TOUCH_RST, OUTPUT); digitalWrite(TOUCH_RST, LOW); delay(50);
     //   digitalWrite(TOUCH_RST, HIGH); delay(150);
-    // ...and disable SD by undef'ing SDMMC_1BIT_FIX in jc3248w535.h.
-    delay(200);   // generous wait so the chip's POR has finished before we probe
+    // ...and undef SDMMC_1BIT_FIX.
+    delay(200);  // wait for chip POR
     Wire.beginTransmission(TOUCH_I2C_ADDR);
     Serial.printf("[jc3248w535] touch %s @ 0x%02X\n",
                   (Wire.endTransmission() == 0) ? "OK" : "MISSING", TOUCH_I2C_ADDR);
@@ -748,24 +951,10 @@ void jc3248w535_Init(void)
                   TOP_W, TOP_H, BOT_W, BOT_H);
 
 #ifdef SDMMC_1BIT_FIX
-    // v0.9.3: enable INTERNAL PULL-UPS on the SDMMC pins before
-    // NerdMinerV2.ino.cpp calls SDCrd.initSDcard(). The Guition
-    // JC3248W535 board does NOT have onboard 10k pull-ups on its
-    // SD slot's CMD/CLK/D0 lines (verified empirically: both FAT16
-    // and FAT32 cards mount successfully at boot but cardType()
-    // returns CARD_NONE within ~1 second, because the bus lines
-    // float and the card releases its session). Enabling the
-    // ESP32-S3's internal pull-ups gives just enough drive to keep
-    // the card responding between SDMMC transactions.
-    //
-    // Per https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/sdmmc_host.html
-    // and the Arduino-ESP32 SD_MMC README: external 10k pull-ups
-    // are strongly recommended. Internal pull-ups (~45 kOhm)
-    // are weaker but often sufficient for short PCB traces.
-    //
-    // Order matters: setPins() inside SD_MMC.begin() does NOT touch
-    // the pull-up enable bit, only the GPIO matrix routing, so the
-    // pad configuration we set here survives.
+    // v0.9.3: internal pull-ups on SDMMC pins — this board lacks onboard 10k pull-ups,
+    // so bus floats and card releases session after ~1s. ESP32 internal (~45 kΩ) is
+    // weaker but sufficient for short PCB traces. Set before SD_MMC.begin() (it won't
+    // touch the pull-up enable bit, only GPIO matrix routing).
     pinMode(SDMMC_CLK, INPUT_PULLUP);
     pinMode(SDMMC_CMD, INPUT_PULLUP);
     pinMode(SDMMC_D0,  INPUT_PULLUP);
@@ -781,7 +970,8 @@ void jc3248w535_AlternateScreenState(void) {
 
 void jc3248w535_AlternateRotation(void) {
     int r = (gfx->getRotation() == 1) ? 3 : 1;
-    gfx->setRotation(r); gfx->fillScreen(BLACK); gfx->flush();
+    gfx->setRotation(r); gfx->fillScreen(BLACK);
+    JC_FLUSH();  // v0.9.16a: gated
     cached_cycle = -1; cached_lower = -1;
     for (int i = 0; i < SCR_COUNT; i++) last_snapshot[i] = "";
 }
@@ -793,8 +983,7 @@ void jc3248w535_LoadingScreen(void)
 {
     if (!gfx) return;
     gfx->fillScreen(BLACK);
-    // Init screen is 320x170, scale to 480x255 directly via canvas writer.
-    // (We could use the cache here too; doesn't matter, it's a one-shot.)
+    // Scale 320x170 init art to 480x255 directly (one-shot, no cache needed).
     for (int dy = 0; dy < 255; dy++) {
         int sy_s = (dy * 170) / 255;
         const unsigned short *row = initScreen + sy_s * 320;
@@ -806,7 +995,7 @@ void jc3248w535_LoadingScreen(void)
     jc_textAt(sx(24), sy_top(147), BLACK, 1, "v%s", CURRENT_VERSION);
     jc_textAt(8, 280, WHITE, 2, "Initializing NerdMiner...");
     jc_textAt(8, 304, DARKGREY, 1, "Guition JC3248W535 / 8MB PSRAM / 16MB Flash");
-    gfx->flush();
+    JC_FLUSH();  // v0.9.16a: gated
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -824,8 +1013,8 @@ void jc3248w535_SetupScreen(void)
     }
     jc_textAt(8,  264, YELLOW, 2, "WiFi config required");
     jc_textAt(8,  286, CYAN,   2, "Join 'NerdMinerAP' WiFi");
-    jc_textAt(8,  306, WHITE,  1, "Then browse to http://192.168.4.1");
-    gfx->flush();
+    jc_textAt(8,  306, WHITE, 1, "Then browse to http://192.168.4.1");
+    JC_FLUSH();  // v0.9.16a: gated
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -838,11 +1027,11 @@ static void jc_drawLowerPool(unsigned long /*mElapsed*/)
 {
     pool_data p = getPoolData();
     jc_dynOfr(JcFont::Digital, sx(5),   sy_bot(34) + 2, sx(80) - sx(5),    28,
-              BLACK, 24, "%s", p.bestDifficulty.c_str());
+                      BLACK, 24, "%s", p.bestDifficulty.c_str());
     jc_dynOfr(JcFont::Digital, sx(146), sy_bot(34) + 6, 60,                 32,
-              BLACK, 28, "%d", p.workersCount);
+                      BLACK, 28, "%d", p.workersCount);
     jc_dynOfr(JcFont::Digital, sx(216), sy_bot(34) + 2, sx(315) - sx(216),  28,
-              BLACK, 24, "%s", p.workersHash.c_str());
+                      BLACK, 24, "%s", p.workersHash.c_str());
 }
 
 static void jc_drawLowerFees(unsigned long mElapsed)
@@ -853,62 +1042,56 @@ static void jc_drawLowerFees(unsigned long mElapsed)
     jc_dynOfr(JcFont::Digital, sx(250), sy_bot(32) + 2, 60, 28, RED,   24, "%s", c.minimumFee.c_str());
 }
 
+// v0.9.17d: slideshow entry tracking — declared unconditionally so all
+// cyclic screens can clear it. Only meaningfully set inside #ifdef JC_HAS_SLIDESHOW.
+static bool jc_ss_active = false;
+
 // ============================================================================
 //  Cyclic screens
 // ============================================================================
 static void jc3248w535_MinerScreen(unsigned long mElapsed)
 {
     if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_MINER;
+    jc_ss_active = false;  // v0.9.17d: clear slideshow entry flag
     jc_ensureBackground(SCR_MINER, lowerScreen);
     mining_data data = getMiningData(mElapsed);
 
     // Hashrate (big, lower-left area of art)
     jc_dynOfr(JcFont::Digital, sx(50) - 51, sy_top(110), sx(180)-(sx(50)-51), 44,
-              BLACK, 50, "%s", data.currentHashRate.c_str());
+                      BLACK, 50, "%s", data.currentHashRate.c_str());
 
     // Stats column on the right side of art (templates / bestDiff / shares)
     jc_dynOfr(JcFont::Digital, sx(186) + 4, sy_top(20), 60, 20, WHITE, 20,
-              "%s", data.templates.c_str());
+                      "%s", data.templates.c_str());
     jc_dynOfr(JcFont::Digital, sx(186), sy_top(48), 60, 20, WHITE, 20,
-              "%s", data.bestDiff.c_str());
+                      "%s", data.bestDiff.c_str());
     jc_dynOfr(JcFont::Digital, sx(186), sy_top(76), 60, 20, WHITE, 20,
-              "%s", data.completedShares.c_str());
+                      "%s", data.completedShares.c_str());
 
     // Valid blocks (big number in its own slot)
     jc_dynOfr(JcFont::Digital, sx(285), sy_top(54), 40, 32, WHITE, 32,
-              "%s", data.valids.c_str());
+                      "%s", data.valids.c_str());
 
     // Time mining ("uptime"), right side near bottom of top art.
     jc_dynOfr(JcFont::Digital, sx(180) + 31, sy_top(106), sx(315)-(sx(180)+31), 20,
-              WHITE, 16, "%s", data.timeMining.c_str());
+                      WHITE, 16, "%s", data.timeMining.c_str());
 
     // Total MHashes ("million hashes") — DigitalNumbers via OFR @ 22px.
-    jc_dynOfr(JcFont::Digital, sx(234), sy_top(142), sx(290)-sx(234), 26,
-              BLACK, 22, "%s", data.totalMHashes.c_str());
+    jc_dynOfr(JcFont::Digital, sx(220), sy_top(142), sx(295)-sx(220), 26,
+                      BLACK, 22, "%s", data.totalMHashes.c_str());
 
-    // Temp + time at top of art (harmonized to Global Stats toolbar style:
-    // Arduino_GFX built-in font size 2, BLACK).
-    // Temp uses degree symbol (0xF7 in many Adafruit GFX fonts ≈ '°').
-    // If 0xF7 prints as a different glyph on your panel, switch to "%sC"
-    // (plain ASCII) or draw a small circle outline geometrically.
-    // Temp: built-in size 2 numeric value, then a small filled-circle degree
-    // mark hand-drawn (\xF7 rendered as a math symbol on this font).
-    // Slot covers number + a few px on the right for the circle.
+    // Temp + time at top of art (built-in font, size 2)
     jc_dynText(sx(225), sy_top(4), 40, 14, BLACK, 2, "%s", data.temp.c_str());
     {
-        // Compute right edge of the rendered temp string to place the
-        // degree symbol just after it. Each char in size-2 built-in font
-        // is ~12 screen-px wide.
+        // Degree symbol — position depends on temp string length.
         int chars = (int)strlen(data.temp.c_str());
-        int dot_x = sx(225) + chars * 12 + 2;   // +2 px gap
-        int dot_y = sy_top(4) + 2;              // slightly above baseline
-        // Draw a small circle (degree mark)
+        int dot_x = sx(225) + chars * 12 + 2;
+        int dot_y = sy_top(4) + 2;
         gfx->drawCircle(dot_x, dot_y, 2, BLACK);
     }
-    // Time: built-in size 2 at sx(249). v0.8.16.1's sx(253) had a tiny
-    // bit of room on the right; nudged 4 px left.
     jc_dynText(sx(249), sy_top(4), sx(315)-sx(249), 14, BLACK, 2,
-               "%s",  data.currentTime.c_str());
+                       "%s",  data.currentTime.c_str());
 
     // Bottom panel
     if (lowerScreen == LOWER_POOL) jc_drawLowerPool(mElapsed);
@@ -916,14 +1099,16 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
 
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
-    String snap = data.currentHashRate + "|" + data.templates + "|" + data.bestDiff
-                + "|" + data.completedShares + "|" + data.valids + "|" + data.timeMining
-                + "|" + data.totalMHashes + "|" + data.temp + "|" + data.currentTime
+    // Quantized snapshot: hashrate=q10 hysteresis, time=HH:MM, temp=whole-degree hysteresis.
+    // Other fields (shares, valids, etc.) change slowly — no quantization needed.
+    String snap = jc_qHashrateH(data.currentHashRate, &jc_hr_state_miner) + "|" + data.templates + "|" + data.bestDiff
+                + "|" + data.completedShares + "|" + data.valids + "|" + jc_qTimeMin(data.timeMining)
+                + "|" + data.totalMHashes + "|" + jc_qTemp(data.temp) + "|" + jc_qTimeMin(data.currentTime)
                 + "|L" + String(lowerScreen) + "|"
                 + (lowerScreen == LOWER_POOL
-                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + pds.workersHash)
+                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + jc_qHashrateH(pds.workersHash, &jc_hr_state_miner_pool))
                     : (cds.fastestFee + "/" + cds.economyFee + "/" + cds.minimumFee));
-    if (jc_shouldFlush(SCR_MINER, snap)) gfx->flush();
+    if (jc_shouldFlush(SCR_MINER, snap)) jc_endOfFrameFlush(jc_last_bg_changed);
 
     Serial.printf(">>> Miner: %s share(s)  hash %s KH/s\n",
                   data.completedShares.c_str(), data.currentHashRate.c_str());
@@ -933,23 +1118,21 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
 static void jc3248w535_ClockScreen(unsigned long mElapsed)
 {
     if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_CLOCK;
+    jc_ss_active = false;
     jc_ensureBackground(SCR_CLOCK, lowerScreen);
     clock_data data = getClockData(mElapsed);
 
-    // Big clock — v0.8.7: right-aligned to right half of art (32 px right
-    //                     margin), color WHITE, font NotoBold.
-    jc_loadFont(JcFont::NotoBold);
-    render.setFontSize(78);
-    uint16_t cw = render.getTextWidth(data.currentTime.c_str());
-    int cx = JC_W - (int)cw - 32; if (cx < 4) cx = 4;
-    jc_dynOfr(JcFont::NotoBold, cx, sy_top(40), JC_W - cx, 90, WHITE, 78,
-              "%s", data.currentTime.c_str());
+    // Big clock — right-aligned, NotoBold, WHITE. Uses fixed slot_key so
+    // the erase rect doesn't fragment as time string width changes.
+    jc_dynOfrSlot(JcFont::NotoBold, JC_W - 200, sy_top(40), WHITE, 78,
+                  "%s", data.currentTime.c_str());
 
     // Hashrate lower-left
     jc_dynOfr(JcFont::Digital, sx(19), sy_top(128), sx(120)-sx(19), 38,
               BLACK, 34, "%s", data.currentHashRate.c_str());
 
-    // Block height lower-right — font: DigitalNumbers @ 26 px (TTF via OFR)
+    // Block height lower-right — DigitalNumbers @ 26px
     jc_dynOfr(JcFont::Digital, sx(180) - 9, sy_top(140), sx(290)-(sx(180)-9), 26,
               BLACK, 26, "%s", data.blockHeight.c_str());
 
@@ -962,12 +1145,13 @@ static void jc3248w535_ClockScreen(unsigned long mElapsed)
 
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
-    String snap = data.currentTime + "|" + data.btcPrice + "|" + data.currentHashRate
+    // Quantized — see Miner snapshot above.
+    String snap = jc_qTimeMin(data.currentTime) + "|" + data.btcPrice + "|" + jc_qHashrateH(data.currentHashRate, &jc_hr_state_clock)
                 + "|" + data.blockHeight + "|L" + String(lowerScreen) + "|"
                 + (lowerScreen == LOWER_POOL
-                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + pds.workersHash)
+                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + jc_qHashrateH(pds.workersHash, &jc_hr_state_clock_pool))
                     : (cds.fastestFee + "/" + cds.economyFee + "/" + cds.minimumFee));
-    if (jc_shouldFlush(SCR_CLOCK, snap)) gfx->flush();
+    if (jc_shouldFlush(SCR_CLOCK, snap)) jc_endOfFrameFlush(jc_last_bg_changed);
 
     Serial.printf(">>> Clock %s  BTC %s\n", data.currentTime.c_str(), data.btcPrice.c_str());
     jc_pollTouch();
@@ -976,13 +1160,15 @@ static void jc3248w535_ClockScreen(unsigned long mElapsed)
 static void jc3248w535_GlobalHashScreen(unsigned long mElapsed)
 {
     if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_GLOBAL;
+    jc_ss_active = false;
     jc_ensureBackground(SCR_GLOBAL, lowerScreen);
     coin_data data = getCoinData(mElapsed);
     clock_data ctm = getClockData(mElapsed);
 
     jc_dynText(sx(195) + 15, sy_top(7), 100, 14, BLACK, 2, "%s",
                data.btcPrice.c_str());
-    //          Both share sy_top(7) so already on same horizontal plane.
+    // Both at sy_top(7).
     jc_dynText(sx(265), sy_top(7), sx(315)-sx(265), 14, BLACK, 2,
                "%s", ctm.currentTime.c_str());
 
@@ -1012,14 +1198,15 @@ static void jc3248w535_GlobalHashScreen(unsigned long mElapsed)
     else                           jc_drawLowerFees(mElapsed);
 
     pool_data pds = getPoolData();
-    String snap = data.btcPrice + "|" + ctm.currentTime + "|" + data.halfHourFee
+    // Quantized time + hashrates. globalHashRate drifts slowly (no quantization).
+    String snap = data.btcPrice + "|" + jc_qTimeMin(ctm.currentTime) + "|" + data.halfHourFee
                 + "|" + data.netwrokDifficulty + "|" + data.globalHashRate
                 + "|" + data.blockHeight + "|" + String((int)(data.progressPercent * 10))
                 + "|" + data.remainingBlocks + "|L" + String(lowerScreen) + "|"
                 + (lowerScreen == LOWER_POOL
-                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + pds.workersHash)
+                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + jc_qHashrateH(pds.workersHash, &jc_hr_state_global_pool))
                     : (data.fastestFee + "/" + data.economyFee + "/" + data.minimumFee));
-    if (jc_shouldFlush(SCR_GLOBAL, snap)) gfx->flush();
+    if (jc_shouldFlush(SCR_GLOBAL, snap)) jc_endOfFrameFlush(jc_last_bg_changed);
 
     Serial.printf(">>> Global BTC %s  net %s\n",
                   data.btcPrice.c_str(), data.globalHashRate.c_str());
@@ -1029,22 +1216,18 @@ static void jc3248w535_GlobalHashScreen(unsigned long mElapsed)
 static void jc3248w535_PriceScreen(unsigned long mElapsed)
 {
     if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_PRICE;
+    jc_ss_active = false;
     jc_ensureBackground(SCR_PRICE, lowerScreen);
     clock_data data = getClockData(mElapsed);
 
-    //          Was NotoBold @ 24, sy_top(0). Now built-in size 2, sy_top(7).
-    //          X (sx(220)) preserved per user "x-axis seems good".
+    // Time — built-in size 2 at sy_top(7). X preserved per user feedback.
     jc_dynText(sx(220), sy_top(7), sx(315) - sx(220), 14, BLACK, 2,
                "%s", data.currentTime.c_str());
 
-    // BIG BTC price — headline of this screen
-    jc_loadFont(JcFont::NotoBold);
-    render.setFontSize(64);
-    uint16_t pw = render.getTextWidth(data.btcPrice.c_str());
-    int px = JC_W - (int)pw - 16;
-    if (px < 4) px = 4;
-    jc_dynOfr(JcFont::NotoBold, px, sy_top(46), JC_W - px, 72, WHITE, 64,
-              "%s", data.btcPrice.c_str());
+    // BIG BTC price — right-aligned, NotoBold. Fixed slot_key for clean erase.
+    jc_dynOfrSlot(JcFont::NotoBold, JC_W - 250, sy_top(46), WHITE, 64,
+                  "%s", data.btcPrice.c_str());
 
     //         BLACK (was WHITE), font size 30 -> 34
     jc_dynOfr(JcFont::Digital, sx(19), sy_top(128), sx(120)-sx(19), 38,
@@ -1057,17 +1240,303 @@ static void jc3248w535_PriceScreen(unsigned long mElapsed)
 
     pool_data pds = getPoolData();
     coin_data cds = getCoinData(mElapsed);
-    String snap = data.btcPrice + "|" + data.currentTime + "|" + data.currentHashRate
+    // Quantized — see Miner snapshot above. (This screen had worst q250<->q260 oscillation.)
+    String snap = data.btcPrice + "|" + jc_qTimeMin(data.currentTime) + "|" + jc_qHashrateH(data.currentHashRate, &jc_hr_state_price)
                 + "|" + data.blockHeight + "|L" + String(lowerScreen) + "|"
                 + (lowerScreen == LOWER_POOL
-                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + pds.workersHash)
+                    ? (pds.bestDifficulty + "/" + String(pds.workersCount) + "/" + jc_qHashrateH(pds.workersHash, &jc_hr_state_price_pool))
                     : (cds.fastestFee + "/" + cds.economyFee + "/" + cds.minimumFee));
-    if (jc_shouldFlush(SCR_PRICE, snap)) gfx->flush();
+    if (jc_shouldFlush(SCR_PRICE, snap)) jc_endOfFrameFlush(jc_last_bg_changed);
 
     Serial.printf(">>> Price BTC %s  hash %s KH/s\n",
                   data.btcPrice.c_str(), data.currentHashRate.c_str());
     jc_pollTouch();
 }
+
+// ============================================================================
+//  JPEG slideshow (5th cyclic screen, v0.9.8)
+// ============================================================================
+// Reads /pic/*.jpg from SD, decodes via TJpgDec, renders full canvas with a
+// bottom stats overlay (time / BTC / block height). Auto-advances per period;
+// bottom tap advances image, top tap goes to next cyclic. Graceful degradation
+// without SD or /pic dir. No extra framebuffer — TJpgDec decodes MCU-by-MCU.
+#if defined(SDMMC_1BIT_FIX) && !defined(JC_NO_SLIDESHOW)
+#define JC_HAS_SLIDESHOW 1
+#endif
+
+#ifdef JC_HAS_SLIDESHOW
+#include <TJpg_Decoder.h>
+#include <vector>
+
+#define JC_SLIDESHOW_PERIOD_MS  16000UL  // v0.9.9: 16s (was 8s)
+#define JC_SLIDESHOW_DIR        "/pic"
+#define JC_SLIDESHOW_MAX_FILES  64
+#define JC_SLIDESHOW_OVERLAY_H  28          // v0.9.17b: compact NotoBold overlay
+
+static std::vector<String> jc_ss_files;
+static int                 jc_ss_idx        = 0;
+static int                 jc_ss_loadedIdx  = -1;    // which image is currently decoded into the canvas
+static uint32_t            jc_ss_lastAdv_ms = 0;
+static bool                jc_ss_dirScanned = false;
+static bool                jc_ss_failedScan = false;
+
+// TJpgDec MCU render callback. RGB565 native-endian. v0.9.9: image fills full
+// canvas (overlay draws on top) — previously clipped, causing letterbox bars.
+static bool jc_ss_renderCb(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap)
+{
+    if (!gfx) return false;
+    gfx->draw16bitRGBBitmap(x, y, bitmap, w, h);
+    return true;                                         // continue decoding
+}
+
+static void jc_ss_scanDir()
+{
+    jc_ss_files.clear();
+    jc_ss_failedScan = false;
+    if (SD_MMC.cardType() == CARD_NONE) {
+        jc_ss_failedScan = true;
+        Serial.println(F("[jc3248w535] slideshow: SD not mounted"));
+        return;
+    }
+    File root = SD_MMC.open(JC_SLIDESHOW_DIR);
+    if (!root || !root.isDirectory()) {
+        jc_ss_failedScan = true;
+        Serial.printf("[jc3248w535] slideshow: %s missing or not a dir\n",
+                      JC_SLIDESHOW_DIR);
+        return;
+    }
+    File f = root.openNextFile();
+    while (f && (int)jc_ss_files.size() < JC_SLIDESHOW_MAX_FILES) {
+        if (!f.isDirectory()) {
+            String name = String(f.name());
+            String lower = name; lower.toLowerCase();
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                // f.name() returns basename; reconstruct full path (varies by core).
+                String path;
+                if (name.startsWith("/")) path = name;
+                else                      path = String(JC_SLIDESHOW_DIR) + "/" + name;
+                jc_ss_files.push_back(path);
+            }
+        }
+        f.close();
+        f = root.openNextFile();
+    }
+    root.close();
+    jc_ss_dirScanned = true;
+    Serial.printf("[jc3248w535] slideshow: scanned %s, found %u jpg(s)\n",
+                  JC_SLIDESHOW_DIR, (unsigned)jc_ss_files.size());
+    for (size_t i = 0; i < jc_ss_files.size(); i++) {
+        Serial.printf("  [%u] %s\n", (unsigned)i, jc_ss_files[i].c_str());
+    }
+}
+
+static void jc_ss_drawNoImagesMessage()
+{
+    if (!gfx) return;
+    gfx->fillScreen(BLACK);
+    jc_textAt(40, JC_H / 2 - 24, WHITE, 2, "Slideshow");
+    if (SD_MMC.cardType() == CARD_NONE) {
+        jc_textAt(40, JC_H / 2,      YELLOW, 2, "No SD card");
+        jc_textAt(40, JC_H / 2 + 24, DARKGREY, 1, "Insert a FAT32 SD card and reboot.");
+    } else {
+        jc_textAt(40, JC_H / 2,      YELLOW, 2, "No images");
+        jc_textAt(40, JC_H / 2 + 24, DARKGREY, 1, "Add .jpg files to /pic on the SD card.");
+        jc_textAt(40, JC_H / 2 + 40, DARKGREY, 1, "Max 480x320 recommended.");
+    }
+}
+
+static void jc_ss_loadCurrent()
+{
+    if (!gfx) return;
+    if (jc_ss_files.empty()) {
+        jc_ss_drawNoImagesMessage();
+        JC_FLUSH();  // v0.9.16a: gated
+        jc_ss_loadedIdx = -2;     // -2 = "no-images placeholder drawn"
+        return;
+    }
+    if (jc_ss_idx < 0) jc_ss_idx = (int)jc_ss_files.size() - 1;
+    if (jc_ss_idx >= (int)jc_ss_files.size()) jc_ss_idx = 0;
+    const char *path = jc_ss_files[jc_ss_idx].c_str();
+    Serial.printf("[jc3248w535] slideshow: loading [%d/%u] %s\n",
+                  jc_ss_idx, (unsigned)jc_ss_files.size(), path);
+
+    TJpgDec.setJpgScale(1);          // start with no downscale
+    TJpgDec.setSwapBytes(false);     // RGB565 native order
+    TJpgDec.setCallback(jc_ss_renderCb);
+
+    // Clear full canvas (image fills 480x320, overlay draws on top).
+    gfx->fillScreen(BLACK);
+
+    // Get JPEG dims to center. Use FS-based API (SD_MMC, not SD-SPI).
+    uint16_t imgW = 0, imgH = 0;
+    TJpgDec.getFsJpgSize(&imgW, &imgH, path, SD_MMC);
+    int origin_x = 0, origin_y = 0;
+    if (imgW > 0 && imgH > 0) {
+        // Scale-to-fit against full canvas (previously left letterbox strip).
+        int scale = 1;
+        while ((imgW / scale) > JC_W || (imgH / scale) > JC_H) {
+            scale *= 2;
+            if (scale > 8) break;
+        }
+        if (scale > 1) TJpgDec.setJpgScale(scale);
+        int dispW = imgW / scale;
+        int dispH = imgH / scale;
+        origin_x = (JC_W - dispW) / 2;
+        origin_y = (JC_H - dispH) / 2;
+        if (origin_x < 0) origin_x = 0;
+        if (origin_y < 0) origin_y = 0;
+        Serial.printf("[jc3248w535] slideshow: %ux%u -> scale=%d -> %ux%u @(%d,%d)\n",
+                      imgW, imgH, scale, dispW, dispH, origin_x, origin_y);
+    }
+
+    JRESULT jr = TJpgDec.drawFsJpg(origin_x, origin_y, path, SD_MMC);
+    if (jr != JDR_OK) {
+        Serial.printf("[jc3248w535] slideshow: TJpgDec.drawFsJpg failed: %d\n", jr);
+        gfx->fillScreen(BLACK);
+        jc_textAt(20, JC_H / 2 - 8, RED, 2, "JPEG decode error");
+        jc_textAt(20, JC_H / 2 + 16, DARKGREY, 1, path);
+    }
+
+    // Push canvas once; overlay redraws each tick on top.
+    JC_FLUSH();  // v0.9.16a: gated
+    jc_ss_loadedIdx = jc_ss_idx;
+}
+
+static void jc_slideshowAdvance()
+{
+    if (jc_ss_files.empty()) return;
+    jc_ss_idx = (jc_ss_idx + 1) % (int)jc_ss_files.size();
+    jc_ss_loadedIdx = -1;            // force reload on next screen tick
+    jc_ss_lastAdv_ms = millis();
+}
+
+// v0.9.17d: true when slideshow has usable images. Evaluated once on first entry.
+static bool jc_ss_available = false;
+
+static void jc3248w535_SlideshowScreen(unsigned long mElapsed)
+{
+    if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_SLIDESHOW;
+
+    // Lazy-scan SD on first entry.
+    if (!jc_ss_dirScanned || jc_ss_failedScan) {
+        jc_ss_scanDir();
+    }
+
+    // v0.9.17b: skip carousel entry if no images found.
+    if (!jc_ss_available) {
+        if (jc_ss_dirScanned && !jc_ss_failedScan && jc_ss_files.size() > 0) {
+            jc_ss_available = true;
+        } else {
+            Serial.println(F("[jc3248w535] slideshow: no images — skipping in carousel"));
+            switchToNextScreen();
+            return;
+        }
+    }
+
+    // v0.9.17d: detect fresh slideshow entry — invalidate bg cache
+    // and force image reload each time we enter from another screen.
+    if (!jc_ss_active) {
+        jc_ss_active = true;
+        cached_cycle = -1; cached_lower = -1;
+        for (int i = 0; i < SCR_COUNT; i++) last_snapshot[i] = "";
+        jc_ss_loadedIdx = -1;  // force image reload on re-entry
+    }
+
+    uint32_t now = millis();
+    // Auto-advance every JC_SLIDESHOW_PERIOD_MS.
+    if (jc_ss_loadedIdx >= 0 && (now - jc_ss_lastAdv_ms) >= JC_SLIDESHOW_PERIOD_MS) {
+        jc_slideshowAdvance();
+    }
+    // (Re)load the current image if it's not already drawn.
+    if (jc_ss_loadedIdx != jc_ss_idx) {
+        jc_ss_loadCurrent();
+        jc_ss_lastAdv_ms = now;
+        // New image wiped canvas — force overlay redraw.
+        last_snapshot[SCR_SLIDESHOW] = "";
+    }
+
+    // v0.9.17d: build snapshot first — only redraw overlay on data change.
+    coin_data cd  = getCoinData(mElapsed);
+    clock_data ck  = getClockData(mElapsed);
+
+    // Extract HH:MM from ck.currentTime ("HH:MM:SS" -> "HH:MM").
+    String hhmm = ck.currentTime;
+    if (hhmm.length() >= 5) hhmm = hhmm.substring(0, 5);
+
+    String snap = hhmm + "|" + cd.btcPrice + "|" + ck.blockHeight;
+
+    if (jc_shouldFlush(SCR_SLIDESHOW, snap)) {
+
+        int oy = JC_H - JC_SLIDESHOW_OVERLAY_H;  // 320 - 28 = 292
+
+        // White 1 px separator line
+        gfx->drawFastHLine(0, oy, JC_W, WHITE);
+        // Dark backdrop (not pure black — subtle blue tint for depth)
+        gfx->fillRect(0, oy + 1, JC_W, JC_SLIDESHOW_OVERLAY_H - 1, RGB565(8, 8, 18));
+
+        // Draw all three items with NotoBold @ 18 px on a single baseline.
+        if (render_loaded) {
+            jc_loadFont(JcFont::NotoBold);
+            render.setFontSize(18);
+            render.setFontColor(WHITE);
+
+            char buf[48];
+            int baseline = oy + 1 + (JC_SLIDESHOW_OVERLAY_H - 1 - 18) / 2;
+
+            // Time (left)
+            render.setCursor(16, baseline);
+            render.printf("%s", hhmm.c_str());
+
+            // BTC price (centered)
+            snprintf(buf, sizeof(buf), "$%s", cd.btcPrice.c_str());
+            uint16_t pw = render.getTextWidth(buf);
+            render.setCursor((JC_W - (int)pw) / 2, baseline);
+            render.printf("%s", buf);
+
+            // Block height (right-aligned)
+            snprintf(buf, sizeof(buf), "blk %s", ck.blockHeight.c_str());
+            uint16_t bw = render.getTextWidth(buf);
+            render.setCursor(JC_W - 16 - (int)bw, baseline);
+            render.printf("%s", buf);
+        } else {
+            // Fallback to built-in font if OFR not loaded
+            gfx->setTextColor(WHITE); gfx->setTextSize(2);
+            char buf[48];
+            int baseline = oy + 5;
+            snprintf(buf, sizeof(buf), "%s", hhmm.c_str());
+            gfx->setCursor(8, baseline); gfx->print(buf);
+            snprintf(buf, sizeof(buf), "BTC $%s", cd.btcPrice.c_str());
+            int px = JC_W - 8 - (int)strlen(buf) * 12;
+            gfx->setCursor(px, baseline); gfx->print(buf);
+            snprintf(buf, sizeof(buf), "blk %s", ck.blockHeight.c_str());
+            int bx = (JC_W - (int)strlen(buf) * 12) / 2;
+            gfx->setCursor(bx, baseline + 16); gfx->print(buf);
+        }
+
+        jc_endOfFrameFlush(true);
+    }
+
+    Serial.printf(">>> Slideshow [%d/%u] %s  BTC $%s  blk %s\n",
+                  jc_ss_idx, (unsigned)jc_ss_files.size(),
+                  hhmm.c_str(), cd.btcPrice.c_str(), ck.blockHeight.c_str());
+    jc_pollTouch();
+}
+#else
+// SD disabled: stubs for compile parity; shows "disabled" message.
+static void jc_slideshowAdvance() {}
+static void jc3248w535_SlideshowScreen(unsigned long /*mElapsed*/)
+{
+    if (!gfx) { jc_pollTouch(); return; }
+    jc_currentScreen = SCR_SLIDESHOW;
+    cached_cycle = -1; cached_lower = -1;
+    gfx->fillScreen(BLACK);
+    jc_textAt(40, JC_H / 2 - 8, YELLOW, 2, "Slideshow");
+    jc_textAt(40, JC_H / 2 + 12, DARKGREY, 1, "SD card disabled in this build.");
+    JC_FLUSH();  // v0.9.16a: gated
+    jc_pollTouch();
+}
+#endif
 
 // ============================================================================
 //  Animate / LED
@@ -1084,20 +1553,7 @@ void jc3248w535_AnimateCurrentScreen(unsigned long /*frame*/)
 
 void jc3248w535_DoLedStuff(unsigned long /*frame*/)
 {
-    static uint32_t last = 0;
-    uint32_t now = millis();
-    uint32_t period = 0;
-    switch (mMonitor.NerdStatus) {
-        case NM_waitingConfig: period = 0;    break;
-        case NM_Connecting:    period = 500;  break;
-        case NM_hashing:       period = 1500; break;
-        default:               period = 0;
-    }
-    if (period == 0) { digitalWrite(LCD_BL, HIGH); return; }
-    if (now - last >= period) {
-        last = now;
-        digitalWrite(LCD_BL, LOW); delay(20); digitalWrite(LCD_BL, HIGH);
-    }
+    // LED_PIN == LCD_BL (GPIO 1) on this board — no-op to protect backlight.
 }
 
 // ============================================================================
@@ -1108,6 +1564,7 @@ CyclicScreenFunction jc3248w535CyclicScreens[] = {
     jc3248w535_ClockScreen,
     jc3248w535_GlobalHashScreen,
     jc3248w535_PriceScreen,
+    jc3248w535_SlideshowScreen,    // v0.9.8: JPEG slideshow from /pic
 };
 
 DisplayDriver jc3248w535DisplayDriver = {
