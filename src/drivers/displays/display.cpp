@@ -64,6 +64,10 @@ DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #endif
 
+#ifdef OLED_SSD1306_128X64_DISPLAY
+DisplayDriver *currentDisplayDriver = &ssd1306DisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()

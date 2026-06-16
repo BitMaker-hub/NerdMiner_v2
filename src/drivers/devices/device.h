@@ -23,6 +23,8 @@
 #include "lilygoS3Dongle.h"
 #elif defined(LILYGO_S3_T_EMBED)
 #include "lilygoS3TEmbed.h"
+#elif defined(M5_CARDPUTER_ADV)
+#include "m5CardputerAdv.h"
 #elif defined(ESP32_2432S028R)
 #include "esp322432s028r.h"
 #elif defined(ESP32_2432S028_2USB) // For another type of ESP32_2432S028 version with 2 USB connectors
@@ -53,6 +55,8 @@
 #include "lilygoT_HMI.h"
 #elif defined(SPOTPEAR)
 #include "spotpearKeychain.h"
+#elif defined(LILYGO_T3_V1)
+#include "lilygoT3V1.h"
 
 #else
 #error "No device defined"

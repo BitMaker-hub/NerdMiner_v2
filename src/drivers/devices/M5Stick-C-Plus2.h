@@ -4,6 +4,7 @@
 #define PIN_BUTTON_1 37
 #define PIN_BUTTON_2 39
 #define LED_PIN 19
+#define PIN_ENABLE5V 4
 
 #define V1_DISPLAY
 
