@@ -360,20 +360,20 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
 void t_hmiDisplay_LoadingScreen(void)
 {
   tft.fillScreen(TFT_BLACK);
-  // tft.pushImage(0, 0, initWidth, initHeight, initScreen);
   tft.pushImage(0, 0, initWidth, initHeight, initScreen);
   tft.setTextColor(TFT_BLACK);
   tft.drawString(CURRENT_VERSION, 24, 147, FONT2);
-  delay(2000);
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString("Initializing NerdMiner...", 8, 170, FONT2);
+  tft.setTextColor(TFT_CYAN);
+  tft.drawString("Display driver by @cosmicpsyop", 8, 184, FONT2); // 288
+  tft.setTextColor(TFT_DARKGREY);
+  tft.drawString("Lilygo T-HMI / 8MB PSRAM / 16MB Flash", 8, 200, FONT2);
+  tft.setTextColor(TFT_BLACK);
+  delay(5000);
   tft.fillScreen(TFT_BLACK);
-  // tft.pushImage(0, 0, initWidth, initHeight, MinerScreen);
   tft.pushImage(0, 0, initWidth, 170, MinerScreen);
   tft.pushImage(0, 170, initWidth, 70, bottonPoolScreen);
-  if (showbtcprice)
-  {
-    // blackout title
-    tft.fillRect( 105, 170,  110, 20, TFT_BLACK);
-  }
 }
 
 

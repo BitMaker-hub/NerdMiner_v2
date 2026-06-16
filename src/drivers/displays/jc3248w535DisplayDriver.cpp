@@ -1,25 +1,31 @@
 // =============================================================================
-//  Guition JC3248W535 display driver for NerdMiner v2  (v0.9.17d)
+//  Guition JC3248W535 display driver for NerdMiner v2  (v0.9.18)
 // =============================================================================
 //
-//  Stack: Arduino_GFX_Library 1.6.0 (pinned), OpenFontRender 1.2 (TTF),
-//         NerdMiner artwork scaled 1.5x to fill 480x320 panel.
+//  Stack:
+//    * Arduino_GFX_Library 1.6.0 (pinned; 1.6.1+ breaks AXS15231B init).
+//    * OpenFontRender 1.2  (TTF rasterizer; bridged to Arduino_Canvas).
+//    * Canonical NerdMiner artwork from src/media/images_320_170.h and
+//      images_bottom_320_70.h, scaled 1.5x H both axes to fill the panel.
 //
-//  Architecture: 480x320 landscape via QSPI AXS15231B (rotation=1).
-//    PSRAM bg_cache for transparent text erase (sub-rect memcpy, no black boxes).
-//    Layout: top art 0..220, bottom 220..320; touch top=cyclic next, bottom=toggle pool/fees.
-//    5 cyclic screens (Miner, Clock, Global, Price, Slideshow) + Loading/Setup.
-//    Touch: AXS-touch I2C @0x3B, 10 Hz, 200 ms debounce.
-//    Flush: only on value change or every 60s. Compile -D JC_TOUCH_DEBUG for overlay.
-//
-//  v0.9.16a: Backlight gating — JC_FLUSH() wraps LOW/HIGH around every panel push.
-//  v0.9.17d: (a) JC_FLUSH preserves intentional BL-off, (b) slideshow re-entry
-//              state fix, (c) partial-flush fallback, (d) fixed-slot right-aligned text.
-//  v0.9.17: (a) doLedStuff() no-op (LED==BL on this board), (b) font remnant fix via
-//             high-water-mark erase rects, (c) JC_NO_SNAPSHOT build flag for A/B testing.
-//  v0.9.16: Hysteresis quantizers replace round-to-nearest to eliminate per-tick flush oscillation.
-//
-// =============================================================================
+//  Architecture:
+//    * Display:  Arduino_AXS15231B over QSPI -> 480x320 landscape (rotation=1).
+//    * Buffers:  Arduino_Canvas framebuffer in PSRAM + a separate
+//                "bg_cache" PSRAM buffer holding the rendered artwork so
+//                per-field text "erase" is a sub-rect memcpy from bg_cache
+//                back into the canvas. No more black erase boxes.
+//    * Layout:   top art y=0..220 (was 255 pre-v0.8.2), bottom y=220..320.
+//                Touch zones: top tap -> next cyclic; bottom tap -> toggle
+//                POOL / FEES bottom panel.
+//    * 5 screens:  Loading, Setup, MinerScreen, ClockScreen,
+//                  GlobalHashScreen, PriceScreen (4 cyclic).
+//    * Touch:    AXS-touch I2C @ 0x3B polled at NerdMiner's 10 Hz animate()
+//                cadence with 200 ms edge debounce.
+//    * Flush:    gfx->flush() only called when displayed strings have
+//                changed OR every JC_MAX_FLUSH_GAP_MS (60s safety net so
+//                layout edits become visible without value churn).
+//    * Touch debug overlay: compile with -D JC_TOUCH_DEBUG to enable a
+//                live counter strip at the bottom of the panel.
 
 #include "displayDriver.h"
 
@@ -993,8 +999,10 @@ void jc3248w535_LoadingScreen(void)
         }
     }
     jc_textAt(sx(24), sy_top(147), BLACK, 1, "v%s", CURRENT_VERSION);
-    jc_textAt(8, 280, WHITE, 2, "Initializing NerdMiner...");
-    jc_textAt(8, 304, DARKGREY, 1, "Guition JC3248W535 / 8MB PSRAM / 16MB Flash");
+    jc_textAt(8, 264, WHITE, 2, "Initializing NerdMiner...");
+    jc_textAt(8, 288, RGB565(0,180,220), 2, "Display driver by @cosmicpsyop");
+    jc_textAt(8, 312, DARKGREY, 1, "Guition JC3248W535 / 8MB PSRAM / 16MB Flash");
+
     JC_FLUSH();  // v0.9.16a: gated
     cached_cycle = -1; cached_lower = -1;
 }
@@ -1393,7 +1401,20 @@ static void jc_ss_loadCurrent()
     if (jr != JDR_OK) {
         Serial.printf("[jc3248w535] slideshow: TJpgDec.drawFsJpg failed: %d\n", jr);
         gfx->fillScreen(BLACK);
-        jc_textAt(20, JC_H / 2 - 8, RED, 2, "JPEG decode error");
+        static const char * const jc_jpg_err[] = {
+           "OK",                     // 0 JDR_OK
+           "File read error",         // 1 JDR_INP
+           "Insufficient work memory",// 2 JDR_MEM1
+           "Insufficient stream buf", // 3 JDR_MEM2
+           "Invalid JPEG structure",  // 4 JDR_PAR
+           "Unsupported format",      // 5 JDR_FMT1
+           "Unsupported subsampling", // 6 JDR_FMT2
+           "Unsupported color space", // 7 JDR_FMT3
+        };
+        int ei = (jr >= 0 && jr <= 7) ? jr : 4;  // unknown -> PAR
+        jc_textAt(20, JC_H / 2 - 24, RED, 2, "JPEG error");
+        jc_textAt(20, JC_H / 2,      WHITE, 1, jc_jpg_err[ei]);
+
         jc_textAt(20, JC_H / 2 + 16, DARKGREY, 1, path);
     }
 
