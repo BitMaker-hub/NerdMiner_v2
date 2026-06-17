@@ -1095,8 +1095,6 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
     // Total MHashes ("million hashes") — DigitalNumbers via OFR @ 22px.
     jc_dynOfr(JcFont::Digital, sx(220) - 26, sy_top(142), sx(295)-sx(220), 26, 
                       BLACK, 22, "%s", data.totalMHashes.c_str());
-    //jc_dynOfr(JcFont::Digital, sx(220), sy_top(142), sx(295)-sx(220), 26,
-    //                  BLACK, 22, "%s", data.totalMHashes.c_str());
 
     // Temp + time at top of art (built-in font, size 2)
     jc_dynText(sx(225), sy_top(4), 40, 14, BLACK, 2, "%s", data.temp.c_str());

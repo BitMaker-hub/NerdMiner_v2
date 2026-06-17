@@ -2,53 +2,12 @@
 #include <WiFi.h>
 #include "mbedtls/md.h"
 #include "HTTPClient.h"
-#include <WiFiClientSecure.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <list>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
-
-// ---------------------------------------------------------------------------
-//  HTTPClient routing helper
-//
-//  Upstream NerdMiner used `http.begin(url)`, which made HTTPClient build
-//  its own default transport. That broke two real-world cases:
-//
-//    1. https:// endpoints (public-pool.io:40557, mempool.space, etc.)
-//       failed handshake with "start_ssl_client: -1" because the default
-//       WiFiClientSecure verifies TLS certificates against a CA bundle
-//       that the firmware never installs. Result: getCoinData() /
-//       updateGlobalData() / getPoolData() silently never populated.
-//
-//    2. plain http:// endpoints (e.g. a local Umbrel/Start9 pool at
-//       http://192.168.x.x:2019/api/client/) failed with -29184 "SSL
-//       invalid record" when the same path forced a TLS handshake on a
-//       plain socket.
-//
-//  httpBeginAny() inspects the URL prefix and picks the right transport:
-//      https://  ->  WiFiClientSecure with setInsecure()
-//      http://   ->  WiFiClient (plain)
-//
-//  Trade-off on https: connection is encrypted but not authenticated.
-//  Acceptable for read-only public mining stats. If a deployment needs
-//  full validation, replace setInsecure() with setCACert() per endpoint.
-// ---------------------------------------------------------------------------
-static WiFiClient       sPlainClient;
-static WiFiClientSecure sSecureClient;
-static bool             sSecureClientInited = false;
-
-static bool httpBeginAny(HTTPClient &http, const String &url) {
-    if (url.startsWith("https://")) {
-        if (!sSecureClientInited) {
-            sSecureClient.setInsecure();
-            sSecureClientInited = true;
-        }
-        return http.begin(sSecureClient, url);
-    }
-    return http.begin(sPlainClient, url);
-}
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
 
@@ -107,7 +66,7 @@ void updateGlobalData(void){
         HTTPClient http;
         http.setTimeout(10000);
         try {
-        httpBeginAny(http, String(getGlobalHash));
+        http.begin(getGlobalHash);
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -132,7 +91,7 @@ void updateGlobalData(void){
 
       
         //Make third API call to get fees
-        httpBeginAny(http, String(getFees));
+        http.begin(getFees);
         httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -172,7 +131,7 @@ String getBlockHeight(void){
         HTTPClient http;
         http.setTimeout(10000);
         try {
-        httpBeginAny(http, String(getHeightAPI));
+        http.begin(getHeightAPI);
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -210,7 +169,7 @@ String getBTCprice(void){
         bool priceUpdated = false;
 
         try {
-        httpBeginAny(http, String(getBTCAPI));
+        http.begin(getBTCAPI);
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -490,9 +449,9 @@ pool_data getPoolData(void){
           if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
 #ifdef SCREEN_WORKERS_ENABLE
           Serial.println("Pool API : " + poolAPIUrl+btcWallet);
-          httpBeginAny(http, poolAPIUrl+btcWallet);
+          http.begin(poolAPIUrl+btcWallet);
 #else
-          httpBeginAny(http, String(getPublicPool)+btcWallet);
+          http.begin(String(getPublicPool)+btcWallet);
 #endif
           int httpCode = http.GET();
           if (httpCode == HTTP_CODE_OK) {
