@@ -139,12 +139,17 @@ static bool jc_last_bg_changed = false;
 // v0.9.16a: backlight gating — panel push with BL off (~35ms, imperceptible).
 // v0.9.17d: JC_FLUSH preserves intentional backlight-off (AlternateScreenState).
 #define JC_BL_PIN 1
-#define JC_FLUSH() do {                                      \
-        uint8_t _bl_was = digitalRead(JC_BL_PIN);              \
-        digitalWrite(JC_BL_PIN, LOW);                          \
-        gfx->flush();                                          \
-        if (_bl_was) digitalWrite(JC_BL_PIN, HIGH);            \
-    } while(0)
+static bool jc_backlight_enabled = true;
+
+static inline void jc_flushGated()
+{
+    if (!gfx) return;
+    digitalWrite(JC_BL_PIN, LOW);
+    gfx->flush();
+    digitalWrite(JC_BL_PIN, jc_backlight_enabled ? HIGH : LOW);
+}
+
+#define JC_FLUSH() jc_flushGated()
 
 // ===========================================================================
 //  Snapshot quantization helpers (hysteresis-based, v0.9.16)
@@ -375,6 +380,7 @@ static void jc_endOfFrameFlush(bool force)
 }
 
 #ifdef JC_USE_PARTIAL_FLUSH
+#warning "JC_USE_PARTIAL_FLUSH is disabled internally: using one gated full flush per frame."
 // v0.9.17d: jc_pushRect replaced with full-flush fallback. The coordinate
 // transform was unvalidated (probe v0.9) and caused RST-line incidents (v0.8.1).
 // Retaining the define so existing build configs don't break, but it now
@@ -389,10 +395,10 @@ static inline void jc_flushOrPushRect(int /*x*/, int /*y*/, int /*w*/, int /*h*/
 {
     JC_FLUSH();
 }
-#else
+#endif
 // Full-flush fallback: no-op here; end-of-frame gfx->flush() does the work.
 static inline void jc_flushOrPushRect(int /*x*/, int /*y*/, int /*w*/, int /*h*/) {}
-#endif
+
 
 
 // ============================================================================
@@ -969,15 +975,16 @@ void jc3248w535_Init(void)
 #endif
 }
 
-void jc3248w535_AlternateScreenState(void) {
-    static bool on = true; on = !on;
-    digitalWrite(LCD_BL, on ? HIGH : LOW);
+void jc3248w535_AlternateScreenState(void)
+{
+    jc_backlight_enabled = !jc_backlight_enabled;
+    digitalWrite(JC_BL_PIN, jc_backlight_enabled ? HIGH : LOW);
 }
 
 void jc3248w535_AlternateRotation(void) {
     int r = (gfx->getRotation() == 1) ? 3 : 1;
     gfx->setRotation(r); gfx->fillScreen(BLACK);
-    JC_FLUSH();  // v0.9.16a: gated
+    JC_FLUSH();  
     cached_cycle = -1; cached_lower = -1;
     for (int i = 0; i < SCR_COUNT; i++) last_snapshot[i] = "";
 }
@@ -1003,7 +1010,7 @@ void jc3248w535_LoadingScreen(void)
     jc_textAt(8, 288, RGB565(0,180,220), 2, "Display driver by @cosmicpsyop");
     jc_textAt(8, 312, DARKGREY, 1, "Guition JC3248W535 / 8MB PSRAM / 16MB Flash");
 
-    JC_FLUSH();  // v0.9.16a: gated
+    JC_FLUSH();  
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -1022,7 +1029,7 @@ void jc3248w535_SetupScreen(void)
     jc_textAt(8,  264, YELLOW, 2, "WiFi config required");
     jc_textAt(8,  286, CYAN,   2, "Join 'NerdMinerAP' WiFi");
     jc_textAt(8,  306, WHITE, 1, "Then browse to http://192.168.4.1");
-    JC_FLUSH();  // v0.9.16a: gated
+    JC_FLUSH();  
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -1086,8 +1093,10 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
                       WHITE, 16, "%s", data.timeMining.c_str());
 
     // Total MHashes ("million hashes") — DigitalNumbers via OFR @ 22px.
-    jc_dynOfr(JcFont::Digital, sx(220), sy_top(142), sx(295)-sx(220), 26,
+    jc_dynOfr(JcFont::Digital, sx(220) - 26, sy_top(142), sx(295)-sx(220), 26, 
                       BLACK, 22, "%s", data.totalMHashes.c_str());
+    //jc_dynOfr(JcFont::Digital, sx(220), sy_top(142), sx(295)-sx(220), 26,
+    //                  BLACK, 22, "%s", data.totalMHashes.c_str());
 
     // Temp + time at top of art (built-in font, size 2)
     jc_dynText(sx(225), sy_top(4), 40, 14, BLACK, 2, "%s", data.temp.c_str());
@@ -1133,7 +1142,8 @@ static void jc3248w535_ClockScreen(unsigned long mElapsed)
 
     // Big clock — right-aligned, NotoBold, WHITE. Uses fixed slot_key so
     // the erase rect doesn't fragment as time string width changes.
-    jc_dynOfrSlot(JcFont::NotoBold, JC_W - 200, sy_top(40), WHITE, 78,
+    // jc_dynOfrSlot(JcFont::NotoBold, JC_W - 200, sy_top(40), WHITE, 78,
+    jc_dynOfrSlot(JcFont::NotoBold, 4, sy_top(40), WHITE, 78,
                   "%s", data.currentTime.c_str());
 
     // Hashrate lower-left
@@ -1234,7 +1244,8 @@ static void jc3248w535_PriceScreen(unsigned long mElapsed)
                "%s", data.currentTime.c_str());
 
     // BIG BTC price — right-aligned, NotoBold. Fixed slot_key for clean erase.
-    jc_dynOfrSlot(JcFont::NotoBold, JC_W - 250, sy_top(46), WHITE, 64,
+    //jc_dynOfrSlot(JcFont::NotoBold, JC_W - 250, sy_top(46), WHITE, 64,
+    jc_dynOfrSlot(JcFont::NotoBold, 4, sy_top(46), WHITE, 64,
                   "%s", data.btcPrice.c_str());
 
     //         BLACK (was WHITE), font size 30 -> 34
@@ -1358,7 +1369,7 @@ static void jc_ss_loadCurrent()
     if (!gfx) return;
     if (jc_ss_files.empty()) {
         jc_ss_drawNoImagesMessage();
-        JC_FLUSH();  // v0.9.16a: gated
+        JC_FLUSH();  // gated
         jc_ss_loadedIdx = -2;     // -2 = "no-images placeholder drawn"
         return;
     }
@@ -1419,7 +1430,7 @@ static void jc_ss_loadCurrent()
     }
 
     // Push canvas once; overlay redraws each tick on top.
-    JC_FLUSH();  // v0.9.16a: gated
+    JC_FLUSH();  
     jc_ss_loadedIdx = jc_ss_idx;
 }
 
@@ -1554,7 +1565,7 @@ static void jc3248w535_SlideshowScreen(unsigned long /*mElapsed*/)
     gfx->fillScreen(BLACK);
     jc_textAt(40, JC_H / 2 - 8, YELLOW, 2, "Slideshow");
     jc_textAt(40, JC_H / 2 + 12, DARKGREY, 1, "SD card disabled in this build.");
-    JC_FLUSH();  // v0.9.16a: gated
+    JC_FLUSH();  
     jc_pollTouch();
 }
 #endif
@@ -1585,7 +1596,9 @@ CyclicScreenFunction jc3248w535CyclicScreens[] = {
     jc3248w535_ClockScreen,
     jc3248w535_GlobalHashScreen,
     jc3248w535_PriceScreen,
-    jc3248w535_SlideshowScreen,    // v0.9.8: JPEG slideshow from /pic
+#ifdef JC_HAS_SLIDESHOW
+    jc3248w535_SlideshowScreen,    
+#endif
 };
 
 DisplayDriver jc3248w535DisplayDriver = {

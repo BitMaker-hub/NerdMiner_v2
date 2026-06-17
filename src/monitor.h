@@ -2,7 +2,7 @@
 #define MONITOR_API_H
 
 #include <Arduino.h>
-
+#include "drivers/devices/device.h"
 // Monitor states
 #define SCREEN_MINING   0
 #define SCREEN_CLOCK    1
@@ -58,7 +58,7 @@ typedef struct{
   float progressPercent;
   int remainingBlocks;
   int halfHourFee;
-#if defined(NERDMINER_T_HMI) || defined(JC3248W535)
+#if defined(SCREEN_FEES_ENABLE)
   int fastestFee;
   int hourFee;
   int economyFee;
@@ -104,7 +104,7 @@ typedef struct {
   String btcPrice;
   String currentTime;
   String halfHourFee;
-#if defined(NERDMINER_T_HMI) || defined(JC3248W535)
+#if defined(SCREEN_FEES_ENABLE)
   String hourFee;
   String fastestFee;
   String economyFee;
