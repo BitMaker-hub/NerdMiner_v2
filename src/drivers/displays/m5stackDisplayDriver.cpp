@@ -6,7 +6,7 @@
 #include <M5Stack.h>
 #include <WiFi.h>
 
-#include "Free_Fonts.h"
+#include "media/Free_Fonts.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
 #include "wManager.h"
