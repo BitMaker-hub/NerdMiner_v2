@@ -189,6 +189,27 @@ With the USB-C port to the right:
 
 [![Ver video aquí](https://img.youtube.com/vi/POUT2R_opDs/0.jpg)](https://youtu.be/POUT2R_opDs)
 
+## How the Price History Graph Works
+The NerdMiner v2 displays Bitcoin price history graphs over different time periods. The process for generating these graphs is divided into two main steps: data collection and display visualization.
+
+### 1. Data Collection and Storage
+
+- **Frequency:** Every minute, the device queries an API to get the current Bitcoin price.
+- **Initial Storage:** This price is stored in an array that holds the data for the last 300 minutes (5 hours). This is the highest resolution graph.
+- **Data Consolidation:** To generate graphs for longer periods (daily, weekly, and monthly), the system performs a cascading consolidation process:
+    - **Daily Graph (last 25 hours):** Every 5 minutes, the average of the last 5 1-minute data points is calculated and stored.
+    - **Weekly Graph (last 6.25 days):** Every 30 minutes, the average of the last 6 5-minute data points is calculated and stored.
+    - **Monthly Graph (last 25 days):** Every 2 hours, the average of the last 4 30-minute data points is calculated and stored.
+- **Circular Buffers:** All data is stored in "circular buffers" of 300 points, where the oldest data is replaced by the newest, keeping memory usage constant.
+
+### 2. Visualization on the Display
+
+- **Rendering:** The graph screen is updated to display the different periods, cycling through them every 20 seconds.
+- **Graph Scaling:** Before drawing, the system analyzes the 300 data points of the selected period to find the minimum and maximum price. This allows the graph to be "normalized," meaning it is adjusted to occupy the full available height on the screen, making the most of the space.
+- **Line Drawing:** With the scale defined, the system draws the graph point by point, connecting each price value with a line to form the visual representation of the history.
+
+This process ensures that the NerdMiner v2 can display both short-term price fluctuations and long-term trends, all with efficient use of the device's memory.
+
 ## Developers
 
 ### Project guidelines
