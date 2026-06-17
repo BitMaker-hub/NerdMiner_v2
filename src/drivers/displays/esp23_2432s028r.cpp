@@ -34,6 +34,20 @@ extern bool invertColors;
 extern TSettings Settings;
 bool hasChangedScreen = true;
 
+// LDR auto-brightness on GPIO 34
+const unsigned long LDR_READ_INTERVAL = 500;
+const uint16_t LDR_MIN = 0;      // Minimum LDR reading (brightest - no resistance)
+const uint16_t LDR_MAX = 500;    // Maximum LDR reading (darkest - high resistance)
+const uint8_t BRIGHTNESS_MIN = 20;   // Minimum screen brightness
+const uint8_t BRIGHTNESS_TRANSITION_STEP = 2; // Smooth transition step size
+const unsigned long BRIGHTNESS_TRANSITION_DELAY = 20; // ms between steps
+
+unsigned long lastLdrRead = 0;
+unsigned long lastBrightnessTransition = 0;
+uint8_t currentBrightnessLevel = 250;
+uint8_t targetBrightnessLevel = 250;
+uint8_t savedBrightnessLevel = 250;
+
 void getChipInfo(void){
   Serial.print("Chip: ");
   Serial.println(ESP.getChipModel());
@@ -75,12 +89,6 @@ void esp32_2432S028R_Init(void)
 
   TFT_eTouchBase::Calibation calibation = { 233, 3785, 3731, 120, 2 };
   touch.setCalibration(calibation);
-
-  // Configuring screen backlight brightness using ledcontrol channel 0.
-  // Using 5000Hz in 8bit resolution, which gives 0-255 possible duty cycle setting.
-  ledcSetup(0, 5000, 8);
-  ledcAttachPin(TFT_BL, 0);
-  ledcWrite(0, Settings.Brightness);
  
   //background.createSprite(WIDTH, HEIGHT); // Background Sprite
   //background.setSwapBytes(true);
@@ -101,6 +109,31 @@ void esp32_2432S028R_Init(void)
   digitalWrite(LED_PIN, LOW);
   digitalWrite(LED_PIN_B, HIGH);
   digitalWrite(LED_PIN_G, HIGH);
+  
+  // Setup LDR auto-brightness on GPIO 34
+  pinMode(LDR_PIN, INPUT);
+  adcAttachPin(LDR_PIN);
+  analogSetAttenuation(ADC_0db); // 0-1.1V range for maximum sensitivity
+  analogSetWidth(12);
+  
+  // Configuring screen backlight brightness using ledcontrol channel 0
+  // Using 5000Hz in 8bit resolution, which gives 0-255 possible duty cycle setting
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(TFT_BL, 0);
+  
+  // Set initial brightness based on LDR setting
+  if (Settings.useLDR) {
+    // LDR enabled: map LDR value to brightness range (min to Settings.Brightness as max)
+    int ldrValue = constrain(analogRead(LDR_PIN), LDR_MIN, LDR_MAX);
+    currentBrightnessLevel = map(ldrValue, LDR_MIN, LDR_MAX, Settings.Brightness, BRIGHTNESS_MIN);
+  } else {
+    // LDR disabled: use Settings.Brightness as fixed value
+    currentBrightnessLevel = Settings.Brightness;
+  }
+  targetBrightnessLevel = currentBrightnessLevel;
+  savedBrightnessLevel = currentBrightnessLevel;
+  ledcWrite(0, currentBrightnessLevel);
+  
   pData.bestDifficulty = "0";
   pData.workersHash = "0";
   pData.workersCount = 0;
@@ -113,9 +146,16 @@ void esp32_2432S028R_AlternateScreenState(void)
   int screen_state_duty = ledcRead(0);
   // Switching the duty cycle for the ledc channel, where the TFT_BL pin is attached.
   if (screen_state_duty > 0) {
+    // Save current brightness before turning off
+    savedBrightnessLevel = currentBrightnessLevel;
+    currentBrightnessLevel = 0;
+    targetBrightnessLevel = 0;
     ledcWrite(0, 0);
   } else {
-    ledcWrite(0, Settings.Brightness);
+    // Restore saved brightness or use Settings.Brightness as fallback
+    currentBrightnessLevel = savedBrightnessLevel ? savedBrightnessLevel : Settings.Brightness;
+    targetBrightnessLevel = currentBrightnessLevel;
+    ledcWrite(0, currentBrightnessLevel);
   }
 }
 
@@ -534,8 +574,37 @@ char currentScreen = 0;
 
 void esp32_2432S028R_DoLedStuff(unsigned long frame)
 {
-  unsigned long currentMillis = millis();    
-  // / Check the touch coordinates 110x185 210x240
+  unsigned long currentMillis = millis();
+  
+  // Smooth brightness transition
+  if (currentBrightnessLevel != targetBrightnessLevel && currentMillis - lastBrightnessTransition >= BRIGHTNESS_TRANSITION_DELAY)
+  {
+    lastBrightnessTransition = currentMillis;
+    
+    if (currentBrightnessLevel < targetBrightnessLevel) {
+      currentBrightnessLevel = min((uint8_t)(currentBrightnessLevel + BRIGHTNESS_TRANSITION_STEP), targetBrightnessLevel);
+    } else {
+      currentBrightnessLevel = max((uint8_t)(currentBrightnessLevel - BRIGHTNESS_TRANSITION_STEP), targetBrightnessLevel);
+    }
+    ledcWrite(0, currentBrightnessLevel);
+  }
+  
+  // LDR auto-brightness adjustment (only when enabled and screen is on)
+  if (Settings.useLDR && currentMillis - lastLdrRead >= LDR_READ_INTERVAL)
+  {
+    lastLdrRead = currentMillis;
+    
+    int ldrValue = constrain(analogRead(LDR_PIN), LDR_MIN, LDR_MAX);
+    uint8_t newTargetBrightness = map(ldrValue, LDR_MIN, LDR_MAX, Settings.Brightness, BRIGHTNESS_MIN);
+    
+    // Only update if brightness changed and screen is on
+    if (newTargetBrightness != savedBrightnessLevel && currentBrightnessLevel > 0) {
+      savedBrightnessLevel = newTargetBrightness;
+      targetBrightnessLevel = newTargetBrightness;
+    }
+  }
+  
+  // Check the touch coordinates 110x185 210x240
   if (currentMillis - previousTouchMillis >= 500)
     { 
       int16_t t_x , t_y;  // To store the touch coordinates
