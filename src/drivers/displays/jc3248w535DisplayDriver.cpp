@@ -984,7 +984,7 @@ void jc3248w535_AlternateScreenState(void)
 void jc3248w535_AlternateRotation(void) {
     int r = (gfx->getRotation() == 1) ? 3 : 1;
     gfx->setRotation(r); gfx->fillScreen(BLACK);
-    JC_FLUSH();  
+    JC_FLUSH();
     cached_cycle = -1; cached_lower = -1;
     for (int i = 0; i < SCR_COUNT; i++) last_snapshot[i] = "";
 }
@@ -1010,7 +1010,7 @@ void jc3248w535_LoadingScreen(void)
     jc_textAt(8, 288, RGB565(0,180,220), 2, "Display driver by @cosmicpsyop");
     jc_textAt(8, 312, DARKGREY, 1, "Guition JC3248W535 / 8MB PSRAM / 16MB Flash");
 
-    JC_FLUSH();  
+    JC_FLUSH();
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -1029,7 +1029,7 @@ void jc3248w535_SetupScreen(void)
     jc_textAt(8,  264, YELLOW, 2, "WiFi config required");
     jc_textAt(8,  286, CYAN,   2, "Join 'NerdMinerAP' WiFi");
     jc_textAt(8,  306, WHITE, 1, "Then browse to http://192.168.4.1");
-    JC_FLUSH();  
+    JC_FLUSH();
     cached_cycle = -1; cached_lower = -1;
 }
 
@@ -1093,7 +1093,7 @@ static void jc3248w535_MinerScreen(unsigned long mElapsed)
                       WHITE, 16, "%s", data.timeMining.c_str());
 
     // Total MHashes ("million hashes") — DigitalNumbers via OFR @ 22px.
-    jc_dynOfr(JcFont::Digital, sx(220) - 26, sy_top(142), sx(295)-sx(220), 26, 
+    jc_dynOfr(JcFont::Digital, sx(220) - 26, sy_top(142), sx(295)-sx(220), 26,
                       BLACK, 22, "%s", data.totalMHashes.c_str());
 
     // Temp + time at top of art (built-in font, size 2)
@@ -1367,7 +1367,7 @@ static void jc_ss_loadCurrent()
     if (!gfx) return;
     if (jc_ss_files.empty()) {
         jc_ss_drawNoImagesMessage();
-        JC_FLUSH();  // gated
+        JC_FLUSH();  // gate
         jc_ss_loadedIdx = -2;     // -2 = "no-images placeholder drawn"
         return;
     }
@@ -1428,7 +1428,7 @@ static void jc_ss_loadCurrent()
     }
 
     // Push canvas once; overlay redraws each tick on top.
-    JC_FLUSH();  
+    JC_FLUSH();
     jc_ss_loadedIdx = jc_ss_idx;
 }
 
@@ -1563,7 +1563,7 @@ static void jc3248w535_SlideshowScreen(unsigned long /*mElapsed*/)
     gfx->fillScreen(BLACK);
     jc_textAt(40, JC_H / 2 - 8, YELLOW, 2, "Slideshow");
     jc_textAt(40, JC_H / 2 + 12, DARKGREY, 1, "SD card disabled in this build.");
-    JC_FLUSH();  
+    JC_FLUSH();
     jc_pollTouch();
 }
 #endif
@@ -1595,7 +1595,7 @@ CyclicScreenFunction jc3248w535CyclicScreens[] = {
     jc3248w535_GlobalHashScreen,
     jc3248w535_PriceScreen,
 #ifdef JC_HAS_SLIDESHOW
-    jc3248w535_SlideshowScreen,    
+    jc3248w535_SlideshowScreen,
 #endif
 };
 
