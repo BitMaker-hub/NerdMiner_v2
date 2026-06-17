@@ -1,0 +1,29 @@
+manifestVersion: 1
+id: nerdminer-dashboard
+category: finance
+name: NerdMiner Dashboard
+version: "1.0.0"
+tagline: Monitor your NerdMiner fleet in real-time
+description: >-
+  A lightweight, real-time dashboard for your NerdMiners.
+  Features include:
+  - Auto-discovery of miners via UDP
+  - Real-time Hashrate & Temperature
+  - 24-Hour Historical Graph
+  - Bitcoin Network Stats (Price, Fees, Difficulty)
+developer: NerdMiner
+website: https://github.com/BitMaker-hub/NerdMiner_v2
+dependencies: []
+repo: https://github.com/BitMaker-hub/NerdMiner_v2
+support: https://github.com/BitMaker-hub/NerdMiner_v2/issues
+port: 3000
+gallery:
+  - 1.jpg
+  - 2.jpg
+  - 3.jpg
+path: ""
+defaultPassword: ""
+releaseNotes: >-
+  Initial release with UDP auto-discovery and Bitcoin stats.
+submitter: NerdMiner
+submission: https://github.com/BitMaker-hub/NerdMiner_v2

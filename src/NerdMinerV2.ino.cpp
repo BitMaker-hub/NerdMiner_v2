@@ -9,6 +9,7 @@
 
 #include "mbedtls/md.h"
 #include "wManager.h"
+#include "api.h"
 #include "mining.h"
 #include "monitor.h"
 #include "drivers/displays/display.h"
@@ -106,7 +107,16 @@ void setup()
   #endif
 
   /******** INIT NERDMINER ************/
-  Serial.println("NerdMiner v2 starting......");
+  Serial.println("NerdMiner v2 UDP ENABLED......");
+  
+  /******** CPU FREQUENCY OPTIMIZATION ************/
+  uint32_t currentFreq = getCpuFrequencyMhz();
+  Serial.printf("CPU Frequency: %d MHz\n", currentFreq);
+  if (currentFreq < 240) {
+    Serial.println("Boosting CPU to 240MHz for maximum hashrate...");
+    setCpuFrequencyMhz(240);
+    Serial.printf("CPU Frequency after boost: %d MHz\n", getCpuFrequencyMhz());
+  }
 
   /******** INIT DISPLAY ************/
   initDisplay();
@@ -124,7 +134,11 @@ void setup()
 #endif
 
   /******** INIT WIFI ************/
+  /******** INIT WIFI ************/
   init_WifiManager();
+
+  /******** INIT API ************/
+  setupAPI();
 
   /******** CREATE TASK TO PRINT SCREEN *****/
   //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
@@ -215,6 +229,7 @@ void loop() {
   touchHandler.isTouched();
 #endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
+  api_loop();
 
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }

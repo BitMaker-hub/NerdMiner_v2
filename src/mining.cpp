@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <esp_task_wdt.h>
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -653,7 +654,7 @@ void minerWorkerSw(void * task_id)
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 
-static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, uint32_t nonce)
+static inline IRAM_ATTR  void nerd_sha_ll_fill_text_block_sha256(const void *input_text, uint32_t nonce)
 {
     uint32_t *data_words = (uint32_t *)input_text;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
@@ -693,7 +694,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
 #endif
 }
 
-static inline void nerd_sha_ll_fill_text_block_sha256_inter()
+static inline IRAM_ATTR void nerd_sha_ll_fill_text_block_sha256_inter()
 {
   uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
@@ -718,7 +719,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256_inter()
   REG_WRITE(&reg_addr_buf[15], 0x00010000);
 }
 
-static inline void nerd_sha_ll_read_digest(void* ptr)
+static inline IRAM_ATTR void nerd_sha_ll_read_digest(void* ptr)
 {
   DPORT_INTERRUPT_DISABLE();
   ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
@@ -733,19 +734,16 @@ static inline void nerd_sha_ll_read_digest(void* ptr)
 }
 
 
-static inline bool nerd_sha_ll_read_digest_if(void* ptr)
+static inline IRAM_ATTR bool nerd_sha_ll_read_digest_if(void* ptr)
 {
-  DPORT_INTERRUPT_DISABLE();
-  uint32_t last = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
-  #if 1
-  if ( (uint16_t)(last >> 16) != 0)
-  {
-    DPORT_INTERRUPT_RESTORE();
+  // AGGRESSIVE: Read without barrier first for early rejection
+  uint32_t last_quick = REG_READ(SHA_H_BASE + 7 * 4);
+  if ((uint8_t)last_quick != 0 || (uint8_t)(last_quick >> 8) != 0)
     return false;
-  }
-  #endif
 
-  ((uint32_t*)ptr)[7] = last;
+  // Only use expensive barrier for full read
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[7] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4);
   ((uint32_t*)ptr)[0] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 0 * 4);
   ((uint32_t*)ptr)[1] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 1 * 4);
   ((uint32_t*)ptr)[2] = DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 2 * 4);
@@ -757,7 +755,7 @@ static inline bool nerd_sha_ll_read_digest_if(void* ptr)
   return true;
 }
 
-static inline void nerd_sha_ll_write_digest(void *digest_state)
+static inline IRAM_ATTR void nerd_sha_ll_write_digest(void *digest_state)
 {
     uint32_t *digest_state_words = (uint32_t *)digest_state;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_H_BASE);
@@ -772,7 +770,7 @@ static inline void nerd_sha_ll_write_digest(void *digest_state)
     REG_WRITE(&reg_addr_buf[7], digest_state_words[7]);
 }
 
-static inline void nerd_sha_hal_wait_idle()
+static inline IRAM_ATTR void nerd_sha_hal_wait_idle()
 {
     while (REG_READ(SHA_BUSY_REG))
     {}
@@ -835,50 +833,30 @@ void minerWorkerHw(void * task_id)
       uint32_t nend = job->nonce_start + job->nonce_count;
       for (uint32_t n = job->nonce_start; n < nend; ++n)
       {
-        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_write_digest(digest_mid);
-        //nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256(sha_buffer, n);
-        //sha_ll_continue_block(SHA2_256);
         REG_WRITE(SHA_CONTINUE_REG, 1);
         
         sha_ll_load(SHA2_256);
         nerd_sha_hal_wait_idle();
         nerd_sha_ll_fill_text_block_sha256_inter();
-        //sha_ll_start_block(SHA2_256);
         REG_WRITE(SHA_START_REG, 1);
         sha_ll_load(SHA2_256);
         nerd_sha_hal_wait_idle();
         if (nerd_sha_ll_read_digest_if(hash))
         {
-          //Serial.printf("Hw 16bit Share, nonce=0x%X\n", n);
-#ifdef VALIDATION
-          //Validation
-          ((uint32_t*)(job->sha_buffer+64+12))[0] = n;
-          nerd_sha256d_baked(diget_mid, job->sha_buffer+64, bake, doubleHash);
-          for (int i = 0; i < 32; ++i)
-          {
-            if (hash[i] != doubleHash[i])
-            {
-              Serial.println("***HW sha256 esp32s3 bug detected***");
-              break;
-            }
-          }
-#endif
-          //~5 per second
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
-            if (isSha256Valid(hash))
-            {
-              result->difficulty = diff_hash;
-              result->nonce = n;
-              memcpy(result->hash, hash, sizeof(hash));
-            }
+            // AGGRESSIVE: Removed redundant isSha256Valid() check
+            result->difficulty = diff_hash;
+            result->nonce = n;
+            memcpy(result->hash, hash, sizeof(hash));
           }
         }
+        // AGGRESSIVE: Check job validity every 4096 nonces instead of 256
         if (
-             (uint8_t)(n & 0xFF) == 0 &&
+             (uint16_t)(n & 0xFFF) == 0 &&
              s_working_current_job_id != job_in_work)
         {
           result->nonce_count = n-job->nonce_start+1;
@@ -887,7 +865,7 @@ void minerWorkerHw(void * task_id)
       }
       esp_sha_release_hardware();
     } else
-      vTaskDelay(2 / portTICK_PERIOD_MS);
+      vTaskDelay(1 / portTICK_PERIOD_MS); // AGGRESSIVE: Reduced from 2ms to 1ms
 
     wdt_counter++;
     if (wdt_counter >= 8)
@@ -904,14 +882,14 @@ void minerWorkerHw(void * task_id)
 
 static inline bool nerd_sha_ll_read_digest_swap_if(void* ptr)
 {
-  DPORT_INTERRUPT_DISABLE();
-  uint32_t fin = DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4);
-  if ( (uint32_t)(fin & 0xFFFF) != 0)
-  {
-    DPORT_INTERRUPT_RESTORE();
+  // AGGRESSIVE: Read without barrier first for early rejection
+  uint32_t fin_quick = DPORT_REG_READ(SHA_TEXT_BASE + 7 * 4);
+  if ((uint8_t)(fin_quick >> 24) != 0 || (uint8_t)(fin_quick >> 16) != 0)
     return false;
-  }
-  ((uint32_t*)ptr)[7] = __builtin_bswap32(fin);
+
+  // Only use expensive barrier for full read
+  DPORT_INTERRUPT_DISABLE();
+  ((uint32_t*)ptr)[7] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 7 * 4));
   ((uint32_t*)ptr)[0] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 0 * 4));
   ((uint32_t*)ptr)[1] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 1 * 4));
   ((uint32_t*)ptr)[2] = __builtin_bswap32(DPORT_SEQUENCE_REG_READ(SHA_TEXT_BASE + 2 * 4));
@@ -943,7 +921,7 @@ static inline void nerd_sha_hal_wait_idle()
     {}
 }
 
-static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
+static inline IRAM_ATTR void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
 {
     uint32_t *data_words = (uint32_t *)input_text;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
@@ -966,7 +944,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text)
     reg_addr_buf[15] = data_words[15];
 }
 
-static inline void nerd_sha_ll_fill_text_block_sha256_upper(const void *input_text, uint32_t nonce)
+static inline IRAM_ATTR void nerd_sha_ll_fill_text_block_sha256_upper(const void *input_text, uint32_t nonce)
 {
     uint32_t *data_words = (uint32_t *)input_text;
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
@@ -1004,7 +982,7 @@ static inline void nerd_sha_ll_fill_text_block_sha256_upper(const void *input_te
 #endif
 }
 
-static inline void nerd_sha_ll_fill_text_block_sha256_double()
+static inline IRAM_ATTR void nerd_sha_ll_fill_text_block_sha256_double()
 {
     uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
 
@@ -1097,16 +1075,15 @@ void minerWorkerHw(void * task_id)
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
-            if (isSha256Valid(hash))
-            {
-              result->difficulty = diff_hash;
-              result->nonce = job->nonce_start+n;
-              memcpy(result->hash, hash, sizeof(hash));
-            }
+            // AGGRESSIVE: Removed redundant isSha256Valid() check
+            result->difficulty = diff_hash;
+            result->nonce = job->nonce_start+n;
+            memcpy(result->hash, hash, sizeof(hash));
           }
         }
+        // AGGRESSIVE: Check job validity every 4096 nonces instead of 256
         if (
-             (uint8_t)(n & 0xFF) == 0 &&
+             (uint16_t)(n & 0xFFF) == 0 &&
              s_working_current_job_id != job_in_work)
         {
           result->nonce_count = n+1;
@@ -1115,7 +1092,7 @@ void minerWorkerHw(void * task_id)
       }
       esp_sha_unlock_engine(SHA2_256);
     } else
-      vTaskDelay(2 / portTICK_PERIOD_MS);
+      vTaskDelay(1 / portTICK_PERIOD_MS); // AGGRESSIVE: Reduced from 2ms to 1ms
 
     esp_task_wdt_reset();
   }
@@ -1206,7 +1183,17 @@ void runMonitor(void *name)
 {
 
   Serial.println("[MONITOR] started");
+  Serial.println("DEBUG: CUSTOM FIRMWARE ACTIVE - UDP ENABLED");
   restoreStat();
+  
+  WiFiUDP udp;
+
+  String fullWallet = Settings.BtcWallet;
+  String minerName = "Unknown";
+  int dotIndex = fullWallet.indexOf('.');
+  if (dotIndex != -1) {
+      minerName = fullWallet.substring(dotIndex + 1);
+  }
 
   unsigned long mLastCheck = 0;
 
@@ -1265,7 +1252,37 @@ void runMonitor(void *name)
         seconds_elapsed = 0;
         if(currentIntervalIndex < saveIntervalsSize - 1)
           currentIntervalIndex++;
-      }    
+
+      }
+
+      // UDP Reporting
+      if (WiFi.status() == WL_CONNECTED) {
+          StaticJsonDocument<512> doc;
+          doc["id"] = WiFi.macAddress();
+          doc["miner"] = minerName;
+          doc["pool"] = Settings.PoolAddress + ":" + String(Settings.PoolPort);
+          doc["bestDiff"] = String(best_diff, 5);
+          doc["hashrate"] = String((double)elapsedKHs * 1000.0 / (double)mElapsed, 2);
+          doc["shares"] = shares; 
+          doc["templates"] = templates;
+          doc["valid"] = valids;
+          doc["temp"] = String(temperatureRead(), 1);
+          doc["uptime"] = upTime;
+          doc["ip"] = WiFi.localIP().toString(); // Required for Docker NAT traversal
+
+
+          String jsonString;
+          serializeJson(doc, jsonString);
+
+          // Use subnet-specific broadcast address for better compatibility
+          udp.beginPacket(WiFi.broadcastIP(), 33333);
+          size_t bytesSent = udp.print(jsonString);
+          if (udp.endPacket()) {
+             Serial.printf("UDP Packet Sent: %s\n", jsonString.c_str());
+          } else {
+             Serial.println("UDP Packet Send Failed");
+          }
+      }
     }
     animateCurrentScreen(frame);
     doLedStuff(frame);

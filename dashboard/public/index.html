@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NerdMiner Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* CSS Tokens */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.3);
+            --danger-color: #ef4444;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-weight: 800;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .miner-card {
+            background-color: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .miner-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .miner-id {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .miner-ip {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--accent-color);
+        }
+
+        .status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .hashrate {
+            color: var(--accent-color);
+            font-size: 1.5rem;
+        }
+
+        .temp-high {
+            color: var(--danger-color);
+        }
+
+        /* Donation Banner */
+        .donation-banner {
+            margin-top: 3rem;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 1rem;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .donation-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .donation-text h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .donation-text p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .donation-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .btc-address-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btc-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btc-address {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            color: var(--accent-color);
+            font-size: 0.875rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            word-break: break-all;
+            max-width: 400px;
+        }
+
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .donation-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .donation-info {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btc-address {
+                max-width: 100%;
+            }
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        /* Modal Header */
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: #f8fafc;
+        }
+
+        /* Modal Body */
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            color: #f1f5f9;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        /* Modal Footer */
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f1f5f9;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>NerdMiner Fleet</h1>
+            <div id="total-hashrate" style="font-size: 1.25rem; color: var(--accent-color);">0 KH/s</div>
+        </header>
+
+        <!-- Bitcoin Stats Card -->
+        <div id="bitcoin-card" class="miner-card" style="margin-bottom: 2rem; display: none;">
+            <div class="card-header">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/46/Bitcoin.svg" width="32" height="32"
+                        alt="BTC">
+                    <div>
+                        <div class="miner-id">Bitcoin Network</div>
+                        <div class="miner-ip" id="btc-price">Loading...</div>
+                    </div>
+                </div>
+                <div class="status-badge" style="background-color: rgba(247, 147, 26, 0.1); color: #f7931a;">
+                    <span class="status-dot" style="background-color: #f7931a; box-shadow: 0 0 10px #f7931a;"></span>
+                    Live
+                </div>
+            </div>
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                <div class="stat-item">
+                    <span class="stat-label">Block Height</span>
+                    <span class="stat-value" id="btc-height">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Halving</span>
+                    <span class="stat-value" id="btc-halving">-</span>
+                    <div
+                        style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 4px;">
+                        <div id="btc-halving-bar"
+                            style="width: 0%; height: 100%; background: #f7931a; border-radius: 2px; transition: width 1s;">
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Difficulty</span>
+                    <span class="stat-value" id="btc-diff">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Network Hash</span>
+                    <span class="stat-value" id="btc-network-hash">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Fees (Sat/vB)</span>
+                    <span class="stat-value" id="btc-fees">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hashrate History Card -->
+        <div id="hashrate-graph-card" class="miner-card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <div>
+                    <div class="miner-id">Total Hashrate (Last 24 Hours)</div>
+                    <div class="miner-ip">Fleet Performance</div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem;">
+                <div style="position: relative; height: 300px; width:100%">
+                    <canvas id="hashrateChart"></canvas>
+                </div>
+                <div
+                    style="display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.2); border-radius: 0.5rem; padding: 1rem;">
+                    <div
+                        style="font-size: 0.875rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+                        24h Average</div>
+                    <div id="hourly-avg" style="font-size: 2rem; font-weight: 800; color: #10b981;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="miners-grid" class="grid">
+            <!-- Miner cards will be injected here -->
+        </div>
+
+        <!-- Donation Banner -->
+        <div class="donation-banner">
+            <div class="donation-content">
+                <div class="donation-text">
+                    <h3>⚡ Support This Project</h3>
+                    <p>Dust or tips BTC appreciated!</p>
+                </div>
+                <div class="donation-info">
+                    <div class="btc-address-container">
+                        <div class="btc-label">Bitcoin Address</div>
+                        <div class="btc-address" id="btc-donation-address">
+                            bc1qjqhg5c2f6da8y4qr7upegwhkvl2376xzlpwf5p
+                        </div>
+                        <button class="copy-btn" onclick="copyBtcAddress()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            Copy
+                        </button>
+                    </div>
+                    <div class="qr-placeholder" id="btc-qr-code">
+                        <img src="btc-qr.png" alt="BTC Donation QR Code"
+                            style="width: 120px; height: 120px; border-radius: 0.5rem; background: white; padding: 8px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="configModalTitle">Miner Configuration</span>
+                <button class="modal-close" onclick="closeConfigModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="configForm">
+                    <input type="hidden" id="configIp">
+                    <div class="form-group">
+                        <label class="form-label">Pool Address</label>
+                        <input type="text" id="configPool" class="form-input" placeholder="e.g. public-pool.io">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Pool Port</label>
+                        <input type="number" id="configPort" class="form-input" placeholder="e.g. 21496">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Wallet Address</label>
+                        <input type="text" id="configAddr" class="form-input" placeholder="Your BTC Address">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Pool Password</label>
+                        <input type="text" id="configPass" class="form-input" placeholder="Optional">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Timezone Offset</label>
+                        <input type="number" id="configTz" class="form-input" placeholder="e.g. -5">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfigModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveConfig()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    </script>
+    <script src="script.js"></script>
+</body>
+</body>
+
+</html>
