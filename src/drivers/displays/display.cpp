@@ -8,6 +8,10 @@ DisplayDriver *currentDisplayDriver = &noDisplayDriver;
 DisplayDriver *currentDisplayDriver = &m5stackDisplayDriver;
 #endif
 
+#ifdef M5STACKCORE2_DISPLAY
+DisplayDriver *currentDisplayDriver = &m5stackCore2DisplayDriver;
+#endif
+
 #ifdef WT32_DISPLAY
 DisplayDriver *currentDisplayDriver = &wt32DisplayDriver;
 #endif
