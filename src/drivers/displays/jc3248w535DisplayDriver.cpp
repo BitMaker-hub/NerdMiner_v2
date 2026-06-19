@@ -1519,7 +1519,7 @@ static void jc3248w535_SlideshowScreen(unsigned long mElapsed)
             render.printf("%s", hhmm.c_str());
 
             // BTC price (centered)
-            snprintf(buf, sizeof(buf), "$%s", cd.btcPrice.c_str());
+            snprintf(buf, sizeof(buf), "%s", cd.btcPrice.c_str());
             uint16_t pw = render.getTextWidth(buf);
             render.setCursor((JC_W - (int)pw) / 2, baseline);
             render.printf("%s", buf);

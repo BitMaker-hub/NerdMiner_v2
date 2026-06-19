@@ -52,7 +52,7 @@
 // LED — board has no dedicated user LED; reuse backlight so doLedStuff() does
 // something visible (briefly dims the screen during "Connecting" blinks).
 // If you wire an external LED, redefine LED_PIN to its GPIO.
-#define LED_PIN        LCD_BL
+//  #define LED_PIN        LCD_BL
 #define ACTIVE_LED     HIGH
 #define INACTIVE_LED   LOW
 
