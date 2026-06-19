@@ -177,7 +177,18 @@ void init_WifiManager()
     };
     
     // Free the memory from SDCard class 
+#ifdef JC3248W535
+    // [JC3248W535] Skip the SD unmount: we want the card to stay mounted
+    // for the lifetime of the device so the on-screen SD status pixel
+    // (drawn by jc3248w535DisplayDriver) can reflect the real card state
+    // and so future SD features (share logging, hot-reload config, etc.)
+    // are possible. The SDMMC descriptor costs ~1 KB of heap which is
+    // trivial on an N16R8 with 8 MB PSRAM. The SD card itself is left
+    // in its post-mount idle state and is not actively accessed.
+    Serial.println(F("[JC3248W535] SD card kept mounted (skipping terminate)"));
+#else
     SDCrd.terminate();
+#endif
     
     // Reset settings (only for development)
     //wm.resetSettings();

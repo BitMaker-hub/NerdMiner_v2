@@ -64,6 +64,10 @@ DisplayDriver *currentDisplayDriver = &t_hmiDisplayDriver;
 DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #endif
 
+#ifdef JC3248W535_DISPLAY
+DisplayDriver *currentDisplayDriver = &jc3248w535DisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()

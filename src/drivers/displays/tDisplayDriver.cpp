@@ -270,7 +270,7 @@ void tDisplay_DoLedStuff(unsigned long frame)
 {
 }
 
-CyclicScreenFunction tDisplayCyclicScreens[] = {tDisplay_MinerScreen, tDisplay_ClockScreen, tDisplay_GlobalHashScreen, tDisplay_BTCprice};
+CyclicScreenFunction tDisplayCyclicScreens[] = { tDisplay_BTCprice, tDisplay_MinerScreen, tDisplay_ClockScreen, tDisplay_GlobalHashScreen };
 
 DisplayDriver tDisplayDriver = {
     tDisplay_Init,
