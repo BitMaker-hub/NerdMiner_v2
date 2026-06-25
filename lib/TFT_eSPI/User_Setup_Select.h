@@ -158,6 +158,9 @@
 #ifdef NERDMINER_S3_DONGLE
 #include <User_Setups/Setup209_LilyGo_T_Dongle_S3.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
 #endif
+#ifdef ESP32-S3-Pocket-Dongle
+#include <User_Setups/Setup305_ESP32-S3-Pocket-Dongle.h>      //  for AliExpress ESP32-S3 Development Board Pocket-Dongle-S3 N16R8 0.96'
+#endif
 #ifdef ESP32_CAM
 #include <User_Setups/Setup212_ESP32Cam_DongleDisplay.h>      // For the LilyGo T-Dongle S3 based ESP32 with ST7735 80 x 160 TFT
 #endif
