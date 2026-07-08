@@ -10,8 +10,9 @@
 #include "OpenFontRender.h"
 #include "rotation.h"
 
-#define WIDTH  172
-#define HEIGHT 320
+// Landscape: 320 wide x 172 tall
+#define WIDTH  320
+#define HEIGHT 172
 
 OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();
@@ -29,7 +30,7 @@ TFT_eSprite background = TFT_eSprite(&tft);
 void c6Display_Init(void)
 {
   tft.init();
-  tft.setRotation(ROTATION_0); // Portrait: 172x320
+  tft.setRotation(ROTATION_270); // Landscape: 320x172
   tft.setSwapBytes(true);
   tft.fillScreen(C6_BG);
 
@@ -64,7 +65,7 @@ void c6Display_AlternateRotation(void)
 static void drawLabel(int x, int y, const char* label)
 {
   background.setTextColor(C6_LABEL, C6_BG);
-  background.setTextFont(2);
+  background.setTextFont(1);
   background.setTextDatum(TL_DATUM);
   background.drawString(label, x, y);
 }
@@ -72,14 +73,14 @@ static void drawLabel(int x, int y, const char* label)
 static void drawValue(int x, int y, const char* value, uint16_t color = C6_VALUE)
 {
   background.setTextColor(color, C6_BG);
-  background.setFreeFont(FSSB9);
+  background.setTextFont(2);
   background.setTextDatum(TL_DATUM);
-  background.drawString(value, x, y, GFXFF);
+  background.drawString(value, x, y);
 }
 
-static void drawHLine(int y)
+static void drawVLine(int x)
 {
-  background.drawLine(8, y, WIDTH - 8, y, C6_LINE);
+  background.drawLine(x, 22, x, HEIGHT - 2, C6_LINE);
 }
 
 void c6Display_MinerScreen(unsigned long mElapsed)
@@ -88,58 +89,72 @@ void c6Display_MinerScreen(unsigned long mElapsed)
 
   background.fillSprite(C6_BG);
 
-  // Header bar
-  background.fillRect(0, 0, WIDTH, 28, C6_HEADER);
+  // Header bar (full width, thin)
+  background.fillRect(0, 0, WIDTH, 20, C6_HEADER);
   background.setTextColor(C6_TEXT, C6_HEADER);
-  background.setTextFont(2);
-  background.setTextDatum(MC_DATUM);
-  background.drawString("NerdMiner " CURRENT_VERSION, WIDTH / 2, 14);
+  background.setTextFont(1);
+  background.setTextDatum(ML_DATUM);
+  background.drawString("NerdMiner " CURRENT_VERSION, 4, 10);
+  // Time in header right
+  background.setTextDatum(MR_DATUM);
+  background.drawString(data.currentTime.c_str(), WIDTH - 4, 10);
 
-  // Hashrate - large centered
-  render.setFontSize(32);
+  // --- Left column: Hashrate ---
+  int colW = 160;
+  int lx = 16;  // left margin
+
+  render.setFontSize(28);
   render.setFontColor(C6_HASH);
-  render.rdrawString(data.currentHashRate.c_str(), WIDTH / 2 + 30, 42, C6_HASH);
+  render.rdrawString(data.currentHashRate.c_str(), lx + colW / 2 + 10, 30, C6_HASH);
 
   background.setTextColor(C6_LABEL, C6_BG);
-  background.setTextFont(2);
+  background.setTextFont(1);
   background.setTextDatum(TC_DATUM);
-  background.drawString("KH/s", WIDTH / 2, 72);
+  background.drawString("KH/s", lx + colW / 2, 60);
 
-  drawHLine(90);
+  // Shares + Best Diff under hashrate
+  int y = 76;
+  drawLabel(lx, y, "Shares:");
+  drawValue(lx + 50, y - 2, data.completedShares.c_str());
 
-  // Stats grid
-  int y = 96;
-  int spacing = 28;
+  y += 22;
+  drawLabel(lx, y, "Best:");
+  drawValue(lx + 50, y - 2, data.bestDiff.c_str());
 
-  drawLabel(8, y, "Shares:");
-  drawValue(100, y, data.completedShares.c_str());
+  y += 22;
+  drawLabel(lx, y, "Temp:");
+  String tempStr = data.temp + "C";
+  drawValue(lx + 50, y - 2, tempStr.c_str(), C6_TEXT);
 
-  y += spacing;
-  drawLabel(8, y, "Best Diff:");
-  drawValue(100, y, data.bestDiff.c_str());
+  y += 22;
+  drawLabel(lx, y, "Up:");
+  drawValue(lx + 50, y - 2, data.timeMining.c_str(), C6_TEXT);
 
-  y += spacing;
-  drawLabel(8, y, "Templates:");
-  drawValue(100, y, data.templates.c_str());
+  // Vertical divider
+  drawVLine(lx + colW);
 
-  y += spacing;
-  drawLabel(8, y, "Valids:");
-  drawValue(100, y, data.valids.c_str(), 0x07FF); // Cyan
+  // --- Right column: Pool info ---
+  int rx = lx + colW + 10;
 
-  drawHLine(y + spacing - 4);
-  y += spacing;
+  y = 26;
+  drawLabel(rx, y, "Templates:");
+  drawValue(rx + 68, y - 2, data.templates.c_str());
 
-  drawLabel(8, y, "Uptime:");
-  drawValue(100, y, data.timeMining.c_str(), C6_TEXT);
+  y += 22;
+  drawLabel(rx, y, "Valids:");
+  drawValue(rx + 68, y - 2, data.valids.c_str(), 0x07FF);
 
-  y += spacing;
-  drawLabel(8, y, "Temp:");
-  String tempStr = data.temp + " C";
-  drawValue(100, y, tempStr.c_str(), C6_TEXT);
+  y += 26;
+  background.drawLine(rx, y - 4, WIDTH - 8, y - 4, C6_LINE);
 
-  y += spacing;
-  drawLabel(8, y, "Time:");
-  drawValue(100, y, data.currentTime.c_str(), C6_TEXT);
+  // Temp + Uptime
+  drawLabel(rx, y, "Temp:");
+  String tempStr2 = data.temp + "C";
+  drawValue(rx + 68, y - 2, tempStr2.c_str(), C6_TEXT);
+
+  y += 22;
+  drawLabel(rx, y, "Time:");
+  drawValue(rx + 68, y - 2, data.currentTime.c_str(), C6_TEXT);
 
   // Serial output
   Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
@@ -155,45 +170,48 @@ void c6Display_ClockScreen(unsigned long mElapsed)
   background.fillSprite(C6_BG);
 
   // Header
-  background.fillRect(0, 0, WIDTH, 28, C6_HEADER);
+  background.fillRect(0, 0, WIDTH, 20, C6_HEADER);
   background.setTextColor(C6_TEXT, C6_HEADER);
-  background.setTextFont(2);
+  background.setTextFont(1);
   background.setTextDatum(MC_DATUM);
-  background.drawString("NerdMiner " CURRENT_VERSION, WIDTH / 2, 14);
+  background.drawString("NerdMiner " CURRENT_VERSION, WIDTH / 2, 10);
 
-  // Time - large
+  // Time - large centered
   background.setFreeFont(FF23);
   background.setTextColor(C6_TEXT, C6_BG);
   background.setTextDatum(MC_DATUM);
-  background.drawString(data.currentTime.c_str(), WIDTH / 2, 65, GFXFF);
+  background.drawString(data.currentTime.c_str(), WIDTH / 2, 55, GFXFF);
 
-  drawHLine(90);
+  background.drawLine(8, 78, WIDTH - 8, 78, C6_LINE);
+
+  // Bottom row: BTC Price | Block Height | Hashrate | Shares
+  int y = 86;
+  int col = WIDTH / 4;
 
   // BTC Price
-  int y = 100;
-  drawLabel(8, y, "BTC Price:");
-  background.setFreeFont(FSSB9);
+  drawLabel(8, y, "BTC Price");
   background.setTextColor(C6_VALUE, C6_BG);
+  background.setTextFont(2);
   background.setTextDatum(TL_DATUM);
-  background.drawString(("$" + data.btcPrice).c_str(), 8, y + 20, GFXFF);
-
-  y += 56;
-  drawHLine(y - 4);
+  background.drawString(("$" + data.btcPrice).c_str(), 8, y + 14);
 
   // Block Height
-  drawLabel(8, y, "Block Height:");
-  drawValue(8, y + 20, data.blockHeight.c_str(), 0xFD20);
-
-  y += 56;
-  drawHLine(y - 4);
+  drawLabel(col + 8, y, "Block");
+  drawValue(col + 8, y + 14, data.blockHeight.c_str(), 0xFD20);
 
   // Hashrate
-  drawLabel(8, y, "Hashrate:");
-  drawValue(8, y + 20, (data.currentHashRate + " KH/s").c_str(), C6_HASH);
+  drawLabel(col * 2 + 8, y, "KH/s");
+  drawValue(col * 2 + 8, y + 14, data.currentHashRate.c_str(), C6_HASH);
 
-  y += 50;
-  drawLabel(8, y, "Shares:");
-  drawValue(100, y, data.completedShares.c_str());
+  // Shares
+  drawLabel(col * 3 + 8, y, "Shares");
+  drawValue(col * 3 + 8, y + 14, data.completedShares.c_str());
+
+  // Date at bottom
+  y += 40;
+  background.drawLine(8, y - 4, WIDTH - 8, y - 4, C6_LINE);
+  drawLabel(8, y, "Date:");
+  drawValue(80, y - 2, data.currentDate.c_str(), C6_TEXT);
 
   Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
                 data.completedShares.c_str(), data.totalKHashes.c_str(), data.currentHashRate.c_str());
@@ -204,41 +222,38 @@ void c6Display_ClockScreen(unsigned long mElapsed)
 void c6Display_LoadingScreen(void)
 {
   tft.fillScreen(C6_BG);
-  tft.fillRect(0, 120, WIDTH, 80, C6_HEADER);
+  tft.fillRect(0, 46, WIDTH, 80, C6_HEADER);
   tft.setTextColor(C6_TEXT, C6_HEADER);
   tft.setFreeFont(FSSB9);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString("NerdMiner", WIDTH / 2, 145, GFXFF);
-  tft.drawString(CURRENT_VERSION, WIDTH / 2, 170, GFXFF);
+  tft.drawString("NerdMiner", WIDTH / 2, 72, GFXFF);
+  tft.drawString(CURRENT_VERSION, WIDTH / 2, 98, GFXFF);
   tft.setTextColor(C6_LABEL, C6_BG);
   tft.setTextFont(2);
-  tft.drawString("ESP32-C6", WIDTH / 2, 200);
-  tft.drawString("Initializing...", WIDTH / 2, 225);
+  tft.drawString("ESP32-C6", WIDTH / 2, 140);
+  tft.drawString("Initializing...", WIDTH / 2, 158);
 }
 
 void c6Display_SetupScreen(void)
 {
   tft.fillScreen(C6_BG);
-  tft.fillRect(0, 40, WIDTH, 40, C6_HEADER);
+  tft.fillRect(0, 0, WIDTH, 24, C6_HEADER);
   tft.setTextColor(C6_TEXT, C6_HEADER);
-  tft.setFreeFont(FSSB9);
+  tft.setTextFont(2);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString("WiFi Setup", WIDTH / 2, 60, GFXFF);
+  tft.drawString("WiFi Setup", WIDTH / 2, 12);
 
+  int y = 34;
   tft.setTextColor(C6_TEXT, C6_BG);
   tft.setTextFont(2);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString("Connect to WiFi:", WIDTH / 2, 110);
+  tft.drawString("Connect to:", WIDTH / 2, y);
   tft.setTextColor(C6_VALUE, C6_BG);
-  tft.drawString("NerdMinerAP", WIDTH / 2, 140);
+  tft.drawString("NerdMinerAP", WIDTH / 2, y + 22);
   tft.setTextColor(C6_LABEL, C6_BG);
-  tft.drawString("Password:", WIDTH / 2, 175);
-  tft.setTextColor(C6_VALUE, C6_BG);
-  tft.drawString("MineYourCoins", WIDTH / 2, 200);
-  tft.setTextColor(C6_LABEL, C6_BG);
-  tft.drawString("Open browser:", WIDTH / 2, 240);
+  tft.drawString("Pass: MineYourCoins", WIDTH / 2, y + 44);
   tft.setTextColor(C6_TEXT, C6_BG);
-  tft.drawString("192.168.4.1", WIDTH / 2, 265);
+  tft.drawString("Open: 192.168.4.1", WIDTH / 2, y + 72);
 }
 
 void c6Display_AnimateCurrentScreen(unsigned long frame)
