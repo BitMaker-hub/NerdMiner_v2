@@ -57,6 +57,8 @@
 #include "spotpearKeychain.h"
 #elif defined(LILYGO_T3_V1)
 #include "lilygoT3V1.h"
+#elif defined(WAVESHARE_ESP32C6_LCD147)
+#include "waveshareC6LCD147.h"
 
 #else
 #error "No device defined"
