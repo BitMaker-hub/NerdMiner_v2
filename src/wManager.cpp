@@ -436,6 +436,9 @@ void wifiManagerProcess() {
     if (newStatus != oldStatus) {
         if (newStatus == WL_CONNECTED) {
             Serial.println("CONNECTED - Current ip: " + WiFi.localIP().toString());
+            //Modem power save (default) drops frames on weak links, causing pool
+            //disconnects. An always-powered miner prefers a stable link (~+60mA).
+            WiFi.setSleep(false);
         } else {
             Serial.print("[Error] - current status: ");
             Serial.println(newStatus);
