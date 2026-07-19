@@ -27,7 +27,7 @@ void tDisplay_Init(void)
 #endif
   
   tft.init();
-  #ifdef LILYGO_S3_T_EMBED
+  #if defined(LILYGO_S3_T_EMBED) || defined(LILYGO_S3_T_EMBED_CC1101)
   tft.setRotation(ROTATION_270);
   #else
   tft.setRotation(ROTATION_90);
