@@ -358,6 +358,11 @@ void runStratumWorker(void *name) {
 
                                           //Prepare data for new jobs
                                           mMiner=calculateMiningData(mWorker, mJob);
+                                          // Only job_id and ntime are needed for share submission.
+                                          // Release potentially very large coinbase strings now.
+                                          mJob.coinb1.clear();
+                                          mJob.coinb2.clear();
+                                          mJob.merkle_branch.clear();
 
                                           memset(mMiner.bytearray_blockheader+80, 0, 128-80);
                                           mMiner.bytearray_blockheader[80] = 0x80;
