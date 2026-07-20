@@ -147,7 +147,7 @@ struct JobRequest
   double difficulty;
   uint8_t sha_buffer[128];
   uint32_t midstate[8];
-  uint32_t bake[16];
+  uint32_t bake[17];
 };
 
 struct JobResult
@@ -322,7 +322,7 @@ void runStratumWorker(void *name) {
 
     uint32_t hw_midstate[8];
     uint32_t diget_mid[8];
-    uint32_t bake[16];
+    uint32_t bake[17];
     #if defined(CONFIG_IDF_TARGET_ESP32)
     uint8_t sha_buffer_swap[128];
     #endif
@@ -624,14 +624,14 @@ void minerWorkerSw(void * task_id)
       uint8_t job_in_work = job->id & 0xFF;
       for (uint32_t n = 0; n < job->nonce_count; ++n)
       {
-        ((uint32_t*)(job->sha_buffer+64+12))[0] = job->nonce_start+n;
-        if (nerd_sha256d_baked(job->midstate, job->sha_buffer+64, job->bake, hash))
+        uint32_t nonce = job->nonce_start+n;
+        if (nerd_sha256d_baked_nonce(job->midstate, nonce, job->bake, hash))
         {
           double diff_hash = diff_from_target(hash);
           if (diff_hash > result->difficulty)
           {
             result->difficulty = diff_hash;
-            result->nonce = job->nonce_start+n;
+            result->nonce = nonce;
             memcpy(result->hash, hash, 32);
           }
         }
@@ -657,6 +657,20 @@ void minerWorkerSw(void * task_id)
 #ifdef HARDWARE_SHA265
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+
+static inline void nerd_sha_ll_init_persistent_zeros()
+{
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    // These words are zero in both SHA-256 padding blocks, so they only need
+    // to be initialized once while the hardware peripheral is acquired.
+    REG_WRITE(&reg_addr_buf[9], 0x00000000);
+    REG_WRITE(&reg_addr_buf[10], 0x00000000);
+    REG_WRITE(&reg_addr_buf[11], 0x00000000);
+    REG_WRITE(&reg_addr_buf[12], 0x00000000);
+    REG_WRITE(&reg_addr_buf[13], 0x00000000);
+    REG_WRITE(&reg_addr_buf[14], 0x00000000);
+}
 
 static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, uint32_t nonce)
 {
@@ -688,12 +702,6 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
     REG_WRITE(&reg_addr_buf[6], 0x00000000);
     REG_WRITE(&reg_addr_buf[7], 0x00000000);
     REG_WRITE(&reg_addr_buf[8], 0x00000000);
-    REG_WRITE(&reg_addr_buf[9], 0x00000000);
-    REG_WRITE(&reg_addr_buf[10], 0x00000000);
-    REG_WRITE(&reg_addr_buf[11], 0x00000000);
-    REG_WRITE(&reg_addr_buf[12], 0x00000000);
-    REG_WRITE(&reg_addr_buf[13], 0x00000000);
-    REG_WRITE(&reg_addr_buf[14], 0x00000000);
     REG_WRITE(&reg_addr_buf[15], 0x80020000);
 #endif
 }
@@ -714,12 +722,6 @@ static inline void nerd_sha_ll_fill_text_block_sha256_inter()
   DPORT_INTERRUPT_RESTORE();
 
   REG_WRITE(&reg_addr_buf[8], 0x00000080);
-  REG_WRITE(&reg_addr_buf[9], 0x00000000);
-  REG_WRITE(&reg_addr_buf[10], 0x00000000);
-  REG_WRITE(&reg_addr_buf[11], 0x00000000);
-  REG_WRITE(&reg_addr_buf[12], 0x00000000);
-  REG_WRITE(&reg_addr_buf[13], 0x00000000);
-  REG_WRITE(&reg_addr_buf[14], 0x00000000);
   REG_WRITE(&reg_addr_buf[15], 0x00010000);
 }
 
@@ -783,7 +785,6 @@ static inline void nerd_sha_hal_wait_idle()
     {}
 }
 
-//#define VALIDATION
 void minerWorkerHw(void * task_id)
 {
   unsigned int miner_id = (uint32_t)task_id;
@@ -797,10 +798,10 @@ void minerWorkerHw(void * task_id)
   uint8_t sha_buffer[64];
   uint32_t wdt_counter = 0;
 
-#ifdef VALIDATION
+#ifdef MINING_SHA_VALIDATE
   uint8_t doubleHash[32];
   uint32_t diget_mid[8];
-  uint32_t bake[16];
+  uint32_t bake[17];
 #endif
 
   while (1)
@@ -830,13 +831,14 @@ void minerWorkerHw(void * task_id)
       uint8_t job_in_work = job->id & 0xFF;
       memcpy(digest_mid, job->midstate, sizeof(digest_mid));
       memcpy(sha_buffer, job->sha_buffer+64, sizeof(sha_buffer));
-#ifdef VALIDATION
+#ifdef MINING_SHA_VALIDATE
       nerd_mids(diget_mid, job->sha_buffer);
       nerd_sha256_bake(diget_mid, job->sha_buffer+64, bake);
 #endif
 
       esp_sha_acquire_hardware();
       REG_WRITE(SHA_MODE_REG, SHA2_256);
+      nerd_sha_ll_init_persistent_zeros();
       uint32_t nend = job->nonce_start + job->nonce_count;
       for (uint32_t n = job->nonce_start; n < nend; ++n)
       {
@@ -857,13 +859,12 @@ void minerWorkerHw(void * task_id)
         if (nerd_sha_ll_read_digest_if(hash))
         {
           //Serial.printf("Hw 16bit Share, nonce=0x%X\n", n);
-#ifdef VALIDATION
+#ifdef MINING_SHA_VALIDATE
           //Validation
-          ((uint32_t*)(job->sha_buffer+64+12))[0] = n;
-          nerd_sha256d_baked(diget_mid, job->sha_buffer+64, bake, doubleHash);
+          bool valid = nerd_sha256d_baked_nonce(diget_mid, n, bake, doubleHash);
           for (int i = 0; i < 32; ++i)
           {
-            if (hash[i] != doubleHash[i])
+            if (!valid || hash[i] != doubleHash[i])
             {
               Serial.println("***HW sha256 esp32s3 bug detected***");
               break;

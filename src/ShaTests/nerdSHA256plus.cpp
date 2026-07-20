@@ -483,16 +483,21 @@ IRAM_ATTR void nerd_sha256_bake(const uint32_t* digest, const uint8_t* dataIn, u
     //P(a,    b,    c,    d,    e,    f,    g,    h,    x,    K)
     bake[13] = a[4] + S3(a[1]) + F1(a[1], a[2], a[3]) + K[3];// + x;
     bake[14] = S2(a[5]) + F0(a[5], a[6], a[7]);
+
+    // W18 and W19 each contain only one nonce-dependent term.
+    bake[15] = S1(bake[3]) + bake[2];
+    bake[16] = S1(bake[4]) + S0(0x80000000);
 }
 
 
-IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+IRAM_ATTR bool nerd_sha256d_baked_nonce(
+    const uint32_t* digest, uint32_t nonce, const uint32_t* bake, uint8_t* doubleHash)
 {
     uint32_t temp1, temp2;
     //*********** Init 1rst SHA ***********
 
     //W0 W1 W2 is same !!
-    uint32_t W[64] = { bake[0], bake[1], bake[2], GET_UINT32_BE(dataIn, 12),
+    uint32_t W[64] = { bake[0], bake[1], bake[2], __builtin_bswap32(nonce),
                 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 640 };
     W[16] = bake[3];
@@ -527,8 +532,10 @@ IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], W[15], K[15]);
     P(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], W[16], K[16]);
     P(A[7], A[0], A[1], A[2], A[3], A[4], A[5], A[6], W[17], K[17]);
-    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], R(18), K[18]);
-    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], R(19), K[19]);
+    W[18] = bake[15] + S0(W[3]);
+    P(A[6], A[7], A[0], A[1], A[2], A[3], A[4], A[5], W[18], K[18]);
+    W[19] = bake[16] + W[3];
+    P(A[5], A[6], A[7], A[0], A[1], A[2], A[3], A[4], W[19], K[19]);
     P(A[4], A[5], A[6], A[7], A[0], A[1], A[2], A[3], R(20), K[20]);
     P(A[3], A[4], A[5], A[6], A[7], A[0], A[1], A[2], R(21), K[21]);
     P(A[2], A[3], A[4], A[5], A[6], A[7], A[0], A[1], R(22), K[22]);
@@ -741,4 +748,12 @@ IRAM_ATTR bool nerd_sha256d_baked(const uint32_t* digest, const uint8_t* dataIn,
     PUT_UINT32_BE(0x5BE0CD19 + A[7], doubleHash, 28);
 #endif
     return true;
+}
+
+IRAM_ATTR bool nerd_sha256d_baked(
+    const uint32_t* digest, const uint8_t* dataIn, const uint32_t* bake, uint8_t* doubleHash)
+{
+    uint32_t nonce;
+    memcpy(&nonce, dataIn + 12, sizeof(nonce));
+    return nerd_sha256d_baked_nonce(digest, nonce, bake, doubleHash);
 }
