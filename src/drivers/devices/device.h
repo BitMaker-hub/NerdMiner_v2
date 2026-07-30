@@ -57,6 +57,8 @@
 #include "spotpearKeychain.h"
 #elif defined(LILYGO_T3_V1)
 #include "lilygoT3V1.h"
+#elif defined(ESP32_1732S019)
+#include "esp321732s019.h"
 
 #else
 #error "No device defined"
