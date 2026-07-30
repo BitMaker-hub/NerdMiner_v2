@@ -1,0 +1,8 @@
+#ifndef _ESP32_1732S019
+#define _ESP32_1732S019
+
+#define PIN_BUTTON_1 0
+
+#define ESP32_1732S019_DISPLAY
+
+#endif

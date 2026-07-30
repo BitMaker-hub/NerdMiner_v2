@@ -68,6 +68,10 @@ DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 DisplayDriver *currentDisplayDriver = &ssd1306DisplayDriver;
 #endif
 
+#ifdef ESP32_1732S019_DISPLAY
+DisplayDriver *currentDisplayDriver = &esp321732s019Driver;
+#endif
+
 
 // Initialize the display
 void initDisplay()
