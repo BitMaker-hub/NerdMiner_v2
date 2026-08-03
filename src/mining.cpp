@@ -61,6 +61,12 @@ extern TSettings Settings;
 
 IPAddress serverIP(1, 1, 1, 1); //Temporally save poolIPaddres
 
+//Set by the OTA onStart hook. The hw miner holds the SHA engine lock
+//(esp_sha_acquire_hardware) while hashing; suspending it mid-job would keep
+//that lock and deadlock Update.end(), which verifies the image SHA-256.
+//Instead the miners watch this flag and idle at a safe point, lock released.
+volatile bool ota_active = false;
+
 //Global work data 
 static WiFiClient client;
 static miner_data mMiner; //Global miner data (Create a miner class TODO)
@@ -594,6 +600,7 @@ void minerWorkerSw(void * task_id)
   uint32_t wdt_counter = 0;
   while (1)
   {
+    if (ota_active) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; } //idle during OTA
     {
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
@@ -800,6 +807,9 @@ void minerWorkerHw(void * task_id)
 
   while (1)
   {
+    //Idle during OTA at a safe point: never suspended while holding the SHA
+    //engine lock, so Update.end()'s image SHA-256 verification can proceed.
+    if (ota_active) { vTaskDelay(100 / portTICK_PERIOD_MS); continue; }
     {
       std::lock_guard<std::mutex> lock(s_job_mutex);
       if (result)
