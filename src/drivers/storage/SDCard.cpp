@@ -133,6 +133,11 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     } else {
                         Settings->Brightness = 250;
                     }
+                    if (json.containsKey(JSON_KEY_STARTUPSCREEN)) {
+                        Settings->StartupScreen = json[JSON_KEY_STARTUPSCREEN].as<int>();
+                    } else {
+                        Settings->StartupScreen = DEFAULT_STARTUP_SCREEN;
+                    }
                     // Serial.printf("Carteira Lida SD:%s\n", Settings.BtcWallet);       
                     Serial.printf("Carteira Lida SDs:%s\n", Settings->BtcWallet);                       
                     return true;

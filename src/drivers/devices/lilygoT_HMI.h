@@ -42,6 +42,8 @@
 #define SCREEN_WORKERS_ENABLE (1)
 // retrieve current btc fees data
 #define SCREEN_FEES_ENABLE (1)
+// beta: allow selecting the default cyclic screen at startup
+#define SCREEN_STARTUP_SELECT_ENABLE (1)
 
 #ifndef TFT_BL
 // XXX - defined in User_Setups/Setup207_LilyGo_T_HMI.h:37

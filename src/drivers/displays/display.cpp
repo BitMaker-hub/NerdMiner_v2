@@ -101,6 +101,36 @@ void resetToFirstScreen()
   currentDisplayDriver->current_cyclic_screen = 0;
 }
 
+static int startup_cyclic_screen = 0;
+
+static int clampCyclicScreenIndex(int screenIndex)
+{
+  if (!currentDisplayDriver) return 0;
+  
+  int n = currentDisplayDriver->num_cyclic_screens;
+  if (n <= 0) return 0;
+  
+  if (screenIndex < 0) return 0;
+  if (screenIndex >= n) return n - 1;
+  
+  return screenIndex;
+}
+
+void setStartupScreen(int screenIndex)
+{
+  startup_cyclic_screen = clampCyclicScreenIndex(screenIndex);
+}
+
+int getStartupScreen()
+{
+  return startup_cyclic_screen;
+}
+
+void resetToStartupScreen()
+{
+  currentDisplayDriver->current_cyclic_screen = clampCyclicScreenIndex(startup_cyclic_screen);
+}
+
 // Switches to the next cyclic screen without drawing it
 void switchToNextScreen()
 {

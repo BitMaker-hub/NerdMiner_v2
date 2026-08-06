@@ -128,6 +128,35 @@ void reset_configuration()
     ESP.restart();
 }
 
+// Feature flag: evaluate at compile time so the compiler removes dead code
+#if defined(SCREEN_STARTUP_SELECT_ENABLE) && !defined(MONITOR_NOSCREEN)
+static constexpr int HAS_STARTUP_SCREEN_UI = 1;
+#else
+static constexpr int HAS_STARTUP_SCREEN_UI = 0;
+#endif
+
+static int parseStartupScreenValue(const char *value)
+{
+    if (!HAS_STARTUP_SCREEN_UI) return DEFAULT_STARTUP_SCREEN;
+
+    if (!value || !*value) {
+        return DEFAULT_STARTUP_SCREEN;
+    }
+
+    int screen = atoi(value);
+    if (screen < 0) {
+        return DEFAULT_STARTUP_SCREEN;
+    }
+
+    if (currentDisplayDriver && currentDisplayDriver->num_cyclic_screens > 0) {
+        if (screen >= currentDisplayDriver->num_cyclic_screens) {
+            screen = currentDisplayDriver->num_cyclic_screens - 1;
+        }
+    }
+
+    return screen;
+}
+
 void init_WifiManager()
 {
 #ifdef MONITOR_SPEED
@@ -224,6 +253,12 @@ void init_WifiManager()
   sprintf(charZone, "%d", Settings.Timezone);
   WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
 
+    char startupScreenValue[4] = "0";
+    if (HAS_STARTUP_SCREEN_UI) {
+        snprintf(startupScreenValue, sizeof(startupScreenValue), "%d", Settings.StartupScreen);
+    }
+    WiFiManagerParameter startup_screen_num("StartupScreen", "Startup screen index", startupScreenValue, 3);
+
   WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
 
   char checkboxParams[24] = "type=\"checkbox\"";
@@ -241,6 +276,9 @@ void init_WifiManager()
   wm.addParameter(&password_text_box);
   wm.addParameter(&addr_text_box);
   wm.addParameter(&time_text_box_num);
+    if (HAS_STARTUP_SCREEN_UI) {
+        wm.addParameter(&startup_screen_num);
+    }
   wm.addParameter(&features_html);
   wm.addParameter(&save_stats_to_nvs);
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -279,6 +317,9 @@ void init_WifiManager()
             strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
             strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
             Settings.Timezone = atoi(time_text_box_num.getValue());
+            if (HAS_STARTUP_SCREEN_UI) {
+                Settings.StartupScreen = parseStartupScreenValue(startup_screen_num.getValue());
+            }
             //Serial.println(save_stats_to_nvs.getValue());
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
             #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -312,6 +353,9 @@ void init_WifiManager()
                 strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
                 strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
                 Settings.Timezone = atoi(time_text_box_num.getValue());
+                if (HAS_STARTUP_SCREEN_UI) {
+                    Settings.StartupScreen = parseStartupScreenValue(startup_screen_num.getValue());
+                }
                 // Serial.println(save_stats_to_nvs.getValue());
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
                 #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
@@ -361,6 +405,9 @@ void init_WifiManager()
 
         //Convert the number value
         Settings.Timezone = atoi(time_text_box_num.getValue());
+        if (HAS_STARTUP_SCREEN_UI) {
+            Settings.StartupScreen = parseStartupScreenValue(startup_screen_num.getValue());
+        }
         Serial.print("TimeZone fromUTC: ");
         Serial.println(Settings.Timezone);
 
