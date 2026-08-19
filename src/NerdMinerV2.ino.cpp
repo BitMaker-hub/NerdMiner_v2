@@ -16,9 +16,6 @@
 #include "ShaTests/nerdSHA_HWTest.h"
 #include "timeconst.h"
 
-#ifdef TOUCH_ENABLE
-#include "TouchHandler.h"
-#endif
 
 #include <soc/soc_caps.h>
 //#define HW_SHA256_TEST
@@ -36,9 +33,7 @@
   OneButton button2(PIN_BUTTON_2);
 #endif
 
-#ifdef TOUCH_ENABLE
-extern TouchHandler touchHandler;
-#endif
+
 
 extern monitor_data mMonitor;
 
@@ -210,9 +205,6 @@ void loop() {
     button2.tick();
   #endif
 
-#ifdef TOUCH_ENABLE
-  touchHandler.isTouched();
-#endif
   wifiManagerProcess(); // avoid delays() in loop when non-blocking and other long running code
 
   vTaskDelay(50 / portTICK_PERIOD_MS);

@@ -12,9 +12,6 @@
 #include "version.h"
 #include "monitor.h"
 #include "OpenFontRender.h"
-#ifdef TOUCH_ENABLE
-#include "TouchHandler.h"
-#endif
 #include <Arduino.h>
 #include <esp_adc_cal.h>
 
@@ -25,21 +22,117 @@ OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();                  // Invoke library, pins defined in User_Setup.h
 TFT_eSprite background = TFT_eSprite(&tft); // Invoke library sprite
 
+#include "drivers/displays/display.h"
+
+// Lower screen toggle state
+enum : int { LOWER_POOL = 1, LOWER_FEES = 2 };
+static int lowerScreen = LOWER_POOL;
+static void toggleBottomScreen() {
+    lowerScreen = (lowerScreen == LOWER_POOL) ? LOWER_FEES : LOWER_POOL;
+}
+
+namespace {
+constexpr uint16_t T_HMI_TOUCH_DEBOUNCE_MS = 200;
+constexpr uint16_t T_HMI_TOUCH_BOTTOM_MAX_X = 200 + (1700 - 200) / 4;
+constexpr uint16_t T_HMI_TOUCH_PREVIOUS_SCREEN_Y = 850;
+constexpr uint16_t T_HMI_TOUCH_SLEEP_WAKE_X = 1300;
+constexpr uint16_t T_HMI_TOUCH_SLEEP_WAKE_Y = 1300;
+
+enum TouchRegion {
+  TOUCH_REGION_BOTTOM,
+  TOUCH_REGION_TOP_LEFT,
+  TOUCH_REGION_TOP_RIGHT,
+  TOUCH_REGION_SLEEP_WAKE,
+  TOUCH_REGION_UNKNOWN,
+};
+
+static TouchRegion t_hmi_decodeTouchRegion(uint16_t touch_x, uint16_t touch_y) {
+  if (touch_x < T_HMI_TOUCH_BOTTOM_MAX_X) {
+    return TOUCH_REGION_BOTTOM;
+  }
+
+  if (touch_y > T_HMI_TOUCH_SLEEP_WAKE_Y && touch_x > T_HMI_TOUCH_SLEEP_WAKE_X) {
+    return TOUCH_REGION_SLEEP_WAKE;
+  }
+
+  if (touch_y < T_HMI_TOUCH_PREVIOUS_SCREEN_Y) {
+    return TOUCH_REGION_TOP_LEFT;
+  }
+
+  return TOUCH_REGION_TOP_RIGHT;
+}
+
+static void t_hmi_handleTouchRegion(TouchRegion touchRegion) {
+  switch (touchRegion) {
+    case TOUCH_REGION_BOTTOM:
+      Serial.println("Touch: Bottom Zone");
+      toggleBottomScreen();
+      break;
+    case TOUCH_REGION_SLEEP_WAKE:
+      Serial.println("Touch: Sleep/Wake");
+      alternateScreenState();
+      break;
+    case TOUCH_REGION_TOP_LEFT:
+      Serial.println("Touch: Previous Screen");
+      currentDisplayDriver->current_cyclic_screen--;
+      if (currentDisplayDriver->current_cyclic_screen < 0) {
+        currentDisplayDriver->current_cyclic_screen = currentDisplayDriver->num_cyclic_screens - 1;
+      }
+      break;
+    case TOUCH_REGION_TOP_RIGHT:
+      Serial.println("Touch: Next Screen");
+      switchToNextScreen();
+      break;
+    default:
+      break;
+  }
+}
+} // namespace
+
 #ifdef TOUCH_ENABLE
-TouchHandler touchHandler = TouchHandler(tft, ETOUCH_CS, TOUCH_IRQ, SPI);
+static XPT2046 t_hmi_touch(SPI, ETOUCH_CS, TOUCH_IRQ);
+static unsigned long lastTouchTime = 0;
+
+// Volatile state for the Hardware Interrupt
+static volatile bool t_hmi_touch_detected = false;
+
+// The actual ISR (Interrupt Service Routine)
+// Must be as fast as possible, placed in IRAM
+void IRAM_ATTR t_hmi_touch_isr() {
+    t_hmi_touch_detected = true;
+}
+
+static void t_hmi_pollTouch() {
+  if (!t_hmi_touch_detected) {
+    return;
+  }
+
+  t_hmi_touch_detected = false;
+
+  if (!t_hmi_touch.pressed()) {
+    return;
+  }
+
+  unsigned long currentTime = millis();
+  if (currentTime - lastTouchTime < T_HMI_TOUCH_DEBOUNCE_MS) {
+    return;
+  }
+
+  lastTouchTime = currentTime;
+  uint16_t touch_x = t_hmi_touch.RawX();
+  uint16_t touch_y = t_hmi_touch.RawY();
+  t_hmi_handleTouchRegion(t_hmi_decodeTouchRegion(touch_x, touch_y));
+}
+#else
+static void t_hmi_pollTouch() {}
 #endif
 
 bool showbtcprice = false;
-
-unsigned int lowerScreen = 1;
 
 extern void switchToNextScreen();
 extern monitor_data mMonitor;
 extern pool_data pData;
 extern DisplayDriver *currentDisplayDriver;
-
-void toggleBottomScreen() { lowerScreen = 3 - lowerScreen; }
-
 
 uint32_t readAdcVoltage(int pin) {
     esp_adc_cal_characteristics_t adc_chars;
@@ -83,9 +176,12 @@ void t_hmiDisplay_Init(void)
 
   #ifdef TOUCH_ENABLE
   Serial.println(F("Initialize the touch screen"));
-  touchHandler.begin(HEIGHT, WIDTH);
-  touchHandler.setScreenSwitchCallback(switchToNextScreen);
-  touchHandler.setScreenSwitchAltCallback(toggleBottomScreen);
+  SPI.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI);
+  t_hmi_touch.begin(HEIGHT, WIDTH);
+
+  // Attach the hardware interrupt to the TOUCH_IRQ pin
+  pinMode(TOUCH_IRQ, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(TOUCH_IRQ), t_hmi_touch_isr, FALLING);
   #endif
 
   Serial.println(F("Turn on the LCD backlight"));
@@ -106,7 +202,7 @@ void t_hmiDisplay_AlternateScreenState(void)
 
 void t_hmiDisplay_AlternateRotation(void)
 {
-   tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
+    tft.getRotation() == 1 ? tft.setRotation(3) : tft.setRotation(1);
 }
 
 
@@ -118,7 +214,7 @@ void printPoolData()
 
   background.pushImage(0, 170, 320, 70, bottonPoolScreen);
   render.setLineSpaceRatio(1);
-  
+
   render.setFontSize(24);
   render.drawString(String(pData.workersCount).c_str(), 146, 170+35, TFT_BLACK);
 
@@ -142,7 +238,7 @@ void printMemPoolFees(unsigned long mElapsed)
   {
     // XXX -- remove when bitmap is done
     background.fillRect( 105, 170,  110, 20, TFT_BLACK);
-    
+
     String st = data.btcPrice;
     if (st.length()) st.remove(st.length()-1);
     render.drawString(st.c_str(),  125, 170,  TFT_WHITE);
@@ -159,6 +255,8 @@ void printMemPoolFees(unsigned long mElapsed)
 
 void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
 {
+  t_hmi_pollTouch();
+
   mining_data data = getMiningData(mElapsed);
   background.pushImage(0, 0, MinerWidth, 170, MinerScreen);
   Serial.printf(">>> Completed %s share(s), %s Khashes, avg. hashrate %s KH/s\n",
@@ -168,7 +266,7 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
   render.setCursor(19, 118);
   render.setFontColor(TFT_BLACK);
   render.rdrawString(data.currentHashRate.c_str(), 118, 114, TFT_BLACK);
-  
+
   // Total hashes
   render.setFontSize(18);
   render.rdrawString(data.totalMHashes.c_str(), 268, 138, TFT_BLACK);
@@ -211,6 +309,8 @@ void t_hmiDisplay_MinerScreen(unsigned long mElapsed)
 
 void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
 {
+  t_hmi_pollTouch();
+
   clock_data data = getClockData(mElapsed);
 
   // Print background screen
@@ -252,6 +352,8 @@ void t_hmiDisplay_ClockScreen(unsigned long mElapsed)
 
 void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
 {
+  t_hmi_pollTouch();
+
   coin_data data = getCoinData(mElapsed);
 
   // Print background screen
@@ -315,9 +417,10 @@ void t_hmiDisplay_GlobalHashScreen(unsigned long mElapsed)
   background.pushSprite(0, 0);
 }
 
-
 void t_hmiDisplay_BTCprice(unsigned long mElapsed)
 {
+  t_hmi_pollTouch();
+
   clock_data data = getClockData(mElapsed);
 
   // Print background screen
@@ -339,7 +442,7 @@ void t_hmiDisplay_BTCprice(unsigned long mElapsed)
   render.setFontColor(TFT_BLACK);
 
   // Print Hour
-  
+
   background.setFreeFont(FSSB9);
   background.setTextSize(1);
   background.setTextDatum(TL_DATUM);
@@ -388,6 +491,7 @@ void t_hmiDisplay_SetupScreen(void)
 
 void t_hmiDisplay_AnimateCurrentScreen(unsigned long frame)
 {
+  t_hmi_pollTouch();
 }
 
 void t_hmiDisplay_DoLedStuff(unsigned long frame)
