@@ -152,6 +152,7 @@ Recommended low difficulty share pools:
 | pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 | pool.stompi.de  | 3333  | http://web.stompi.de  | Mantained by @odinstar - public-pool fork      |
 |pool.solomining.de| 3333  | https://pool.solomining.de/ | Mantained by https://x.com/solo_mining |
+|stratum.sololuck.io| 3335  | https://sololuck.io | 0% fee true-solo pool. This port has a minimum share difficulty of 1, for NerdMiners and CPUs. Jakarta, SE Asia. Maintained by @sololuckio |
 
 Other standard pools not compatible with low difficulty share:
 
