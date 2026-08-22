@@ -33,7 +33,7 @@ bool verifyPayload (String* line){
   
 }
 
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
+bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC>& doc) {  // by ref
   
   if (!doc.containsKey("error")) return false;
   
@@ -172,7 +172,13 @@ bool parse_mining_notify(String line, mining_job& mJob)
    
     DeserializationError error = deserializeJson(doc, line);
 
-    if (error) return false;
+    if (error) {
+        // Surface the reason: a NoMemory here means BUFFER_JSON_DOC is smaller
+        // than this pool's notify and the job is being dropped.
+        Serial.printf("    notify JSON parse failed (%s) on %u-byte line\n",
+                      error.c_str(), (unsigned)line.length());
+        return false;
+    }
     if (!doc.containsKey("params")) return false;
 
     mJob.job_id = String((const char*) doc["params"][0]);
