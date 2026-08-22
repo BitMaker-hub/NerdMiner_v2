@@ -214,7 +214,19 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     String coinbase = mJob.coinb1 + mWorker.extranonce1 + mWorker.extranonce2 + mJob.coinb2;
     Serial.print("    coinbase: "); Serial.println(coinbase);
     size_t str_len = coinbase.length()/2;
-    uint8_t bytearray[str_len];
+    // The coinbase size is pool-controlled and reaches several KB on BCH-style pools
+    // (measured 7.3 KB hex / 3.7 KB binary on para.bch.ee). A stack VLA sized by it
+    // overflows this task's stack and panics the board (ESP_RST_PANIC, reproduced at
+    // ~45 min intervals). Use a reusable heap buffer instead: grown when needed,
+    // never freed, single owner (this function only runs on the stratum task).
+    static uint8_t *bytearray = NULL;
+    static size_t bytearray_cap = 0;
+    if (str_len > bytearray_cap) {
+        uint8_t *nbuf = (uint8_t *) realloc(bytearray, str_len);
+        if (nbuf == NULL) return mMiner;   // OOM: skip this job rather than crash
+        bytearray = nbuf;
+        bytearray_cap = str_len;
+    }
 
     size_t res = to_byte_array(coinbase.c_str(), str_len*2, bytearray);
 
@@ -301,7 +313,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
       Serial.printf("%02x", mMiner.merkle_result[i]);
       snprintf(&merkle_root[i*2], 3, "%02x", mMiner.merkle_result[i]);
     }
-    merkle_root[65] = 0;
+    merkle_root[64] = 0;   // was [65]: one-byte out-of-bounds write on a char[65]
     Serial.println("");
 
     // calculate blockheader

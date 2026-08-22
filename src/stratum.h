@@ -13,7 +13,11 @@
 #define COINBASE_SIZE 100
 #define COINBASE2_SIZE 128
 
-#define BUFFER_JSON_DOC 4096
+// BCH-style pools send 8-9 KB mining.notify lines; at 4 KB deserializeJson
+// failed with NoMemory and every such job was silently dropped (the miner
+// looks connected but never gets work). 24 KB fits the largest observed
+// notify with headroom.
+#define BUFFER_JSON_DOC 24576
 #define BUFFER 1024
 
 typedef struct mining_subscribe {
@@ -49,7 +53,7 @@ typedef enum {
 
 unsigned long getNextId(unsigned long id);
 bool verifyPayload (String* line);
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc);
+bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC>& doc);
 
 //Method Mining.subscribe
 mining_subscribe init_mining_subscribe(void);

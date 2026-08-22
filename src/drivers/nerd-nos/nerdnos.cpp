@@ -56,7 +56,18 @@ double nerdnos_test_nonce_value(const bm_job_t *job, const uint32_t nonce, const
 static void calculate_merkle_root_hash(const char *coinbase_tx, mining_job* job, char merkle_root_hash[65])
 {
     size_t coinbase_tx_bin_len = strlen(coinbase_tx) / 2;
-    uint8_t coinbase_tx_bin[coinbase_tx_bin_len];
+    // Pool-controlled size: a stack VLA here overflows the ASIC task stack on
+    // long-coinbase pools (observed with miningcore/DGB and BCH pools). Reuse a
+    // heap buffer instead: grown when needed, never freed, single owner (only
+    // the ASIC job-build task calls this).
+    static uint8_t *coinbase_tx_bin = NULL;
+    static size_t coinbase_tx_bin_cap = 0;
+    if (coinbase_tx_bin_len > coinbase_tx_bin_cap) {
+        uint8_t *nbuf = (uint8_t *) realloc(coinbase_tx_bin, coinbase_tx_bin_len ? coinbase_tx_bin_len : 1);
+        if (nbuf == NULL) { merkle_root_hash[0] = 0; return; }
+        coinbase_tx_bin = nbuf;
+        coinbase_tx_bin_cap = coinbase_tx_bin_len ? coinbase_tx_bin_len : 1;
+    }
     hex2bin(coinbase_tx, coinbase_tx_bin, coinbase_tx_bin_len);
 
     uint8_t both_merkles[64];
