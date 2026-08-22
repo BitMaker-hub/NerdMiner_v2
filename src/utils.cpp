@@ -227,14 +227,35 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     //mWorker.extranonce2 = "00000002";
     
     //get coinbase - coinbase_hash_bin = hashlib.sha256(hashlib.sha256(binascii.unhexlify(coinbase)).digest()).digest()
-    // Use char buffer instead of String concatenation to avoid memory leaks
-    static char coinbase_buffer[512]; // Static buffer to avoid repeated allocation
-    snprintf(coinbase_buffer, sizeof(coinbase_buffer), "%s%s%s%s", 
-             mJob.coinb1.c_str(), mWorker.extranonce1.c_str(), 
+    // The coinbase is pool-controlled and reaches several KB on BCH-style pools
+    // (7+ KB hex measured on para.bch.ee). A fixed 512-byte buffer silently
+    // truncates it, producing a wrong merkle root and 100% rejected shares on
+    // such pools. Keep the static-reuse approach but grow the buffer to fit.
+    static char *coinbase_buffer = NULL;
+    static size_t coinbase_cap = 0;
+    size_t coinbase_len = mJob.coinb1.length() + mWorker.extranonce1.length()
+                        + mWorker.extranonce2.length() + mJob.coinb2.length();
+    if (coinbase_len + 1 > coinbase_cap) {
+        char *nbuf = (char *) realloc(coinbase_buffer, coinbase_len + 1);
+        if (nbuf == NULL) return mMiner;   // OOM: skip this job rather than mine garbage
+        coinbase_buffer = nbuf;
+        coinbase_cap = coinbase_len + 1;
+    }
+    snprintf(coinbase_buffer, coinbase_cap, "%s%s%s%s",
+             mJob.coinb1.c_str(), mWorker.extranonce1.c_str(),
              mWorker.extranonce2.c_str(), mJob.coinb2.c_str());
     Serial.print("    coinbase: "); Serial.println(coinbase_buffer);
     size_t str_len = strlen(coinbase_buffer)/2;
-    uint8_t bytearray[str_len];
+    // Likewise, a stack VLA sized by the pool-controlled coinbase can overflow
+    // the task stack and panic; reuse a heap buffer with the same grow pattern.
+    static uint8_t *bytearray = NULL;
+    static size_t bytearray_cap = 0;
+    if (str_len > bytearray_cap) {
+        uint8_t *nbuf2 = (uint8_t *) realloc(bytearray, str_len ? str_len : 1);
+        if (nbuf2 == NULL) return mMiner;
+        bytearray = nbuf2;
+        bytearray_cap = str_len ? str_len : 1;
+    }
 
     size_t res = to_byte_array(coinbase_buffer, str_len*2, bytearray);
 
@@ -321,7 +342,7 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
       Serial.printf("%02x", mMiner.merkle_result[i]);
       snprintf(&merkle_root[i*2], 3, "%02x", mMiner.merkle_result[i]);
     }
-    merkle_root[65] = 0;
+    merkle_root[64] = 0;   // was [65]: one-byte out-of-bounds write on a char[65]
     Serial.println("");
 
     // calculate blockheader
