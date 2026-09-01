@@ -160,9 +160,8 @@ void getRandomExtranonce2(int extranonce2_size, char *extranonce2) {
 
   unsigned long extranonce2_number = b3 << 24 | b2 <<  16 | b1 << 8 | b0;
 
-  char format[] = "%00x";
-
-  sprintf(&format[1], "%02dx", extranonce2_size * 2);
+  char format[12];
+  snprintf(format, sizeof(format), "%%0%dx", extranonce2_size * 2);
   sprintf(extranonce2, format, extranonce2_number);
 }
 
@@ -170,13 +169,10 @@ void getRandomExtranonce2(int extranonce2_size, char *extranonce2) {
  * get linear extranonce2
 */
 void getNextExtranonce2(int extranonce2_size, char *extranonce2) {
-  unsigned long extranonce2_number = strtoul(extranonce2, NULL, 10);
-
+  unsigned long extranonce2_number = strtoul(extranonce2, NULL, 16);
   extranonce2_number++;
-
-  char format[] = "%00x";
-
-  sprintf(&format[1], "%02dx", extranonce2_size * 2);
+  char format[12];
+  snprintf(format, sizeof(format), "%%0%dx", extranonce2_size * 2);
   sprintf(extranonce2, format, extranonce2_number);
 }
 
