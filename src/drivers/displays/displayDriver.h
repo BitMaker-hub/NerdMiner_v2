@@ -43,6 +43,7 @@ extern DisplayDriver m5stickCDriver;
 extern DisplayDriver m5stickCPlusDriver;
 extern DisplayDriver t_hmiDisplayDriver;
 extern DisplayDriver sp_kcDisplayDriver;
+extern DisplayDriver jc3248w535DisplayDriver;
 
 #define SCREENS_ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
