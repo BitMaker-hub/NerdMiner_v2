@@ -3,32 +3,46 @@
 #include "Arduino.h"
 #include "driver/spi_master.h"
 
+// SPI init sequence for the T-Display S3 AMOLED Plus (1.91", RM67162, 191_SPI profile).
+// Mirrors the official Xinyuan-LilyGO/LilyGo-AMOLED-Series rm67162_spi_cmd[] exactly;
+// rails (ELVDD/ELVSS) are supplied by the AXPM65611 PMU, so no OVSS writes are needed.
 const static lcd_cmd_t rm67162_spi_init[] = {
-    {0xFE, {0x00}, 0x01}, // PAGE
-    {0x35, {0x00}, 0x00}, // TE ON
-    // {0x34, {0x00},        0x00}, //TE OFF
-    {0x36, {0x00}, 0x01}, // Scan Direction Control
+    {0xFE, {0x04}, 0x01}, // SET APGE3
+    {0x6A, {0x00}, 0x01},
+    {0xFE, {0x05}, 0x01}, // SET APGE4
+    {0xFE, {0x07}, 0x01}, // SET APGE6
+    {0x07, {0x4F}, 0x01},
+    {0xFE, {0x01}, 0x01}, // SET APGE0
+    {0x2A, {0x02}, 0x01},
+    {0x2B, {0x73}, 0x01},
+    {0xFE, {0x0A}, 0x01}, // SET APGE9
+    {0x29, {0x10}, 0x01},
+    {0xFE, {0x00}, 0x01},
+    {0x51, {AMOLED_DEFAULT_BRIGHTNESS}, 0x01}, // Write Display Brightness
+    {0x53, {0x20}, 0x01},
+    {0x35, {0x00}, 0x01}, // TE ON
     {0x3A, {0x75}, 0x01}, // Interface Pixel Format 16bit/pixel
-    // {0x3A, {0x76},        0x01}, //Interface Pixel Format    18bit/pixel
-    // {0x3A, {0x77},        0x01}, //Interface Pixel Format    24bit/pixel
-    {0x51, {0x00}, 0x01},        // Write Display Brightness MAX_VAL=0XFF
+    {0xC4, {0x80}, 0x01},
     {0x11, {0x00}, 0x01 | 0x80}, // Sleep Out
     {0x29, {0x00}, 0x01 | 0x80}, // Display on
-    {0x51, {0xD0}, 0x01},        // Write Display Brightness    MAX_VAL=0XFF
 };
 
+// QSPI init sequence for the 1.91" RM67162 AMOLED (LilyGO T-Display S3 AMOLED).
+// Mirrors the official Xinyuan-LilyGO/LilyGo-AMOLED-Series rm67162_cmd[] so the
+// OVSS (panel supply) registers are programmed and the panel starts in landscape.
 const static lcd_cmd_t rm67162_qspi_init[] = {
-    {0x11, {0x00}, 0x80}, // Sleep Out
-    // {0x44, {0x01, 0x66},        0x02}, //Set_Tear_Scanline
-    // {0x35, {0x00},        0x00}, //TE ON
-    // {0x34, {0x00},        0x00}, //TE OFF
-    // {0x36, {0x00},        0x01}, //Scan Direction Control
-    {0x3A, {0x55}, 0x01}, // Interface Pixel Format 16bit/pixel
-    // {0x3A, {0x66},        0x01}, //Interface Pixel Format    18bit/pixel
-    // {0x3A, {0x77},        0x01}, //Interface Pixel Format    24bit/pixel
-    {0x51, {0x00}, 0x01}, // Write Display Brightness MAX_VAL=0XFF
-    {0x29, {0x00}, 0x80}, // Display on
-    {0x51, {0xD0}, 0x01}, // Write Display Brightness   MAX_VAL=0XFF
+    {0xFE, {0x00}, 0x01},         // SET PAGE 00H
+    {0x11, {0x00}, 0x80},         // Sleep Out
+    {0xFE, {0x05}, 0x01},         // SET PAGE 05H
+    {0x05, {0x05}, 0x01},         // OVSS control set elvss -3.95V
+    {0xFE, {0x01}, 0x01},         // SET PAGE 01H
+    {0x73, {0x25}, 0x01},         // Set OVSS voltage level = -4.0V
+    {0xFE, {0x00}, 0x01},         // SET PAGE 00H
+    {0x36, {0x60}, 0x01},         // MADCTL: MX|MV (landscape, RGB)
+    {0x3A, {0x55}, 0x01},         // Interface Pixel Format 16bit/pixel
+    {0x51, {0x00}, 0x01},         // Write Display Brightness MAX_VAL=0XFF
+    {0x29, {0x00}, 0x80},         // Display on
+    {0x51, {AMOLED_DEFAULT_BRIGHTNESS}, 0x01}, // Write Display Brightness
 };
 
 static spi_device_handle_t spi;
@@ -98,9 +112,18 @@ static void lcd_send_cmd(uint32_t cmd, uint8_t *dat, uint32_t len)
 
 void rm67162_init(void)
 {
+  // Enable the AMOLED panel power rail / backlight (GPIO38) before any QSPI
+  // traffic, otherwise the panel stays unpowered and the screen is blank.
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_LED, HIGH);
+  delay(100);
+
   pinMode(TFT_CS, OUTPUT);
   pinMode(TFT_RES, OUTPUT);
 
+  // Reset the panel: deassert -> assert -> deassert (reference LilyGo sequence)
+  TFT_RES_H;
+  delay(200);
   TFT_RES_L;
   delay(300);
   TFT_RES_H;

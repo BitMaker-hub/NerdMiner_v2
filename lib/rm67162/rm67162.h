@@ -3,6 +3,10 @@
 #include "stdint.h"
 #include "pins_config.h"
 
+#ifndef AMOLED_DEFAULT_BRIGHTNESS
+#define AMOLED_DEFAULT_BRIGHTNESS 175
+#endif
+
 #define TFT_MADCTL 0x36
 #define TFT_MAD_MY 0x80
 #define TFT_MAD_MX 0x40

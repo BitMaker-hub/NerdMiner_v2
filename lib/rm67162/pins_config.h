@@ -1,9 +1,17 @@
 #pragma once
 
 /***********************config*************************/
+// Classic 1.91" boards drive the RM67162 in QSPI mode; the 1.91" Plus
+// (T-Display S3 AMOLED Plus) uses the 4-wire SPI interface. Both modes share
+// this header, so the mode is selected at build time via -DLCD_USB_QSPI_DREVER
+// (see env:NerdminerV2-S3-AMOLED-PLUS). Default preserves the classic boards.
+#ifndef LCD_USB_QSPI_DREVER
 #define LCD_USB_QSPI_DREVER 1
+#endif
 
+#ifndef SPI_FREQUENCY
 #define SPI_FREQUENCY 75000000
+#endif
 #define TFT_SPI_MODE SPI_MODE0
 #define TFT_SPI_HOST SPI2_HOST
 

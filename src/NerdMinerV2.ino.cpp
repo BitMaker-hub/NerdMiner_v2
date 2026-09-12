@@ -17,7 +17,13 @@
 #include "timeconst.h"
 
 #ifdef TOUCH_ENABLE
+#if defined(AMOLED_DISPLAY)
+#include "TouchHandlerCST816.h"
+extern TouchHandlerCST816 touchHandler;
+#else
 #include "TouchHandler.h"
+extern TouchHandler touchHandler;
+#endif
 #endif
 
 #include <soc/soc_caps.h>
@@ -34,10 +40,6 @@
 
 #ifdef PIN_BUTTON_2
   OneButton button2(PIN_BUTTON_2);
-#endif
-
-#ifdef TOUCH_ENABLE
-extern TouchHandler touchHandler;
 #endif
 
 extern monitor_data mMonitor;
