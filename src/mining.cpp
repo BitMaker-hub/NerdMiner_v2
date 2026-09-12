@@ -1034,6 +1034,11 @@ void minerWorkerHw(void * task_id)
   unsigned int miner_id = (uint32_t)task_id;
   Serial.printf("[MINER] %d Started minerWorkerHwEsp32D Task!\n", miner_id);
 
+  // ESP32 SHA engines share the SHA_TEXT registers. Reserve SHA1 while this
+  // task accesses SHA256 directly, forcing WPA2 SHA1 operations to use the
+  // mbedTLS software fallback instead of corrupting group-key calculations.
+  esp_sha_lock_engine(SHA1);
+
   std::shared_ptr<JobRequest> job;
   std::shared_ptr<JobResult> result;
   uint8_t hash[32];
