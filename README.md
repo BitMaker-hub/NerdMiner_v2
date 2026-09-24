@@ -152,6 +152,7 @@ Recommended low difficulty share pools:
 | pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 | pool.stompi.de  | 3333  | http://web.stompi.de  | Mantained by @odinstar - public-pool fork      |
 |pool.solomining.de| 3333  | https://pool.solomining.de/ | Mantained by https://x.com/solo_mining |
+|stratum.btcpowlab-pool.com| 3333 | https://btcpowlab-pool.com/ | Hybrid Solo pool with public stats and Vardiff down to difficulty 1 |
 
 Other standard pools not compatible with low difficulty share:
 
