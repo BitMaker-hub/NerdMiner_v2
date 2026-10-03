@@ -1,0 +1,29 @@
+name: Build ESP32 Firmware
+on: 
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install PlatformIO
+        run: pip install -U platformio
+
+      - name: Build Firmware
+        run: pio run -e esp32-s3-devkitc-1
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-bin
+          path: .pio/build/esp32-s3-devkitc-1/firmware.bin

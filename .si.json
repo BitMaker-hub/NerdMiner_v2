@@ -1,0 +1,14 @@
+{
+  "plugin": "org.smartide.plugin.editor",
+  "run": "echo 'change command from .si.json file'",
+  "intelligence": {
+    ".md": {
+      "enabled": true,
+      "run": "marksman server"
+    },
+    ".html": {
+      "enabled": true,
+      "run": "vscode-html-language-server --stdio"
+    }
+  }
+}
