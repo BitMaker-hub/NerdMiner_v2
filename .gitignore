@@ -1,10 +1,19 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and config
+*.env
+secrets.h
+config.h
+.vscode/
 .idea/
-.pio
-.vscode
-.vs
-*.sln
-*.vcxproj*
-NerdMinerLog.txt
-bin/0x10000_firmware.bin
-logs
-boards/ESP32_wroom_guide.md
+
+# Build artifacts
+*.bin
+*.hex

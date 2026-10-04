@@ -1,271 +1,145 @@
-#include <Arduino.h>
-#include <ArduinoJson.h>
 #include <WiFi.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
 #include "stratum.h"
-#include "cJSON.h"
+#include "config.h"
 #include <string.h>
-#include <stdio.h>
-#include "esp_log.h"
-#include "lwip/sockets.h"
-#include "utils.h"
-#include "version.h"
 
+MinerJob current_stratum_job;
+ShareSubmission current_submission = {"", "", "", 0, false};
+volatile bool is_stratum_connected = false;
 
+static WiFiClient client;
+static String extraNonce1 = "";
+static uint32_t extraNonce2_counter = 0;
+static double pool_difficulty = 0.0001;
 
-StaticJsonDocument<BUFFER_JSON_DOC> doc;
-unsigned long id = 1;
-
-//Get next JSON RPC Id
-unsigned long getNextId(unsigned long id) {
-    if (id == ULONG_MAX) {
-      id = 1;
-      return id;
+static void hex_to_bin(const char* hex, uint8_t* bin, size_t bin_len) {
+    for (size_t i = 0; i < bin_len; i++) {
+        sscanf(hex + 2 * i, "%02hhx", &bin[i]);
     }
-    return ++id;
 }
 
-//Verify Payload doesn't has zero lenght
-bool verifyPayload (String* line){
-  if(line->length() == 0) return false;
-  line->trim();
-  if(line->isEmpty()) return false;
-  return true;
-  
-}
-
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
-  
-  if (!doc.containsKey("error")) return false;
-  
-  if (doc["error"].size() == 0) return false;
-
-  Serial.printf("ERROR: %d | reason: %s \n", (const int) doc["error"][0], (const char*) doc["error"][1]);
-
-  return true;  
-}
-
-
-// STEP 1: Pool server connection (SUBSCRIBE)
-    // Docs: 
-    // - https://cs.braiins.com/stratum-v1/docs
-    // - https://github.com/aeternity/protocol/blob/master/STRATUM.md#mining-subscribe
-bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe)
-{
-    char payload[BUFFER] = {0};
-    
-    // Subscribe
-    id = 1; //Initialize id messages
-    #ifndef HAN
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"NerdMinerV2/%s\"]}\n", id, CURRENT_VERSION);
-    #else
-    sprintf(payload, "{\"id\": %u, \"method\": \"mining.subscribe\", \"params\": [\"HAN_SOLOminer/%s\"]}\n", id, CURRENT_VERSION);
-    #endif
-    
-    Serial.printf("[WORKER] ==> Mining subscribe\n");
-    Serial.print("  Sending  : "); Serial.println(payload);
-    client.print(payload);
-    
-    vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
-    
-    String line = client.readStringUntil('\n');
-    if(!parse_mining_subscribe(line, mSubscribe)) return false;
-
-  
-    Serial.print("    sub_details: "); Serial.println(mSubscribe.sub_details);
-    Serial.print("    extranonce1: "); Serial.println(mSubscribe.extranonce1);
-    Serial.print("    extranonce2_size: "); Serial.println(mSubscribe.extranonce2_size);
-
-    if((mSubscribe.extranonce1.length() == 0) ) { 
-        Serial.printf("[WORKER] >>>>>>>>> Work aborted\n"); 
-        Serial.printf("extranonce1 length: %u \n", mSubscribe.extranonce1.length());
-        doc.clear();
-        doc.garbageCollect();
-        return false; 
+void init_wifi() {
+    Serial.printf("[WiFi] Connecting to %s", WIFI_SSID);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
     }
-    return true;
+    Serial.printf("\n[WiFi] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
 }
 
-bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
-{
-    if(!verifyPayload(&line)) return false;
-    Serial.print("  Receiving: "); Serial.println(line);
-   
-    DeserializationError error = deserializeJson(doc, line);
+static void build_job_from_notify(JsonArray& p) {
+    const char* job_id = p[0];
+    const char* prevhash = p[1];
+    const char* coinb1 = p[2];
+    const char* coinb2 = p[3];
+    JsonArray merkle_branch = p[4];
+    const char* version = p[5];
+    const char* nbits = p[6];
+    const char* ntime = p[7];
 
-    if (error || checkError(doc)) return false;
-    if (!doc.containsKey("result")) return false;
+    char en2_hex[16] = {0};
+    snprintf(en2_hex, sizeof(en2_hex), "%08x", extraNonce2_counter++);
 
-    mSubscribe.sub_details = String((const char*) doc["result"][0][0][1]);
-    mSubscribe.extranonce1 = String((const char*) doc["result"][1]);
-    mSubscribe.extranonce2_size = doc["result"][2];
-
-    return true;
-}
-
-mining_subscribe init_mining_subscribe(void)
-{
-    mining_subscribe new_mSub;
-
-    new_mSub.extranonce1 = "";
-    new_mSub.extranonce2 = "";
-    new_mSub.extranonce2_size = 0;
-    new_mSub.sub_details = "";
-
-
-    return new_mSub;
-}
-
-// STEP 2: Pool server auth (authorize)
-bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass)
-{
-    char payload[BUFFER] = {0};
-
-    // Authorize
-    id = getNextId(id);
-    sprintf(payload, "{\"params\": [\"%s\", \"%s\"], \"id\": %u, \"method\": \"mining.authorize\"}\n", 
-      user, pass, id);
+    size_t cb1_len = strlen(coinb1) / 2;
+    size_t en1_len = extraNonce1.length() / 2;
+    size_t en2_len = strlen(en2_hex) / 2;
+    size_t cb2_len = strlen(coinb2) / 2;
+    size_t cb_total = cb1_len + en1_len + en2_len + cb2_len;
     
-    Serial.printf("[WORKER] ==> Autorize work\n");
-    Serial.print("  Sending  : "); Serial.println(payload);
-    client.print(payload);
+    uint8_t coinbase[256];
+    hex_to_bin(coinb1, coinbase, cb1_len);
+    hex_to_bin(extraNonce1.c_str(), coinbase + cb1_len, en1_len);
+    hex_to_bin(en2_hex, coinbase + cb1_len + en1_len, en2_len);
+    hex_to_bin(coinb2, coinbase + cb1_len + en1_len + en2_len, cb2_len);
 
-    vTaskDelay(200 / portTICK_PERIOD_MS); //Small delay
+    uint8_t merkle_root[32];
+    sha256d_full(coinbase, cb_total, merkle_root);
 
-    //Don't parse here any answer
-    //Miner started to receive mining notifications so better parse all at main thread
-
-    return true;
-}
-
-
-stratum_method parse_mining_method(String line)
-{
-    if(!verifyPayload(&line)) return STRATUM_PARSE_ERROR;
-    Serial.print("  Receiving: "); Serial.println(line);
-    
-    DeserializationError error = deserializeJson(doc, line);
-
-    if (error || checkError(doc)) return STRATUM_PARSE_ERROR;
-
-    if (!doc.containsKey("method")) {
-      // "error":null means success
-      if (doc["error"].isNull())
-        return STRATUM_SUCCESS;
-      else
-        return STRATUM_UNKNOWN;
-    }
-    stratum_method result = STRATUM_UNKNOWN;
-
-    if (strcmp("mining.notify", (const char*) doc["method"]) == 0) {
-        result = MINING_NOTIFY;
-    } else if (strcmp("mining.set_difficulty", (const char*) doc["method"]) == 0) {
-        result = MINING_SET_DIFFICULTY;
+    for (size_t i = 0; i < merkle_branch.size(); i++) {
+        uint8_t combined[64];
+        memcpy(combined, merkle_root, 32);
+        hex_to_bin(merkle_branch[i], combined + 32, 32);
+        sha256d_full(combined, 64, merkle_root);
     }
 
-    return result;
-}
-
-bool parse_mining_notify(String line, mining_job& mJob)
-{
-    Serial.println("    Parsing Method [MINING NOTIFY]");
-    if(!verifyPayload(&line)) return false;
-   
-    DeserializationError error = deserializeJson(doc, line);
-
-    if (error) return false;
-    if (!doc.containsKey("params")) return false;
-
-    mJob.job_id = String((const char*) doc["params"][0]);
-    mJob.prev_block_hash = String((const char*) doc["params"][1]);
-    mJob.coinb1 = String((const char*) doc["params"][2]);
-    mJob.coinb2 = String((const char*) doc["params"][3]);
-    mJob.merkle_branch = doc["params"][4];
-    mJob.version = String((const char*) doc["params"][5]);
-    mJob.nbits = String((const char*) doc["params"][6]);
-    mJob.ntime = String((const char*) doc["params"][7]);
-    mJob.clean_jobs = doc["params"][8]; //bool
-
-    #ifdef DEBUG_MINING
-    Serial.print("    job_id: "); Serial.println(mJob.job_id);
-    Serial.print("    prevhash: "); Serial.println(mJob.prev_block_hash);
-    Serial.print("    coinb1: "); Serial.println(mJob.coinb1);
-    Serial.print("    coinb2: "); Serial.println(mJob.coinb2);
-    Serial.print("    merkle_branch size: "); Serial.println(mJob.merkle_branch.size());
-    Serial.print("    version: "); Serial.println(mJob.version);
-    Serial.print("    nbits: "); Serial.println(mJob.nbits);
-    Serial.print("    ntime: "); Serial.println(mJob.ntime);
-    Serial.print("    clean_jobs: "); Serial.println(mJob.clean_jobs);
-    #endif
-    //Check if parameters where correctly received
-    if (checkError(doc)) {
-      Serial.printf("[WORKER] >>>>>>>>> Work aborted\n"); 
-      return false;
+    uint8_t header[80] = {0};
+    hex_to_bin(version, header, 4);
+    
+    uint8_t raw_prev[32];
+    hex_to_bin(prevhash, raw_prev, 32);
+    for (int i = 0; i < 8; i++) {
+        header[4 + i * 4 + 0] = raw_prev[i * 4 + 3];
+        header[4 + i * 4 + 1] = raw_prev[i * 4 + 2];
+        header[4 + i * 4 + 2] = raw_prev[i * 4 + 1];
+        header[4 + i * 4 + 3] = raw_prev[i * 4 + 0];
     }
-    return true;
-}
+    memcpy(header + 36, merkle_root, 32);
+    hex_to_bin(ntime, header + 68, 4);
+    hex_to_bin(nbits, header + 72, 4);
 
-
-bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce, unsigned long &submit_id)
-{
-    char payload[BUFFER] = {0};
-
-    // Submit
-    id = getNextId(id);
-    submit_id = id;
-    sprintf(payload, "{\"id\":%u,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"]}\n",
-        id,
-        mWorker.wName,//"bc1qvv469gmw4zz6qa4u4dsezvrlmqcqszwyfzhgwj", //mWorker.name,
-        mJob.job_id.c_str(),
-        mWorker.extranonce2.c_str(),
-        mJob.ntime.c_str(),
-        String(nonce, HEX).c_str()
-        );
-    Serial.print("  Sending  : "); Serial.print(payload);
-    client.print(payload);
-    //Serial.print("  Receiving: "); Serial.println(client.readStringUntil('\n'));
-
-    return true;
-}
-
-bool parse_mining_set_difficulty(String line, double& difficulty)
-{
-    Serial.println("    Parsing Method [SET DIFFICULTY]");
-    if(!verifyPayload(&line)) return false;
-   
-    DeserializationError error = deserializeJson(doc, line);
-
-    if (error) return false;
-    if (!doc.containsKey("params")) return false;
-
-    Serial.print("    difficulty: "); Serial.println((double)doc["params"][0],12);
-    difficulty = (double)doc["params"][0];
-
-    return true;
-}
-
-bool tx_suggest_difficulty(WiFiClient& client, double difficulty)
-{
-    char payload[BUFFER] = {0};
-
-    id = getNextId(id);
-    sprintf(payload, "{\"id\":%d,\"method\":\"mining.suggest_difficulty\",\"params\":[%.10g]}\n", id, difficulty);
+    strncpy(current_stratum_job.job_id, job_id, sizeof(current_stratum_job.job_id));
+    strncpy(current_stratum_job.extranonce2, en2_hex, sizeof(current_stratum_job.extranonce2));
+    strncpy(current_stratum_job.ntime, ntime, sizeof(current_stratum_job.ntime));
     
-    Serial.print("  Sending  : "); Serial.print(payload);
-    return client.print(payload);
-
+    sha256_precompute_midstate(header, current_stratum_job.midstate);
+    
+    memset(current_stratum_job.chunk2, 0, sizeof(current_stratum_job.chunk2));
+    current_stratum_job.chunk2[0] = ((uint32_t)header[64] << 24) | ((uint32_t)header[65] << 16) | ((uint32_t)header[66] << 8) | header[67];
+    current_stratum_job.chunk2[1] = ((uint32_t)header[68] << 24) | ((uint32_t)header[69] << 16) | ((uint32_t)header[70] << 8) | header[71];
+    current_stratum_job.chunk2[2] = ((uint32_t)header[72] << 24) | ((uint32_t)header[73] << 16) | ((uint32_t)header[74] << 8) | header[75];
+    current_stratum_job.chunk2[4] = 0x80000000;
+    current_stratum_job.chunk2[15] = 640;
+    
+    double target_val = 65535.0 / pool_difficulty;
+    current_stratum_job.target_high = (target_val > 4294967295.0) ? 0xFFFFFFFF : (uint32_t)target_val;
 }
 
+void stratum_task(void* pvParameters) {
+    while (true) {
+        if (!client.connected()) {
+            is_stratum_connected = false;
+            if (!client.connect(STRATUM_HOST, STRATUM_PORT)) {
+                vTaskDelay(5000 / portTICK_PERIOD_MS);
+                continue;
+            }
+            client.print("{\"id\": 1, \"method\": \"mining.subscribe\", \"params\": [\"NerdMiner/2.0\"]}\n");
+            String sub_res = client.readStringUntil('\n');
+            DynamicJsonDocument doc(2048);
+            deserializeJson(doc, sub_res);
+            extraNonce1 = doc["result"][1].as<String>();
+            
+            char auth_req[256];
+            snprintf(auth_req, sizeof(auth_req), "{\"id\": 2, \"method\": \"mining.authorize\", \"params\": [\"%s.%s\", \"x\"]}\n", BTC_ADDRESS, WORKER_NAME);
+            client.print(auth_req);
+            is_stratum_connected = true;
+        }
 
-unsigned long parse_extract_id(const String &line)
-{
-    DeserializationError error = deserializeJson(doc, line);
-    if (error)
-        return 0;
-    
-    if (!doc.containsKey("id"))
-        return 0;
+        while (client.available()) {
+            String line = client.readStringUntil('\n');
+            DynamicJsonDocument doc(4096);
+            if (deserializeJson(doc, line) == DeserializationError::Ok) {
+                if (doc.containsKey("method")) {
+                    String method = doc["method"].as<String>();
+                    if (method == "mining.set_difficulty") {
+                        pool_difficulty = doc["params"][0].as<double>();
+                    } else if (method == "mining.notify") {
+                        build_job_from_notify(doc["params"].as<JsonArray>());
+                    }
+                }
+            }
+        }
 
-    unsigned long id = doc["id"];
-
-    return id;
+        if (current_submission.ready) {
+            char sub_buf[256];
+            snprintf(sub_buf, sizeof(sub_buf), "{\"id\": 4, \"method\": \"mining.submit\", \"params\": [\"%s.%s\", \"%s\", \"%s\", \"%s\", \"%08x\"]}\n", 
+                     BTC_ADDRESS, WORKER_NAME, current_submission.job_id, current_submission.extranonce2, current_submission.ntime, current_submission.nonce);
+            client.print(sub_buf);
+            current_submission.ready = false;
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
 }

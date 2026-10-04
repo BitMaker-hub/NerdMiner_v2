@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAF_Miner-node1 | Web Emulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
+        body {
+            background-color: #0a0a0a;
+            color: #00ff41;
+            font-family: 'Fira Code', monospace;
+        }
+        .crt-screen {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            border: 4px solid #333;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+        .log-container::-webkit-scrollbar { width: 5px; }
+        .log-container::-webkit-scrollbar-thumb { background: #00ff41; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 border-b border-green-900 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter">VAF_MINER-NODE1 <span class="text-sm font-normal opacity-50">v1.0.0-Web</span></h1>
+                <p class="text-xs opacity-70">SHA-256d Stratum Emulator | Dual-Core Simulation</p>
+            </div>
+            <div class="text-right">
+                <div id="status-badge" class="px-3 py-1 rounded-full text-xs bg-red-900 text-red-200 animate-pulse">OFFLINE</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Stats Panel -->
+            <div class="crt-screen p-6 rounded-lg flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg mb-4 border-b border-green-800 pb-2">Telemetry</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs opacity-60">TOTAL HASHRATE</p>
+                            <p id="hashrate" class="text-4xl font-bold">0 <span class="text-lg">H/s</span></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <p class="text-xs opacity-60">CORE 0</p>
+                                <p id="core0" class="text-xl">0 H/s</p>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-60">CORE 1</p>
+                                <p id="core1" class="text-xl">0 H/s</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-xs opacity-60">SHARES FOUND</p>
+                            <p id="shares" class="text-2xl font-bold text-white">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <button id="start-btn" class="w-full py-3 bg-green-600 text-black font-bold rounded hover:bg-green-400 transition-colors">START MINING</button>
+                </div>
+            </div>
+
+            <!-- Job Panel -->
+            <div class="crt-screen p-6 rounded-lg col-span-1 md:col-span-2">
+                <h2 class="text-lg mb-4 border-b border-green-800 pb-2">Active Block Job</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="opacity-60">JOB ID: <span id="job-id" class="text-white">---</span></p>
+                        <p class="opacity-60">MERKLE ROOT: <span id="merkle-root" class="text-white">---</span></p>
+                    </div>
+                    <div>
+                        <p class="opacity-60">DIFFICULTY: <span id="difficulty" class="text-white">0.0001</span></p>
+                        <p class="opacity-60">NONCE: <span id="current-nonce" class="text-white">0x00000000</span></p>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <p class="text-xs opacity-60 mb-2">STRATUM LOGS</p>
+                    <div id="logs" class="log-container h-48 overflow-y-auto text-xs space-y-1 font-mono opacity-80">
+                        <div>> System initialized. Awaiting start...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Worker Logic as a String to allow single-file execution
+        const workerCode = `
+            self.onmessage = function(e) {
+                if (e.data.cmd === 'start') {
+                    let nonce = e.data.startNonce;
+                    let hashes = 0;
+                    const batchSize = 500;
+                    
+                    // Simple mock of the SHA256d loop for emulation
+                    // In a real Wasm build, this would call the compiled C++ code
+                    setInterval(() => {
+                        hashes += batchSize;
+                        nonce += batchSize;
+                        self.postMessage({ type: 'stat', hashes: batchSize, nonce: nonce });
+                        
+                        // Simulate finding a share based on difficulty
+                        if (Math.random() < 0.001) {
+                            self.postMessage({ type: 'share', nonce: nonce });
+                        }
+                    }, 100);
+                }
+            };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+
+        const startBtn = document.getElementById('start-btn');
+        const logs = document.getElementById('logs');
+        const statusBadge = document.getElementById('status-badge');
+        
+        let isMining = false;
+        let workers = [];
+        let totalShares = 0;
+        let core0H = 0, core1H = 0;
+
+        function addLog(msg, color = 'text-green-400') {
+            const div = document.createElement('div');
+            div.className = color;
+            div.textContent = '> ' + msg;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        startBtn.onclick = () => {
+            if (isMining) {
+                location.reload();
+                return;
+            }
+
+            isMining = true;
+            startBtn.textContent = 'STOP MINER';
+            startBtn.className = 'w-full py-3 bg-red-600 text-white font-bold rounded hover:bg-red-400 transition-colors';
+            statusBadge.textContent = 'ONLINE';
+            statusBadge.className = 'px-3 py-1 rounded-full text-xs bg-green-900 text-green-200';
+
+            addLog('Connecting to public-pool.io...', 'text-white');
+            
+            setTimeout(() => {
+                addLog('Stratum: mining.subscribe -> Result: OK', 'text-green-300');
+                addLog('Stratum: mining.authorize -> Result: OK', 'text-green-300');
+                addLog('Stratum: mining.notify -> New Job Received', 'text-yellow-400');
+                
+                document.getElementById('job-id').textContent = 'job_' + Math.random().toString(36).substr(2, 9);
+                document.getElementById('merkle-root').textContent = '0000' + Math.random().toString(16).substr(2, 32);
+                
+                // Start dual workers
+                const w0 = new Worker(workerUrl);
+                const w1 = new Worker(workerUrl);
+                
+                w0.onmessage = (e) => {
+                    if (e.data.type === 'stat') {
+                        core0H = e.data.hashes;
+                        document.getElementById('current-nonce').textContent = '0x' + e.data.nonce.toString(16).toUpperCase();
+                    } else if (e.data.type === 'share') {
+                        totalShares++;
+                        document.getElementById('shares').textContent = totalShares;
+                        addLog('!!! SHARE FOUND on Core 0: ' + e.data.nonce, 'text-white font-bold bg-green-800');
+                    }
+                };
+
+                w1.onmessage = (e) => {
+                    if (e.data.type === 'stat') {
+                        core1H = e.data.hashes;
+                    } else if (e.data.type === 'share') {
+                        totalShares++;
+                        document.getElementById('shares').textContent = totalShares;
+                        addLog('!!! SHARE FOUND on Core 1: ' + e.data.nonce, 'text-white font-bold bg-green-800');
+                    }
+                };
+
+                w0.postMessage({ cmd: 'start', startNonce: 0 });
+                w1.postMessage({ cmd: 'start', startNonce: 0x80000000 });
+                workers = [w0, w1];
+            }, 1500);
+        };
+
+        setInterval(() => {
+            if (!isMining) return;
+            const total = core0H + core1H;
+            document.getElementById('hashrate').innerHTML = total + ' <span class="text-lg">H/s</span>';
+            document.getElementById('core0').textContent = core0H + ' H/s';
+            document.getElementById('core1').textContent = core1H + ' H/s';
+        }, 1000);
+    </script>
+</body>
+</html>
