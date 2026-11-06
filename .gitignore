@@ -8,3 +8,5 @@ NerdMinerLog.txt
 bin/0x10000_firmware.bin
 logs
 boards/ESP32_wroom_guide.md
+test/native/test_checkValid
+test/native/extracted.cpp
