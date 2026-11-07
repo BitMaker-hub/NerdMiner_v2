@@ -25,15 +25,11 @@ unsigned long getNextId(unsigned long id) {
 }
 
 //Verify Payload doesn't has zero lenght
-bool verifyPayload (String* line){
-  if(line->length() == 0) return false;
-  line->trim();
-  if(line->isEmpty()) return false;
-  return true;
-  
+bool verifyPayload(const String& line){
+  return !line.isEmpty();
 }
 
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc) {
+bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC>& doc) {
   
   if (!doc.containsKey("error")) return false;
   
@@ -87,7 +83,7 @@ bool tx_mining_subscribe(WiFiClient& client, mining_subscribe& mSubscribe)
 
 bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe)
 {
-    if(!verifyPayload(&line)) return false;
+    if(!verifyPayload(line)) return false;
     Serial.print("  Receiving: "); Serial.println(line);
    
     DeserializationError error = deserializeJson(doc, line);
@@ -138,14 +134,25 @@ bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass)
 }
 
 
-stratum_method parse_mining_method(String line)
+stratum_method parse_mining_method(const String& line)
 {
-    if(!verifyPayload(&line)) return STRATUM_PARSE_ERROR;
+    if(!verifyPayload(line)) return STRATUM_PARSE_ERROR;
     Serial.print("  Receiving: "); Serial.println(line);
-    
-    DeserializationError error = deserializeJson(doc, line);
 
-    if (error || checkError(doc)) return STRATUM_PARSE_ERROR;
+    // Only retain the fields needed to classify a message. A mining.notify
+    // can contain a very large coinbase transaction, which must not consume
+    // the fixed JSON document merely to inspect the method name.
+    StaticJsonDocument<64> filter;
+    filter["method"] = true;
+    filter["error"] = true;
+    DeserializationError error = deserializeJson(
+        doc, line, DeserializationOption::Filter(filter));
+
+    if (error) {
+      Serial.print("  JSON classification error: "); Serial.println(error.c_str());
+      return STRATUM_PARSE_ERROR;
+    }
+    if (checkError(doc)) return STRATUM_PARSE_ERROR;
 
     if (!doc.containsKey("method")) {
       // "error":null means success
@@ -165,25 +172,40 @@ stratum_method parse_mining_method(String line)
     return result;
 }
 
-bool parse_mining_notify(String line, mining_job& mJob)
+bool parse_mining_notify(String& line, mining_job& mJob)
 {
     Serial.println("    Parsing Method [MINING NOTIFY]");
-    if(!verifyPayload(&line)) return false;
-   
-    DeserializationError error = deserializeJson(doc, line);
+    if(!verifyPayload(line)) return false;
 
-    if (error) return false;
+    // Zero-copy mode keeps the large coinbase strings in the input buffer.
+    // The values needed after this function returns are copied into mJob.
+    DeserializationError error = deserializeJson(doc, line.begin());
+
+    if (error) {
+      Serial.print("    Mining notify JSON error: "); Serial.println(error.c_str());
+      return false;
+    }
     if (!doc.containsKey("params")) return false;
 
-    mJob.job_id = String((const char*) doc["params"][0]);
-    mJob.prev_block_hash = String((const char*) doc["params"][1]);
-    mJob.coinb1 = String((const char*) doc["params"][2]);
-    mJob.coinb2 = String((const char*) doc["params"][3]);
-    mJob.merkle_branch = doc["params"][4];
-    mJob.version = String((const char*) doc["params"][5]);
-    mJob.nbits = String((const char*) doc["params"][6]);
-    mJob.ntime = String((const char*) doc["params"][7]);
-    mJob.clean_jobs = doc["params"][8]; //bool
+    JsonArray params = doc["params"];
+    if (params.size() < 9 || !params[4].is<JsonArray>()) return false;
+
+    mJob.job_id = String((const char*) params[0]);
+    mJob.prev_block_hash = String((const char*) params[1]);
+    mJob.coinb1 = String((const char*) params[2]);
+    mJob.coinb2 = String((const char*) params[3]);
+    mJob.merkle_branch.clear();
+    JsonArray merkleBranch = params[4];
+    mJob.merkle_branch.reserve(merkleBranch.size());
+    for (JsonVariant merkleElement : merkleBranch) {
+      const char* value = merkleElement.as<const char*>();
+      if (!value) return false;
+      mJob.merkle_branch.emplace_back(value);
+    }
+    mJob.version = String((const char*) params[5]);
+    mJob.nbits = String((const char*) params[6]);
+    mJob.ntime = String((const char*) params[7]);
+    mJob.clean_jobs = params[8]; //bool
 
     #ifdef DEBUG_MINING
     Serial.print("    job_id: "); Serial.println(mJob.job_id);
@@ -205,7 +227,7 @@ bool parse_mining_notify(String line, mining_job& mJob)
 }
 
 
-bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce, unsigned long &submit_id)
+bool tx_mining_submit(WiFiClient& client, const mining_subscribe& mWorker, const mining_job& mJob, unsigned long nonce, unsigned long &submit_id)
 {
     char payload[BUFFER] = {0};
 
@@ -230,7 +252,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
 bool parse_mining_set_difficulty(String line, double& difficulty)
 {
     Serial.println("    Parsing Method [SET DIFFICULTY]");
-    if(!verifyPayload(&line)) return false;
+    if(!verifyPayload(line)) return false;
    
     DeserializationError error = deserializeJson(doc, line);
 

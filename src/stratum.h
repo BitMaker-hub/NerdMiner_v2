@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <vector>
 
 #define MAX_MERKLE_BRANCHES 32
 #define HASH_SIZE 32
@@ -30,7 +31,7 @@ typedef struct {
     String coinb1;
     String coinb2;
     String nbits;
-    JsonArray merkle_branch;
+    std::vector<String> merkle_branch;
     String version;
     uint32_t target;
     String ntime;
@@ -46,8 +47,8 @@ typedef enum {
 } stratum_method;
 
 unsigned long getNextId(unsigned long id);
-bool verifyPayload (String* line);
-bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC> doc);
+bool verifyPayload(const String& line);
+bool checkError(const StaticJsonDocument<BUFFER_JSON_DOC>& doc);
 
 //Method Mining.subscribe
 mining_subscribe init_mining_subscribe(void);
@@ -56,11 +57,11 @@ bool parse_mining_subscribe(String line, mining_subscribe& mSubscribe);
 
 //Method Mining.authorise
 bool tx_mining_auth(WiFiClient& client, const char * user, const char * pass);
-stratum_method parse_mining_method(String line);
-bool parse_mining_notify(String line, mining_job& mJob);
+stratum_method parse_mining_method(const String& line);
+bool parse_mining_notify(String& line, mining_job& mJob);
 
 //Method Mining.submit
-bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job mJob, unsigned long nonce, unsigned long &submit_id);
+bool tx_mining_submit(WiFiClient& client, const mining_subscribe& mWorker, const mining_job& mJob, unsigned long nonce, unsigned long &submit_id);
 
 //Difficulty Methods 
 bool tx_suggest_difficulty(WiFiClient& client, double difficulty);
