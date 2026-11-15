@@ -1,0 +1,6 @@
+#ifndef _M5_STACKCORE2_H
+#define _M5_STACKCORE2_H
+
+#define M5STACKCORE2_DISPLAY
+
+#endif

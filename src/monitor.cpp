@@ -65,58 +65,76 @@ void updateGlobalData(void){
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
         http.setTimeout(10000);
-        try {
-        http.begin(getGlobalHash);
+        
+        if (!http.begin(getGlobalHash)) {
+            Serial.println("Global data HTTP begin failed");
+            return;
+        }
+        
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
             StaticJsonDocument<1024> doc;
-            deserializeJson(doc, payload);
-            String temp = "";
-            if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
-            if(temp.length()>18 + 3) //Exahashes more than 18 digits + 3 digits decimals
-              gData.globalHash = temp.substring(0,temp.length()-18 - 3);
-            if (doc.containsKey("currentDifficulty")) temp = String(doc["currentDifficulty"].as<float>());
-            if(temp.length()>10 + 3){ //Terahash more than 10 digits + 3 digit decimals
-              temp = temp.substring(0,temp.length()-10 - 3);
-              gData.difficulty = temp.substring(0,temp.length()-2) + "." + temp.substring(temp.length()-2,temp.length()) + "T";
-            }
-            doc.clear();
+            DeserializationError error = deserializeJson(doc, payload);
+            
+            if (!error) {
+                String temp = "";
+                if (doc.containsKey("currentHashrate")) temp = String(doc["currentHashrate"].as<float>());
+                if(temp.length()>18 + 3) //Exahashes more than 18 digits + 3 digits decimals
+                  gData.globalHash = temp.substring(0,temp.length()-18 - 3);
+                if (doc.containsKey("currentDifficulty")) temp = String(doc["currentDifficulty"].as<float>());
+                if(temp.length()>10 + 3){ //Terahash more than 10 digits + 3 digit decimals
+                  temp = temp.substring(0,temp.length()-10 - 3);
+                  gData.difficulty = temp.substring(0,temp.length()-2) + "." + temp.substring(temp.length()-2,temp.length()) + "T";
+                }
+                doc.clear();
 
-            mGlobalUpdate = millis();
+                mGlobalUpdate = millis();
+            } else {
+                Serial.println("Global data JSON parse failed");
+            }
+        } else {
+            Serial.printf("Global data HTTP error: %d\n", httpCode);
         }
         http.end();
 
       
         //Make third API call to get fees
-        http.begin(getFees);
+        if (!http.begin(getFees)) {
+            Serial.println("Fees HTTP begin failed");
+            return;
+        }
+        
         httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
             
             StaticJsonDocument<1024> doc;
-            deserializeJson(doc, payload);
-            String temp = "";
-            if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
+            DeserializationError error = deserializeJson(doc, payload);
+            
+            if (!error) {
+                String temp = "";
+                if (doc.containsKey("halfHourFee")) gData.halfHourFee = doc["halfHourFee"].as<int>();
 #ifdef SCREEN_FEES_ENABLE
-            if (doc.containsKey("fastestFee"))  gData.fastestFee = doc["fastestFee"].as<int>();
-            if (doc.containsKey("hourFee"))     gData.hourFee = doc["hourFee"].as<int>();
-            if (doc.containsKey("economyFee"))  gData.economyFee = doc["economyFee"].as<int>();
-            if (doc.containsKey("minimumFee"))  gData.minimumFee = doc["minimumFee"].as<int>();
+                if (doc.containsKey("fastestFee"))  gData.fastestFee = doc["fastestFee"].as<int>();
+                if (doc.containsKey("hourFee"))     gData.hourFee = doc["hourFee"].as<int>();
+                if (doc.containsKey("economyFee"))  gData.economyFee = doc["economyFee"].as<int>();
+                if (doc.containsKey("minimumFee"))  gData.minimumFee = doc["minimumFee"].as<int>();
 #endif
-            doc.clear();
+                doc.clear();
 
-            mGlobalUpdate = millis();
+                mGlobalUpdate = millis();
+            } else {
+                Serial.println("Fees JSON parse failed");
+            }
+        } else {
+            Serial.printf("Fees HTTP error: %d\n", httpCode);
         }
         
         http.end();
-        } catch(...) {
-          Serial.println("Global data HTTP error caught");
-          http.end();
-        }
     }
 }
 
@@ -130,8 +148,12 @@ String getBlockHeight(void){
             
         HTTPClient http;
         http.setTimeout(10000);
-        try {
-        http.begin(getHeightAPI);
+        
+        if (!http.begin(getHeightAPI)) {
+            Serial.println("Height HTTP begin failed");
+            return current_block;
+        }
+        
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -141,15 +163,14 @@ String getBlockHeight(void){
             current_block = payload;
 
             mHeightUpdate = millis();
-        }        
-        http.end();
-        } catch(...) {
-          Serial.println("Height HTTP error caught");
-          http.end();
+        } else {
+            Serial.printf("Height HTTP error: %d\n", httpCode);
         }
+        
+        http.end();
     }
   
-  return current_block;
+    return current_block;
 }
 
 unsigned long mBTCUpdate = 0;
@@ -166,37 +187,41 @@ String getBTCprice(void){
         
         HTTPClient http;
         http.setTimeout(10000);
-        bool priceUpdated = false;
 
-        try {
-        http.begin(getBTCAPI);
+        if (!http.begin(getBTCAPI)) {
+            Serial.println("BTC price HTTP begin failed");
+            static char price_buffer[16];
+            snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+            return String(price_buffer);
+        }
+        
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
 
             StaticJsonDocument<1024> doc;
-            deserializeJson(doc, payload);
+            DeserializationError error = deserializeJson(doc, payload);
           
-            if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
-                bitcoin_price = doc["bitcoin"]["usd"];
+            if (!error) {
+                if (doc.containsKey("bitcoin") && doc["bitcoin"].containsKey("usd")) {
+                    bitcoin_price = doc["bitcoin"]["usd"];
+                }
+                doc.clear();
+                mBTCUpdate = millis();
+            } else {
+                Serial.println("BTC price JSON parse failed");
             }
-
-            doc.clear();
-
-            mBTCUpdate = millis();
+        } else {
+            Serial.printf("BTC price HTTP error: %d\n", httpCode);
         }
         
         http.end();
-        } catch(...) {
-          Serial.println("BTC price HTTP error caught");
-          http.end();
-        }
     }  
   
-  static char price_buffer[16];
-  snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
-  return String(price_buffer);
+    static char price_buffer[16];
+    snprintf(price_buffer, sizeof(price_buffer), "$%u", bitcoin_price);
+    return String(price_buffer);
 }
 
 unsigned long mTriggerUpdate = 0;
@@ -443,73 +468,86 @@ pool_data getPoolData(void){
         //Make first API call to get global hash and current difficulty
         HTTPClient http;
         http.setTimeout(10000);        
-        try {          
-          String btcWallet = Settings.BtcWallet;
-          // Serial.println(btcWallet);
-          if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
+        
+        String btcWallet = Settings.BtcWallet;
+        // Serial.println(btcWallet);
+        if (btcWallet.indexOf(".")>0) btcWallet = btcWallet.substring(0,btcWallet.indexOf("."));
+        
 #ifdef SCREEN_WORKERS_ENABLE
-          Serial.println("Pool API : " + poolAPIUrl+btcWallet);
-          http.begin(poolAPIUrl+btcWallet);
+        Serial.println("Pool API : " + poolAPIUrl+btcWallet);
+        if (!http.begin(poolAPIUrl+btcWallet)) {
+            Serial.println("####### Pool HTTP begin failed!");
+            pData.bestDifficulty = "P";
+            pData.workersHash = "Error";
+            pData.workersCount = 0;
+            return pData;
+        }
 #else
-          http.begin(String(getPublicPool)+btcWallet);
+        if (!http.begin(String(getPublicPool)+btcWallet)) {
+            Serial.println("####### Pool HTTP begin failed!");
+            pData.bestDifficulty = "P";
+            pData.workersHash = "Error";
+            pData.workersCount = 0;
+            return pData;
+        }
 #endif
-          int httpCode = http.GET();
-          if (httpCode == HTTP_CODE_OK) {
-              String payload = http.getString();
-              // Serial.println(payload);
-              StaticJsonDocument<300> filter;
-              filter["bestDifficulty"] = true;
-              filter["workersCount"] = true;
-              filter["workers"][0]["sessionId"] = true;
-              filter["workers"][0]["hashRate"] = true;
-              StaticJsonDocument<2048> doc;
-              deserializeJson(doc, payload, DeserializationOption::Filter(filter));
-              //Serial.println(serializeJsonPretty(doc, Serial));
-              if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
-              const JsonArray& workers = doc["workers"].as<JsonArray>();
-              float totalhashs = 0;
-              for (const JsonObject& worker : workers) {
-                totalhashs += worker["hashRate"].as<double>();
-                /* Serial.print(worker["sessionId"].as<String>()+": ");
-                Serial.print(" - "+worker["hashRate"].as<String>()+": ");
-                Serial.println(totalhashs); */
-              }
-              char totalhashs_s[16] = {0};
-              suffix_string(totalhashs, totalhashs_s, 16, 0);
-              pData.workersHash = String(totalhashs_s);
+        
+        int httpCode = http.GET();
+        
+        if (httpCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+            // Serial.println(payload);
+            StaticJsonDocument<300> filter;
+            filter["bestDifficulty"] = true;
+            filter["workersCount"] = true;
+            filter["workers"][0]["sessionId"] = true;
+            filter["workers"][0]["hashRate"] = true;
+            StaticJsonDocument<2048> doc;
+            DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+            
+            if (!error) {
+                //Serial.println(serializeJsonPretty(doc, Serial));
+                if (doc.containsKey("workersCount")) pData.workersCount = doc["workersCount"].as<int>();
+                const JsonArray& workers = doc["workers"].as<JsonArray>();
+                float totalhashs = 0;
+                for (const JsonObject& worker : workers) {
+                    totalhashs += worker["hashRate"].as<double>();
+                    /* Serial.print(worker["sessionId"].as<String>()+": ");
+                    Serial.print(" - "+worker["hashRate"].as<String>()+": ");
+                    Serial.println(totalhashs); */
+                }
+                char totalhashs_s[16] = {0};
+                suffix_string(totalhashs, totalhashs_s, 16, 0);
+                pData.workersHash = String(totalhashs_s);
 
-              double temp;
-              if (doc.containsKey("bestDifficulty")) {
-              temp = doc["bestDifficulty"].as<double>();            
-              char best_diff_string[16] = {0};
-              suffix_string(temp, best_diff_string, 16, 0);
-              pData.bestDifficulty = String(best_diff_string);
-              }
-              doc.clear();
-              mPoolUpdate = millis();
-              Serial.println("\n####### Pool Data OK!");               
-          } else {
-              Serial.println("\n####### Pool Data HTTP Error!");    
-              /* Serial.println(httpCode);
-              String payload = http.getString();
-              Serial.println(payload); */
-              // mPoolUpdate = millis();
-              pData.bestDifficulty = "P";
-              pData.workersHash = "E";
-              pData.workersCount = 0;
-              http.end();
-              return pData; 
-          }
-          http.end();
-        } catch(...) {
-          Serial.println("####### Pool Error!");          
-          // mPoolUpdate = millis();
-          pData.bestDifficulty = "P";
-          pData.workersHash = "Error";
-          pData.workersCount = 0;
-          http.end();
-          return pData;
-        } 
+                double temp;
+                if (doc.containsKey("bestDifficulty")) {
+                    temp = doc["bestDifficulty"].as<double>();            
+                    char best_diff_string[16] = {0};
+                    suffix_string(temp, best_diff_string, 16, 0);
+                    pData.bestDifficulty = String(best_diff_string);
+                }
+                doc.clear();
+                mPoolUpdate = millis();
+                Serial.println("\n####### Pool Data OK!");
+            } else {
+                Serial.println("####### Pool JSON parse failed!");
+                pData.bestDifficulty = "P";
+                pData.workersHash = "Error";
+                pData.workersCount = 0;
+            }
+        } else {
+            Serial.println("\n####### Pool Data HTTP Error!");    
+            Serial.printf("HTTP Code: %d\n", httpCode);
+            /* String payload = http.getString();
+            Serial.println(payload); */
+            pData.bestDifficulty = "P";
+            pData.workersHash = "E";
+            pData.workersCount = 0;
+        }
+        
+        http.end();
     }
+    
     return pData;
 }

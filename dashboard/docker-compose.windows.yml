@@ -1,0 +1,12 @@
+version: '3.7'
+
+services:
+  app:
+    image: nerdminer-dashboard-windows
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "33333:33333/udp"
+    volumes:
+      - ./data:/app/data

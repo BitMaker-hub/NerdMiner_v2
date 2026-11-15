@@ -1,0 +1,10 @@
+version: '3.7'
+
+services:
+  app:
+    image: nerdminer-dashboard-linux
+    build: .
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./data:/app/data

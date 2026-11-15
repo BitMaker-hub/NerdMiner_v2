@@ -4,6 +4,10 @@
 .vs
 *.sln
 *.vcxproj*
+dashboard/node_modules/
+**/node_modules/
+dashboard/package-lock.json
+dashboard/package.json
 NerdMinerLog.txt
 bin/0x10000_firmware.bin
 logs
