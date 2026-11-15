@@ -125,14 +125,28 @@ bool isSha256Valid(const void* sha256)
 bool checkValid(unsigned char* hash, unsigned char* target) {
   bool valid = true;
   unsigned char diff_target[32];
-  memcpy(diff_target, &target, 32);
+  // FIX 1: `&target` is the address of the *parameter* (unsigned char**), not
+  // the target bytes, so this copied 32 bytes of stack memory and the
+  // comparison below ran against garbage.
+  memcpy(diff_target, target, 32);
   //convert target to little endian for comparison
   reverse_bytes(diff_target, 32);
 
-  for(uint8_t i=31; i>=0; i--) {
-    if(hash[i] > diff_target[i]) {
+  // FIX 2: `uint8_t i` with `i >= 0` is always true for an unsigned type, so
+  // after i == 0 it wrapped to 255 and read hash[255]/diff_target[255] — out
+  // of bounds on both 32-byte buffers.
+  // FIX 3: the loop only stopped on `>`. A hash that is strictly *below* the
+  // target at a high-order byte is already valid, but the old code kept
+  // scanning and a lower-order byte with hash[i] > target[i] then wrongly
+  // flipped valid to false. Big-endian comparison must stop at the first
+  // differing byte, in either direction.
+  for (int i = 31; i >= 0; --i) {
+    if (hash[i] > diff_target[i]) {
       valid = false;
       break;
+    }
+    if (hash[i] < diff_target[i]) {
+      break;          // strictly below target -> valid, lower bytes irrelevant
     }
   }
 
