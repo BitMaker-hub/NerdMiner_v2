@@ -44,7 +44,9 @@ DisplayDriver *currentDisplayDriver = &esp32_2432S028RDriver;
 DisplayDriver *currentDisplayDriver = &t_qtDisplayDriver;
 #endif
 
-#ifdef V1_DISPLAY
+#if defined(M5_STICKS3)
+DisplayDriver *currentDisplayDriver = &m5StickS3Driver;
+#elif defined(V1_DISPLAY)
 DisplayDriver *currentDisplayDriver = &tDisplayV1Driver;
 #endif
 
@@ -67,6 +69,7 @@ DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 #ifdef OLED_SSD1306_128X64_DISPLAY
 DisplayDriver *currentDisplayDriver = &ssd1306DisplayDriver;
 #endif
+
 
 
 // Initialize the display
