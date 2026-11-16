@@ -231,3 +231,61 @@ If you would like to contribute and help dev team with this project you can send
 If you want to order a fully assembled Nerdminer you can contribute to my job at 🛒[bitronics.store](https://bitronics.store)🛒
 
 Enjoy
+
+## Updating over WiFi (OTA)
+
+Once a board runs a build with OTA enabled, further updates no longer need the USB
+cable. Useful when the miners live on a shelf or behind a rack.
+
+**Build with a password.** OTA is only started when `OTA_PASSWORD` is set at build
+time, so an unauthenticated flashing endpoint is never exposed. A build without it
+runs normally and simply says `OTA disabled: no OTA_PASSWORD set at build time` on
+the serial console.
+
+```ini
+[env:my-board-OTA]
+extends = env:my-board
+upload_protocol = espota
+build_flags =
+    ${env:my-board.build_flags}
+    -D OTA_PASSWORD='"${sysenv.MY_OTA_PASSWORD}"'
+```
+
+Keep the password in your environment rather than in the file, so it never lands in
+a commit:
+
+```bash
+export MY_OTA_PASSWORD='...'
+pio run -e my-board-OTA -t upload   --upload-port 192.168.1.42   # firmware
+pio run -e my-board-OTA -t uploadfs --upload-port 192.168.1.42   # SPIFFS config
+```
+
+**Finding the board.** It advertises itself over mDNS as
+`nerdminer-<last two bytes of the MAC>.local`, which survives a DHCP lease change:
+
+```bash
+getent hosts nerdminer-34a0.local
+```
+
+**Note on the port.** OTA listens on UDP 3232. A TCP probe such as `nc -z host 3232`
+reports it closed even when it is working, so test with an actual upload.
+
+**Deploying to several boards.** `pio run -t upload` revalidates the whole project on
+every invocation, which costs about a minute before a single byte is sent. For a
+fleet, build once and then call `espota.py` directly, in parallel:
+
+```bash
+pio run -e my-board-OTA                       # build once
+for ip in 192.168.1.41 192.168.1.42 192.168.1.43; do
+  python ~/.platformio/packages/framework-arduinoespressif32/tools/espota.py \
+     -i "$ip" -p 3232 --auth="$MY_OTA_PASSWORD" \
+     -f .pio/build/my-board-OTA/firmware.bin &
+done
+wait
+```
+
+Six boards go from roughly five minutes to under thirty seconds this way.
+
+**While flashing**, the miner tasks idle and release the SHA hardware lock. That is
+required: holding it during `Update.end()` deadlocks the image verification.
+
