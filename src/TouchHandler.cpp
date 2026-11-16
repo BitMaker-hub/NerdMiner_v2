@@ -1,6 +1,6 @@
 
 #include "drivers/devices/device.h"
-#ifdef TOUCH_ENABLE
+#if defined(TOUCH_ENABLE) && !defined(AMOLED_DISPLAY)
 #include "TouchHandler.h"
 
 

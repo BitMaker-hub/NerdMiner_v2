@@ -25,17 +25,24 @@
 #define Y(y) (y * SCALE)
 #define FS(S) (S * SCALE)
 
+#ifdef TOUCH_ENABLE
+#include "TouchHandlerCST816.h"
+extern void switchToNextScreen();
+extern void alternateScreenState();
+TouchHandlerCST816 touchHandler;
+#endif
+
 OpenFontRender render;
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite background = TFT_eSprite(&tft);
 
 void amoledDisplay_Init(void)
 {
-#if TOUCH
-  pinMode(38, OUTPUT);
-  digitalWrite(38, OUTPUT);
-#endif
+  // Panel power / backlight (GPIO38) is enabled inside rm67162_init(),
+  // mirroring the LilyGo-AMOLED-Series reference driver.
+  Serial.println("Display init: rm67162_init starting...");
   rm67162_init();
+  Serial.println("Display init: rm67162_init completed.");
   lcd_setRotation(LANDSCAPE);
 
   background.createSprite(WIDTH, HEIGHT);
@@ -48,6 +55,12 @@ void amoledDisplay_Init(void)
     Serial.println("Initialise error");
     return;
   }
+
+#ifdef TOUCH_ENABLE
+  touchHandler.begin(WIDTH, HEIGHT);
+  touchHandler.setScreenSwitchCallback(switchToNextScreen);
+  touchHandler.setScreenSwitchAltCallback(alternateScreenState);
+#endif
 }
 
 int screen_state = 1;
@@ -60,8 +73,9 @@ void amoledDisplay_AlternateScreenState(void)
 int screen_rotation = LANDSCAPE;
 void amoledDisplay_AlternateRotation(void)
 {
-    screen_rotation = flipRotation(screen_rotation);
-    screen_rotation ^= 1;
+  // Toggle between the two landscape orientations (536x240 keeps working in both)
+  screen_rotation = flipRotation(screen_rotation);
+  lcd_setRotation(screen_rotation);
 }
 
 void amoledDisplay_MinerScreen(unsigned long mElapsed)
