@@ -566,7 +566,7 @@ void esp32_2432S028R_DoLedStuff(unsigned long frame)
       previousTouchMillis = currentMillis;
     }
 
-    if (currentScreen != currentDisplayDriver->current_cyclic_screen) hasChangedScreen ^= true;
+    if (currentScreen != currentDisplayDriver->current_cyclic_screen) hasChangedScreen = true;
     currentScreen = currentDisplayDriver->current_cyclic_screen;
 
   switch (mMonitor.NerdStatus)
