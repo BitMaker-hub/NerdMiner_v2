@@ -20,6 +20,7 @@
 #define DEFAULT_SAVESTATS	false
 #define DEFAULT_INVERTCOLORS	false
 #define DEFAULT_BRIGHTNESS	250
+#define DEFAULT_USELDR	false
 
 // JSON config files
 #define JSON_CONFIG_FILE	"/config.json"
@@ -35,6 +36,7 @@
 #define JSON_KEY_STATS2NV	"SaveStats"
 #define JSON_KEY_INVCOLOR	"invertColors"
 #define JSON_KEY_BRIGHTNESS	"Brightness"
+#define JSON_KEY_USELDR		"useLDR"
 
 // JSON config file SPIFFS (different for backward compatibility with existing devices)
 #define JSON_SPIFFS_KEY_POOLURL		"poolString"
@@ -45,6 +47,7 @@
 #define JSON_SPIFFS_KEY_STATS2NV	"saveStatsToNVS"
 #define JSON_SPIFFS_KEY_INVCOLOR	"invertColors"
 #define JSON_SPIFFS_KEY_BRIGHTNESS	"Brightness"
+#define JSON_SPIFFS_KEY_USELDR		"useLDR"
 
 // settings
 struct TSettings
@@ -59,6 +62,7 @@ struct TSettings
 	bool saveStats{ DEFAULT_SAVESTATS };
 	bool invertColors{ DEFAULT_INVERTCOLORS };
 	int Brightness{ DEFAULT_BRIGHTNESS };
+	bool useLDR{ DEFAULT_USELDR };
 };
 
 #endif // _STORAGE_H_

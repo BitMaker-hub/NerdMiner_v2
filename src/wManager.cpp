@@ -253,10 +253,17 @@ void init_WifiManager()
   wm.addParameter(&invertColors);
   #endif
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-    char brightnessConvValue[2];
+    char checkboxParams3[24] = "type=\"checkbox\"";
+    if (Settings.useLDR)
+    {
+      strcat(checkboxParams3, " checked");
+    }
+    WiFiManagerParameter useLDR("useLDR", "Auto-brightness", "T", 2, checkboxParams3, WFM_LABEL_AFTER);
+    wm.addParameter(&useLDR);
+    char brightnessConvValue[4];
     sprintf(brightnessConvValue, "%d", Settings.Brightness);
     // Text box (Number) - 3 characters maximum
-    WiFiManagerParameter brightness_text_box_num("Brightness", "Screen backlight Duty Cycle (0-255)", brightnessConvValue, 3);
+    WiFiManagerParameter brightness_text_box_num("Brightness", "0-255 (max when auto, fixed when manual)", brightnessConvValue, 3);
     wm.addParameter(&brightness_text_box_num);
   #endif
 
@@ -283,8 +290,7 @@ void init_WifiManager()
             Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
             #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-            #endif
-            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                Settings.useLDR = (strlen(useLDR.getValue()) > 0);
                 Settings.Brightness = atoi(brightness_text_box_num.getValue());
             #endif
             nvMem.saveConfig(&Settings);
@@ -316,8 +322,7 @@ void init_WifiManager()
                 Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
                 #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
                 Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-                #endif
-                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+                Settings.useLDR = (strlen(useLDR.getValue()) > 0);
                 Settings.Brightness = atoi(brightness_text_box_num.getValue());
                 #endif
                 nvMem.saveConfig(&Settings);
@@ -329,88 +334,11 @@ void init_WifiManager()
     
     //Conectado a la red Wifi
     if (WiFi.status() == WL_CONNECTED) {
-        //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
         Serial.println("");
         Serial.println("WiFi connected");
         Serial.print("IP address: ");
         Serial.println(WiFi.localIP());
-
-
-        // Lets deal with the user config values
-
-        // Copy the string value
-        Settings.PoolAddress = pool_text_box.getValue();
-        //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-        Serial.print("PoolString: ");
-        Serial.println(Settings.PoolAddress);
-
-        //Convert the number value
-        Settings.PoolPort = atoi(port_text_box_num.getValue());
-        Serial.print("portNumber: ");
-        Serial.println(Settings.PoolPort);
-
-        // Copy the string value
-        strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-        Serial.print("poolPassword: ");
-        Serial.println(Settings.PoolPassword);
-
-        // Copy the string value
-        strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-        Serial.print("btcString: ");
-        Serial.println(Settings.BtcWallet);
-
-        //Convert the number value
-        Settings.Timezone = atoi(time_text_box_num.getValue());
-        Serial.print("TimeZone fromUTC: ");
-        Serial.println(Settings.Timezone);
-
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-        Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-        Serial.print("Invert Colors: ");
-        Serial.println(Settings.invertColors);        
-        #endif
-
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-        Settings.Brightness = atoi(brightness_text_box_num.getValue());
-        Serial.print("Brightness: ");
-        Serial.println(Settings.Brightness);
-        #endif
-
     }
-
-    // Lets deal with the user config values
-
-    // Copy the string value
-    Settings.PoolAddress = pool_text_box.getValue();
-    //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-    Serial.print("PoolString: ");
-    Serial.println(Settings.PoolAddress);
-
-    //Convert the number value
-    Settings.PoolPort = atoi(port_text_box_num.getValue());
-    Serial.print("portNumber: ");
-    Serial.println(Settings.PoolPort);
-
-    // Copy the string value
-    strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-    Serial.print("poolPassword: ");
-    Serial.println(Settings.PoolPassword);
-
-    // Copy the string value
-    strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-    Serial.print("btcString: ");
-    Serial.println(Settings.BtcWallet);
-
-    //Convert the number value
-    Settings.Timezone = atoi(time_text_box_num.getValue());
-    Serial.print("TimeZone fromUTC: ");
-    Serial.println(Settings.Timezone);
-
-    #ifdef ESP32_2432S028R
-    Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-    Serial.print("Invert Colors: ");
-    Serial.println(Settings.invertColors);
-    #endif
 
     // Save the custom parameters to FS
     if (shouldSaveConfig)

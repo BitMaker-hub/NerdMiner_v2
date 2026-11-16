@@ -7,6 +7,7 @@
 #define LED_PIN      4   // Red pin
 #define LED_PIN_G    16  // Green pin
 #define LED_PIN_B    17  // Green pin
+#define LDR_PIN      34  // Light sensor (LDR) pin for auto-brightness
 
 // Pin defines for the SD card interface
 // This is working for both, ESP32 2432S028R and ESP 2432S028_2USB boards 

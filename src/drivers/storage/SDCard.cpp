@@ -128,6 +128,11 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                     } else {
                         Settings->invertColors = false;
                     }
+                    if (json.containsKey(JSON_KEY_USELDR)) {
+                        Settings->useLDR = json[JSON_KEY_USELDR].as<bool>();
+                    } else {
+                        Settings->useLDR = false;
+                    }
                     if (json.containsKey(JSON_KEY_BRIGHTNESS)) {
                         Settings->Brightness = json[JSON_KEY_BRIGHTNESS].as<int>();
                     } else {
