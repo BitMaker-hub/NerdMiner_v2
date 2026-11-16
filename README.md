@@ -152,6 +152,7 @@ Recommended low difficulty share pools:
 | pool.sethforprivacy.com  | 3333  | https://pool.sethforprivacy.com/  | Mantained by @sethforprivacy - public-pool fork      |
 | pool.stompi.de  | 3333  | http://web.stompi.de  | Mantained by @odinstar - public-pool fork      |
 |pool.solomining.de| 3333  | https://pool.solomining.de/ | Mantained by https://x.com/solo_mining |
+| veinpool.fr | 3600 | https://veinpool.fr/en/coin/btc | Solo Bitcoin pool, start difficulty 0.0005 for NerdMiners, 1% fee, EU (France) - Mantained by @veinpool |
 
 Other standard pools not compatible with low difficulty share:
 
