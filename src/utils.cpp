@@ -122,16 +122,13 @@ bool isSha256Valid(const void* sha256)
 /****************** PREMINING CALCULATIONS ********************/
 
 
+// hash and target are both little endian (byte 31 is the most significant); valid if hash <= target
 bool checkValid(unsigned char* hash, unsigned char* target) {
   bool valid = true;
-  unsigned char diff_target[32];
-  memcpy(diff_target, &target, 32);
-  //convert target to little endian for comparison
-  reverse_bytes(diff_target, 32);
 
-  for(uint8_t i=31; i>=0; i--) {
-    if(hash[i] > diff_target[i]) {
-      valid = false;
+  for(int i=31; i>=0; i--) {
+    if(hash[i] != target[i]) {
+      valid = hash[i] < target[i];
       break;
     }
   }
@@ -202,11 +199,8 @@ miner_data calculateMiningData(mining_subscribe& mWorker, mining_job mJob){
     // bytearray target
     size_t size_target = to_byte_array(target, 32, mMiner.bytearray_target);
 
-    for (size_t j = 0; j < 8; j++) {
-      mMiner.bytearray_target[j] ^= mMiner.bytearray_target[size_target - 1 - j];
-      mMiner.bytearray_target[size_target - 1 - j] ^= mMiner.bytearray_target[j];
-      mMiner.bytearray_target[j] ^= mMiner.bytearray_target[size_target - 1 - j];
-    }
+    // big endian -> little endian (all 32 bytes, the loop before only swapped the outer 8 pairs)
+    reverse_bytes(mMiner.bytearray_target, size_target);
 
     // get extranonce2 - extranonce2 = hex(random.randint(0,2**32-1))[2:].zfill(2*extranonce2_size)
     //To review
