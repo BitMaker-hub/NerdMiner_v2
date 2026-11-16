@@ -209,6 +209,13 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
 {
     char payload[BUFFER] = {0};
 
+    // The nonce must always be 8 hex digits. String(nonce, HEX) strips leading
+    // zeros, so roughly 1 in 16 submissions (top nibble == 0) went out with a
+    // 7-character nonce. ckpool rejects those in parse_submit() with
+    // SE_NO_NONCE (strlen(nonce) < 8), so the share is never evaluated.
+    char nonceHex[9];
+    snprintf(nonceHex, sizeof(nonceHex), "%08lx", (unsigned long)nonce);
+
     // Submit
     id = getNextId(id);
     submit_id = id;
@@ -218,7 +225,7 @@ bool tx_mining_submit(WiFiClient& client, mining_subscribe mWorker, mining_job m
         mJob.job_id.c_str(),
         mWorker.extranonce2.c_str(),
         mJob.ntime.c_str(),
-        String(nonce, HEX).c_str()
+        nonceHex
         );
     Serial.print("  Sending  : "); Serial.print(payload);
     client.print(payload);
