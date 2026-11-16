@@ -251,8 +251,12 @@ void runStratumWorker(void *name) {
   uint32_t job_pool = 0xFFFFFFFF;
   uint32_t last_job_time = millis();
 
+  //Exponential backoff for pool reconnects: resume fast after a short glitch
+  //(1s, 2s, 4s...) but stay gentle with the pool if it is really down (cap 15s).
+  uint32_t pool_retry_delay_s = 1;
+
   while(true) {
-      
+
     if(WiFi.status() != WL_CONNECTED){
       // WiFi is disconnected, so reconnect now
       mMonitor.NerdStatus = NM_Connecting;
@@ -260,15 +264,17 @@ void runStratumWorker(void *name) {
       WiFi.reconnect();
       vTaskDelay(5000 / portTICK_PERIOD_MS);
       continue;
-    } 
+    }
 
     if(!checkPoolConnection()){
-      //If server is not reachable add random delay for connection retries
-      //Generate value between 1 and 60 secs
       MiningJobStop(job_pool, s_submition_map);
-      vTaskDelay(((1 + rand() % 60) * 1000) / portTICK_PERIOD_MS);
+      Serial.printf("Pool unreachable, retrying in %us\n", pool_retry_delay_s);
+      vTaskDelay((pool_retry_delay_s * 1000) / portTICK_PERIOD_MS);
+      if (pool_retry_delay_s < 15)
+        pool_retry_delay_s *= 2;
       continue;
     }
+    pool_retry_delay_s = 1; //connected: next incident restarts from 1s
 
     if(!isMinerSuscribed)
     {
