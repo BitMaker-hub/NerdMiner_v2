@@ -23,6 +23,8 @@
 #include "lilygoS3Dongle.h"
 #elif defined(LILYGO_S3_T_EMBED)
 #include "lilygoS3TEmbed.h"
+#elif defined(LILYGO_S3_T_EMBED_CC1101)
+#include "lilygoS3TEmbedCC1101.h"
 #elif defined(M5_CARDPUTER_ADV)
 #include "m5CardputerAdv.h"
 #elif defined(ESP32_2432S028R)
