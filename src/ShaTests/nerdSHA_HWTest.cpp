@@ -241,7 +241,7 @@ IRAM_ATTR void HwShaTest()
   interResult_aligned[62] = 0x01;
   interResult_aligned[63] = 0x00;
   
-  uint32_t bake[16];
+  uint32_t bake[17];
 
   uint32_t time_start = micros();
   int test_count = 1000000;
