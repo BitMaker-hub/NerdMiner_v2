@@ -29,6 +29,9 @@
 //#pragma GCC optimize ("tree-switch-conversion")
 //#pragma GCC optimize ("no-stack-check")
 
+// Keep the Arduino default -Os here: -O2/-O3 made nerd_sha256d_baked ~22% slower on
+// classic ESP32 (more register spills, +6.4 KB IRAM).
+
 #define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
 
 #ifndef PUT_UINT32_BE

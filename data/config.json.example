@@ -1,0 +1,10 @@
+{
+  "poolString": "public-pool.io",
+  "portNumber": 3333,
+  "poolPassword": "x",
+  "btcString": "yourBtcAddress",
+  "gmtZone": 2,
+  "saveStatsToNVS": true,
+  "invertColors": false,
+  "Brightness": 250
+}

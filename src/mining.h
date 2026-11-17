@@ -28,6 +28,9 @@ String printLocalTime(void);
 
 void resetStat();
 
+// Known-answer test of the SW kernel and the HW SHA path; false = do not mine
+bool mining_selftest();
+
 typedef struct{
   uint8_t bytearray_target[32];
   uint8_t bytearray_pooltarget[32];

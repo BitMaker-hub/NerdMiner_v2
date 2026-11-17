@@ -19,6 +19,12 @@
 #include <ArduinoJson.h>
 #include <esp_flash.h>
 
+// Optional local WiFi credentials (git-ignored), see include/wifi_secrets.h.example.
+// WIFI_SSID / WIFI_PW can also be passed as -D build flags.
+#if __has_include("wifi_secrets.h")
+#include "wifi_secrets.h"
+#endif
+
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -301,6 +307,13 @@ void init_WifiManager()
         wm.setCaptivePortalEnable(true); 
         wm.setConfigPortalBlocking(true);
         wm.setEnableConfigPortal(true);
+#ifdef WIFI_SSID
+        // Use compiled-in credentials only if none were saved via the portal yet
+        if (!wm.getWiFiIsSaved()) {
+            Serial.println("Using compiled-in WiFi credentials");
+            wm.preloadWiFi(WIFI_SSID, WIFI_PW);
+        }
+#endif
         // if (!wm.autoConnect(Settings.WifiSSID.c_str(), Settings.WifiPW.c_str()))
         if (!wm.autoConnect(apName, DEFAULT_WIFIPW))
         {

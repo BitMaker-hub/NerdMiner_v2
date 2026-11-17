@@ -115,6 +115,15 @@ void setup()
   drawLoadingScreen();
   delay(2*SECOND_MS);
 
+  /******** SHA256d SELF-TEST *****/
+  // Never mine with a broken hash path: a found block would be silently lost
+  if (!mining_selftest()) {
+    while (1) {
+      Serial.println("[KAT] SHA256d self-test FAILED - mining disabled");
+      vTaskDelay(5*SECOND_MS / portTICK_PERIOD_MS);
+    }
+  }
+
   /******** SHOW LED INIT STATUS (devices without screen) *****/
   mMonitor.NerdStatus = NM_waitingConfig;
   doLedStuff(0);
@@ -159,12 +168,26 @@ void setup()
   // Start mining tasks
   //BaseType_t res = xTaskCreate(runWorker, name, 35000, (void*)name, 1, NULL);
   TaskHandle_t minerTask1, minerTask2 = NULL;
+
+  // Miner task cores. NM_PIN_MINERS=0: scheduler decides, 1: HW core 0 / SW core 1,
+  // 2: reverse. Classic ESP32 defaults to 1 (fastest, avoids slow unpinned boots).
+#if !defined(NM_PIN_MINERS) && defined(CONFIG_IDF_TARGET_ESP32)
+#define NM_PIN_MINERS 1
+#endif
+#if NM_PIN_MINERS == 1 && SOC_CPU_CORES_NUM >= 2
+  const BaseType_t hwCore = 0, swCore = 1;
+#elif NM_PIN_MINERS == 2 && SOC_CPU_CORES_NUM >= 2
+  const BaseType_t hwCore = 1, swCore = 0;
+#else
+  const BaseType_t hwCore = tskNO_AFFINITY, swCore = tskNO_AFFINITY;
+#endif
+  (void)hwCore; (void)swCore; // unused on single-core / SW-only builds
   #ifdef HARDWARE_SHA265
     #if defined(CONFIG_IDF_TARGET_ESP32)
-    xTaskCreate(minerWorkerHw, "MinerHw-0", 3584, (void*)0, 3, &minerTask1); // Reduced for ESP32 classic
+    xTaskCreatePinnedToCore(minerWorkerHw, "MinerHw-0", 3584, (void*)0, 3, &minerTask1, hwCore); // Reduced for ESP32 classic
     //xTaskCreate(minerWorkerSw, "MinerSw-0", 5000, (void*)0, 1, &minerTask1); // Reduced for ESP32 classic
     #else
-    xTaskCreate(minerWorkerHw, "MinerHw-0", 4096, (void*)0, 3, &minerTask1);
+    xTaskCreatePinnedToCore(minerWorkerHw, "MinerHw-0", 4096, (void*)0, 3, &minerTask1, hwCore);
     #endif
   #else
     #if defined(CONFIG_IDF_TARGET_ESP32)
@@ -177,9 +200,9 @@ void setup()
 
 #if (SOC_CPU_CORES_NUM >= 2)
   #if defined(CONFIG_IDF_TARGET_ESP32)
-  xTaskCreate(minerWorkerSw, "MinerSw-1", 5000, (void*)1, 1, &minerTask2); // Reduced for ESP32 classic
+  xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-1", 5000, (void*)1, 1, &minerTask2, swCore); // Reduced for ESP32 classic
   #else
-  xTaskCreate(minerWorkerSw, "MinerSw-1", 6000, (void*)1, 1, &minerTask2);
+  xTaskCreatePinnedToCore(minerWorkerSw, "MinerSw-1", 6000, (void*)1, 1, &minerTask2, swCore);
   #endif
   esp_task_wdt_add(minerTask2);
 #endif

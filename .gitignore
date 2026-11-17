@@ -8,3 +8,6 @@ NerdMinerLog.txt
 bin/0x10000_firmware.bin
 logs
 boards/ESP32_wroom_guide.md
+include/wifi_secrets.h
+data/config.json
+__pycache__/
