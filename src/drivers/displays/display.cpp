@@ -68,6 +68,10 @@ DisplayDriver *currentDisplayDriver = &sp_kcDisplayDriver;
 DisplayDriver *currentDisplayDriver = &ssd1306DisplayDriver;
 #endif
 
+#ifdef C6_LCD147_DISPLAY
+DisplayDriver *currentDisplayDriver = &c6LCD147DisplayDriver;
+#endif
+
 
 // Initialize the display
 void initDisplay()

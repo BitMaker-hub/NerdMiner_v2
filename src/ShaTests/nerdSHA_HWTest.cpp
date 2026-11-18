@@ -3,6 +3,12 @@
 #include <soc/soc.h>
 #include "ShaTests/nerdSHA256plus.h"
 #include "mbedtls/sha256.h"
+#include "mbedtls/version.h"
+#if MBEDTLS_VERSION_MAJOR >= 3
+#define mbedtls_sha256_starts_ret(ctx, is224) mbedtls_sha256_starts(ctx, is224)
+#define mbedtls_sha256_update_ret(ctx, input, ilen) mbedtls_sha256_update(ctx, input, ilen)
+#define mbedtls_sha256_finish_ret(ctx, output) mbedtls_sha256_finish(ctx, output)
+#endif
 #include <sha/sha_dma.h>
 #include <sha/sha_parallel_engine.h>
 #include <hal/sha_hal.h>

@@ -21,6 +21,14 @@
 #endif
 
 #include <soc/soc_caps.h>
+
+// On single-core chips (C3, C6), pin tasks to core 0
+#if (SOC_CPU_CORES_NUM >= 2)
+#define APP_CORE 1
+#else
+#define APP_CORE 0
+#endif
+
 //#define HW_SHA256_TEST
 
 //3 seconds WDT
@@ -75,7 +83,16 @@ void setup()
   Serial.setTimeout(0);
   delay(SECOND_MS/10);
 
+#if ESP_IDF_VERSION_MAJOR >= 5
+  esp_task_wdt_config_t wdt_config = {
+    .timeout_ms = WDT_MINER_TIMEOUT * 1000,
+    .idle_core_mask = 0,
+    .trigger_panic = true,
+  };
+  esp_task_wdt_init(&wdt_config);
+#else
   esp_task_wdt_init(WDT_MINER_TIMEOUT, true);
+#endif
   // Idle task that would reset WDT never runs, because core 0 gets fully utilized
   disableCore0WDT();
   //disableCore1WDT();
@@ -133,22 +150,22 @@ void setup()
   Serial.println("Initiating tasks...");
   static const char monitor_name[] = "(Monitor)";
   #if defined(CONFIG_IDF_TARGET_ESP32)
-  // Increased stack for ESP32 classic due to NVS operations  
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 9500, (void*)monitor_name, 5, NULL,1);
+  // Increased stack for ESP32 classic due to NVS operations
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 9500, (void*)monitor_name, 5, NULL, APP_CORE);
   #else
-  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)monitor_name, 5, NULL,1);
+  BaseType_t res1 = xTaskCreatePinnedToCore(runMonitor, "Monitor", 10000, (void*)monitor_name, 5, NULL, APP_CORE);
   #endif
 
   /******** CREATE STRATUM TASK *****/
   static const char stratum_name[] = "(Stratum)";
  #if defined(CONFIG_IDF_TARGET_ESP32) && !defined(ESP32_2432S028R) && !defined(ESP32_2432S028_2USB)
   // Reduced stack for ESP32 classic to save memory
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 12000, (void*)stratum_name, 4, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 12000, (void*)stratum_name, 4, NULL, APP_CORE);
  #elif defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
   // Free a little bit of the heap to the screen
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)stratum_name, 4, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 13500, (void*)stratum_name, 4, NULL, APP_CORE);
  #else
-  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)stratum_name, 4, NULL,1);
+  BaseType_t res2 = xTaskCreatePinnedToCore(runStratumWorker, "Stratum", 15000, (void*)stratum_name, 4, NULL, APP_CORE);
  #endif
 
   /******** CREATE MINER TASKS *****/

@@ -1,8 +1,13 @@
+// Legacy I2C driver is incompatible with IDF 5.x (Arduino Core 3.x)
+// ESP32-C6 does not need I2C slave mining support
+#include <sdkconfig.h>
+#if !defined(CONFIG_IDF_TARGET_ESP32C6)
+
 #include "i2c_master.h"
 #include <Arduino.h>
 #include <driver/i2c.h>
 
-#define I2C_MASTER_NUM_PORT 0
+#define I2C_MASTER_NUM_PORT ((i2c_port_t)0)
 #define PIN_I2C_SDA 21
 #define PIN_I2C_SCL 22
 #define I2C_MASTER_TX_BUF_LEN 1024
@@ -108,7 +113,7 @@ std::vector<uint8_t> i2c_master_scan(uint8_t start, uint8_t end)
         i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
         //i2c_master_write(cmd, data_wr, size, true);
         i2c_master_stop(cmd);
-        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 50 / portTICK_RATE_MS);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 50 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
         if (ret == ESP_OK)
             vec.push_back(addr);
@@ -135,7 +140,7 @@ void i2c_feed_slaves(const std::vector<uint8_t>& slaves, uint8_t id, uint8_t non
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write(cmd, (const uint8_t*)&request, sizeof(request), true);
         i2c_master_stop(cmd);
-        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_RATE_MS);
+        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
     }
 }
@@ -153,7 +158,7 @@ void i2c_hit_slaves(const std::vector<uint8_t>& slaves)
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write(cmd, request, sizeof(request), true);
         i2c_master_stop(cmd);
-        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_RATE_MS);
+        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
     }
 }
@@ -169,7 +174,7 @@ std::vector<uint32_t> i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uin
         i2c_master_write_byte(cmd, (slaves[n] << 1) | I2C_MASTER_READ, true);
         i2c_master_read(cmd, (uint8_t*)&result, sizeof(result), I2C_MASTER_LAST_NACK);
         i2c_master_stop(cmd);
-        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_RATE_MS);
+        i2c_master_cmd_begin(I2C_MASTER_NUM_PORT, cmd, 5 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
 
         uint8_t crc = CommandCrc8(&result, sizeof(result));
@@ -182,3 +187,5 @@ std::vector<uint32_t> i2c_harvest_slaves(const std::vector<uint8_t>& slaves, uin
     }
     return nonce_vector;
 }
+
+#endif // !CONFIG_IDF_TARGET_ESP32C6

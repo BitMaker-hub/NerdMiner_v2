@@ -13,23 +13,23 @@
 #include "driver/spi_master.h"
 #include "hal/gpio_ll.h"
 
-#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32)
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32)
   #define CONFIG_IDF_TARGET_ESP32
 #endif
 
-// Fix IDF problems with ESP32C3
-#if CONFIG_IDF_TARGET_ESP32C3
-  // Fix ESP32C3 IDF bug for missing definition
+// Fix IDF problems with ESP32C3 and ESP32C6
+#if CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+  // Fix ESP32C3/C6 IDF bug for missing definition
   #ifndef REG_SPI_BASE
     #define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
   #endif
 
-  // Fix ESP32C3 IDF bug for name change
+  // Fix ESP32C3/C6 IDF bug for name change
   #ifndef SPI_MOSI_DLEN_REG
     #define SPI_MOSI_DLEN_REG(x) SPI_MS_DLEN_REG(x)
   #endif
 
-  // Fix ESP32C3 specific register reference
+  // Fix ESP32C3/C6 specific register reference
   #define out_w1tc out_w1tc.val
   #define out_w1ts out_w1ts.val
 #endif

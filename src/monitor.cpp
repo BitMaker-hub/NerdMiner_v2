@@ -2,8 +2,13 @@
 #include <WiFi.h>
 #include "mbedtls/md.h"
 #include "HTTPClient.h"
+#if ESP_IDF_VERSION_MAJOR >= 5
+#include <time.h>
+#include <esp_sntp.h>
+#else
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#endif
 #include <list>
 #include "mining.h"
 #include "utils.h"
@@ -29,8 +34,10 @@ extern monitor_data mMonitor;
 extern TSettings Settings; 
 bool invertColors = false;
 
+#if ESP_IDF_VERSION_MAJOR < 5
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
+#endif
 unsigned int bitcoin_price=0;
 String current_block = "793261";
 global_data gData;
@@ -41,13 +48,14 @@ String poolAPIUrl;
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
 
+#if ESP_IDF_VERSION_MAJOR >= 5
+    configTime(3600 * Settings.Timezone, 0, "europe.pool.ntp.org", "pool.ntp.org");
+    Serial.println("configTime setup done");
+#else
     timeClient.begin();
-    
-    // Adjust offset depending on your zone
-    // GMT +2 in seconds (zona horaria de Europa Central)
     timeClient.setTimeOffset(3600 * Settings.Timezone);
-
     Serial.println("TimeClient setup done");
+#endif
 #ifdef SCREEN_WORKERS_ENABLE
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
@@ -206,6 +214,13 @@ unsigned long mPoolUpdate = 0;
 
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
   
+#if ESP_IDF_VERSION_MAJOR >= 5
+  // configTime handles NTP sync automatically via SNTP
+  struct tm timeinfo;
+  time_t now;
+  time(&now);
+  unsigned long currentTime = (unsigned long)now;
+#else
   //Check if need an NTP call to check current time
   if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
     if(WiFi.status() == WL_CONNECTED) {
@@ -217,6 +232,7 @@ void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigne
 
   unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
   unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+#endif
 
   // convierte la hora actual en horas, minutos y segundos
   *currentHours = currentTime % 86400 / 3600;
