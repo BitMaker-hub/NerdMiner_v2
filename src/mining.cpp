@@ -84,17 +84,22 @@ bool checkPoolConnection(void) {
 
   Serial.println("Client not connected, trying to connect..."); 
   
-  //Resolve first time pool DNS and save IP
+  //Resolve pool DNS. WiFi.hostByName() returns 0 and writes 0.0.0.0 into serverIP on
+  //failure, so check the return value: otherwise a failed first resolve caches 0.0.0.0
+  //and the client can never connect until the device is rebooted.
   if(serverIP == IPAddress(1,1,1,1)) {
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS and save ip (first time) got: %s\n", serverIP.toString());
+    if (WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP) != 1 || serverIP == IPAddress(0,0,0,0)) {
+      Serial.println("DNS resolve failed, will retry next attempt");
+      serverIP = IPAddress(1,1,1,1); //keep unresolved so we retry
+      return false;
+    }
+    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
   }
 
   //Try connecting pool IP
   if (!client.connect(serverIP, Settings.PoolPort)) {
     Serial.println("Imposible to connect to : " + Settings.PoolAddress);
-    WiFi.hostByName(Settings.PoolAddress.c_str(), serverIP);
-    Serial.printf("Resolved DNS got: %s\n", serverIP.toString());
+    serverIP = IPAddress(1,1,1,1); //force a fresh DNS resolve on next attempt
     return false;
   }
 
