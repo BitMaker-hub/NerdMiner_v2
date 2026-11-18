@@ -11,6 +11,8 @@
 #include "M5Stick-C-Plus2.h"
 #elif defined(DEVKITV1)
 #include "esp32DevKit.h"
+#elif defined(DEVKITV1_096_OLED)
+#include "esp32DevKit096OLED.h"
 #elif defined(ESP32_C3_042_OLED)
 #include "esp32C3042OLED.h"
 #elif defined(ESP32_S3_042_OLED)

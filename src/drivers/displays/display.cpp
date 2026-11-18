@@ -20,6 +20,10 @@ DisplayDriver *currentDisplayDriver = &ledDisplayDriver;
 DisplayDriver *currentDisplayDriver = &oled042DisplayDriver;
 #endif
 
+#ifdef OLED_096_DISPLAY
+DisplayDriver *currentDisplayDriver = &oled096DisplayDriver;
+#endif
+
 #ifdef T_DISPLAY
 DisplayDriver *currentDisplayDriver = &tDisplayDriver;
 #endif
