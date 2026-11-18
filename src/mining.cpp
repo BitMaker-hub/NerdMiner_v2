@@ -661,22 +661,6 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
     REG_WRITE(&reg_addr_buf[0], data_words[0]);
     REG_WRITE(&reg_addr_buf[1], data_words[1]);
     REG_WRITE(&reg_addr_buf[2], data_words[2]);
-#if 0
-    REG_WRITE(&reg_addr_buf[3], nonce);
-    //REG_WRITE(&reg_addr_buf[3], data_words[3]);    
-    REG_WRITE(&reg_addr_buf[4], data_words[4]);
-    REG_WRITE(&reg_addr_buf[5], data_words[5]);
-    REG_WRITE(&reg_addr_buf[6], data_words[6]);
-    REG_WRITE(&reg_addr_buf[7], data_words[7]);
-    REG_WRITE(&reg_addr_buf[8], data_words[8]);
-    REG_WRITE(&reg_addr_buf[9], data_words[9]);
-    REG_WRITE(&reg_addr_buf[10], data_words[10]);
-    REG_WRITE(&reg_addr_buf[11], data_words[11]);
-    REG_WRITE(&reg_addr_buf[12], data_words[12]);
-    REG_WRITE(&reg_addr_buf[13], data_words[13]);
-    REG_WRITE(&reg_addr_buf[14], data_words[14]);
-    REG_WRITE(&reg_addr_buf[15], data_words[15]);
-#else
     REG_WRITE(&reg_addr_buf[3], nonce);
     REG_WRITE(&reg_addr_buf[4], 0x00000080);
     REG_WRITE(&reg_addr_buf[5], 0x00000000);
@@ -690,7 +674,27 @@ static inline void nerd_sha_ll_fill_text_block_sha256(const void *input_text, ui
     REG_WRITE(&reg_addr_buf[13], 0x00000000);
     REG_WRITE(&reg_addr_buf[14], 0x00000000);
     REG_WRITE(&reg_addr_buf[15], 0x80020000);
-#endif
+}
+
+//Same as above but skips SHA_TEXT[9..14]: after the intermediate block
+//(nerd_sha_ll_fill_text_block_sha256_inter) those registers already hold 0
+//and the engine does not clobber them, so rewriting them every nonce is waste.
+//Requires SHA_TEXT[9..14] to have been zeroed once beforehand.
+static inline void nerd_sha_ll_fill_text_block_sha256_fast(const void *input_text, uint32_t nonce)
+{
+    uint32_t *data_words = (uint32_t *)input_text;
+    uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+
+    REG_WRITE(&reg_addr_buf[0], data_words[0]);
+    REG_WRITE(&reg_addr_buf[1], data_words[1]);
+    REG_WRITE(&reg_addr_buf[2], data_words[2]);
+    REG_WRITE(&reg_addr_buf[3], nonce);
+    REG_WRITE(&reg_addr_buf[4], 0x00000080);   //inter wrote digest word here
+    REG_WRITE(&reg_addr_buf[5], 0x00000000);   //inter wrote digest word here
+    REG_WRITE(&reg_addr_buf[6], 0x00000000);   //inter wrote digest word here
+    REG_WRITE(&reg_addr_buf[7], 0x00000000);   //inter wrote digest word here
+    REG_WRITE(&reg_addr_buf[8], 0x00000000);   //inter wrote 0x80 here
+    REG_WRITE(&reg_addr_buf[15], 0x80020000);  //inter wrote 0x00010000 here
 }
 
 static inline void nerd_sha_ll_fill_text_block_sha256_inter()
@@ -708,13 +712,10 @@ static inline void nerd_sha_ll_fill_text_block_sha256_inter()
   REG_WRITE(&reg_addr_buf[7], DPORT_SEQUENCE_REG_READ(SHA_H_BASE + 7 * 4));
   DPORT_INTERRUPT_RESTORE();
 
+  //SHA_TEXT[9..14] are kept at zero for the whole job (zeroed once in
+  //minerWorkerHw; neither fill nor the engine touches them), so only the
+  //two registers that alternate between the fills need rewriting here.
   REG_WRITE(&reg_addr_buf[8], 0x00000080);
-  REG_WRITE(&reg_addr_buf[9], 0x00000000);
-  REG_WRITE(&reg_addr_buf[10], 0x00000000);
-  REG_WRITE(&reg_addr_buf[11], 0x00000000);
-  REG_WRITE(&reg_addr_buf[12], 0x00000000);
-  REG_WRITE(&reg_addr_buf[13], 0x00000000);
-  REG_WRITE(&reg_addr_buf[14], 0x00000000);
   REG_WRITE(&reg_addr_buf[15], 0x00010000);
 }
 
@@ -832,13 +833,20 @@ void minerWorkerHw(void * task_id)
 
       esp_sha_acquire_hardware();
       REG_WRITE(SHA_MODE_REG, SHA2_256);
+      {
+        //Zero SHA_TEXT[9..14] once per job so the per-nonce fast fill can skip them
+        //(they stay 0: the inter block writes 0 there and the engine doesn't clobber them)
+        uint32_t *reg_addr_buf = (uint32_t *)(SHA_TEXT_BASE);
+        for (int i = 9; i <= 14; ++i)
+          REG_WRITE(&reg_addr_buf[i], 0x00000000);
+      }
       uint32_t nend = job->nonce_start + job->nonce_count;
       for (uint32_t n = job->nonce_start; n < nend; ++n)
       {
         //nerd_sha_hal_wait_idle();
         nerd_sha_ll_write_digest(digest_mid);
         //nerd_sha_hal_wait_idle();
-        nerd_sha_ll_fill_text_block_sha256(sha_buffer, n);
+        nerd_sha_ll_fill_text_block_sha256_fast(sha_buffer, n);
         //sha_ll_continue_block(SHA2_256);
         REG_WRITE(SHA_CONTINUE_REG, 1);
         
