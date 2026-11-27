@@ -42,7 +42,7 @@ void setup_monitor(void){
     // SNTP keeps the clock in sync; the POSIX TZ rule handles the offset and DST changes
     configTzTime(effectiveTzRule(Settings).c_str(), "pool.ntp.org", "europe.pool.ntp.org", "time.google.com");
 
-    Serial.println("TimeClient setup done");
+    Serial.println("SNTP setup done");
 #ifdef SCREEN_WORKERS_ENABLE
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);

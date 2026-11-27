@@ -118,6 +118,18 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
    - If you are using public-pool.io and you want to set a custom name to your worker you can append a string with format _.yourworkername_ to the address
 
 
+#### Web configuration
+
+While mining, the miner keeps a configuration page available on its IP address (shown in the serial log as `Web config available at http://<ip>`).
+
+1. Open `http://<miner ip>` in your browser.
+1. Log in with user `admin` and the web password (default: `MineYourCoins`).
+1. Change the settings and save. The miner restarts to apply them.
+   - The time zone list follows daylight saving time automatically.
+   - To change the web password, edit "Web config password". Leave it empty to disable the password (not recommended).
+
+The optional `TzRule` (POSIX time zone rule) and `WebPassword` keys of `config.json` set the same values from the SD card. If `TzRule` is missing, the fixed `Timezone` offset is used (no daylight saving).
+
 #### SD card (if available)
 
 1. Format a SD card using Fat32.
@@ -131,6 +143,8 @@ Note: when BTC address of your selected wallet is not provided, mining will not 
   "PoolPassword": "x",
   "BtcWallet": "walletID",
   "Timezone": 2,
+  "TzRule": "CET-1CEST,M3.5.0,M10.5.0/3",
+  "WebPassword": "MineYourCoins",
   "SaveStats": false
 }
 ```

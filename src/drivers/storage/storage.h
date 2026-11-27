@@ -12,6 +12,7 @@
 #define DEFAULT_SSID		"HanSoloAP"
 #endif
 #define DEFAULT_WIFIPW		"MineYourCoins"
+#define DEFAULT_WEBPW		DEFAULT_WIFIPW
 #define DEFAULT_POOLURL		"public-pool.io"
 #define DEFAULT_POOLPASS	"x"
 #define DEFAULT_WALLETID	"yourBtcAddress"
@@ -34,6 +35,7 @@
 #define JSON_KEY_POOLPORT	"PoolPort"
 #define JSON_KEY_TIMEZONE	"Timezone"
 #define JSON_KEY_TZRULE	"TzRule"
+#define JSON_KEY_WEBPW	"WebPassword"
 #define JSON_KEY_STATS2NV	"SaveStats"
 #define JSON_KEY_INVCOLOR	"invertColors"
 #define JSON_KEY_BRIGHTNESS	"Brightness"
@@ -45,6 +47,7 @@
 #define JSON_SPIFFS_KEY_WALLETID	"btcString"
 #define JSON_SPIFFS_KEY_TIMEZONE	"gmtZone"
 #define JSON_SPIFFS_KEY_TZRULE	"tzRule"
+#define JSON_SPIFFS_KEY_WEBPW	"webPassword"
 #define JSON_SPIFFS_KEY_STATS2NV	"saveStatsToNVS"
 #define JSON_SPIFFS_KEY_INVCOLOR	"invertColors"
 #define JSON_SPIFFS_KEY_BRIGHTNESS	"Brightness"
@@ -60,6 +63,7 @@ struct TSettings
 	int PoolPort{ DEFAULT_POOLPORT };
 	int Timezone{ DEFAULT_TIMEZONE };
 	String TzRule{ DEFAULT_TZRULE };
+	String WebPassword{ DEFAULT_WEBPW };
 	bool saveStats{ DEFAULT_SAVESTATS };
 	bool invertColors{ DEFAULT_INVERTCOLORS };
 	int Brightness{ DEFAULT_BRIGHTNESS };

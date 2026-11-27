@@ -28,13 +28,14 @@ bool nvMemory::saveConfig(TSettings* Settings)
         Serial.println(F("SPIFS: Saving configuration."));
 
         // Create a JSON document
-        StaticJsonDocument<512> json;
+        StaticJsonDocument<1024> json;
         json[JSON_SPIFFS_KEY_POOLURL] = Settings->PoolAddress;
         json[JSON_SPIFFS_KEY_POOLPORT] = Settings->PoolPort;
         json[JSON_SPIFFS_KEY_POOLPASS] = Settings->PoolPassword;
         json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
         json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
         json[JSON_SPIFFS_KEY_TZRULE] = Settings->TzRule;
+        json[JSON_SPIFFS_KEY_WEBPW] = Settings->WebPassword;
         json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
         json[JSON_SPIFFS_KEY_INVCOLOR] = Settings->invertColors;
         json[JSON_SPIFFS_KEY_BRIGHTNESS] = Settings->Brightness;
@@ -84,7 +85,7 @@ bool nvMemory::loadConfig(TSettings* Settings)
             if (configFile)
             {
                 Serial.println("SPIFS: Loading config file");
-                StaticJsonDocument<512> json;
+                StaticJsonDocument<1024> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
                 serializeJsonPretty(json, Serial);
@@ -99,10 +100,15 @@ bool nvMemory::loadConfig(TSettings* Settings)
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TZRULE)) {
-                        Settings->TzRule = json[JSON_SPIFFS_KEY_TZRULE].as<String>();
+                        const char* tzRule = json[JSON_SPIFFS_KEY_TZRULE] | "";
+                        Settings->TzRule = tzRule;
                     } else {
                         Settings->TzRule = ""; // old config: fall back to the integer Timezone
                     }
+                    if (json.containsKey(JSON_SPIFFS_KEY_WEBPW)) {
+                        const char* webPw = json[JSON_SPIFFS_KEY_WEBPW] | "";
+                        Settings->WebPassword = webPw; // empty = no password
+                    } // else: keep the default password
                     if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
                     if (json.containsKey(JSON_SPIFFS_KEY_INVCOLOR)) {

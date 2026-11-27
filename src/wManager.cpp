@@ -15,6 +15,7 @@
 #include "drivers/storage/storage.h"
 #include "mining.h"
 #include "timeconst.h"
+#include "timezones.h"
 
 #include <ArduinoJson.h>
 #include <esp_flash.h>
@@ -33,6 +34,29 @@ extern monitor_data mMonitor;
 nvMemory nvMem;
 
 extern SDCard SDCrd;
+
+// Web config parameters. They must live for the whole execution because the web portal keeps
+// running (and WiFiManager keeps pointers to them and to their custom HTML) while mining.
+static WiFiManagerParameter* pool_text_box;
+static WiFiManagerParameter* port_text_box_num;
+static WiFiManagerParameter* password_text_box;
+static WiFiManagerParameter* addr_text_box;
+static WiFiManagerParameter* tz_select_html;
+static WiFiManagerParameter* tz_rule_hidden;
+static WiFiManagerParameter* web_password_text_box;
+static WiFiManagerParameter* features_html;
+static WiFiManagerParameter* save_stats_to_nvs;
+static char saveStatsAttrs[24];
+static String tzSelectHtml;
+#if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+static WiFiManagerParameter* invertColors;
+static WiFiManagerParameter* brightness_text_box_num;
+static char invertColorsAttrs[24];
+#endif
+
+// Delayed restart after saving from the web portal, so the HTTP response reaches the browser
+static bool restartPending = false;
+static unsigned long restartRequestedAt = 0;
 
 String readCustomAPName() {
     Serial.println("DEBUG: Attempting to read custom AP name from flash at 0x3F0000...");
@@ -117,6 +141,117 @@ void configModeCallback(WiFiManager* myWiFiManager)
 
     Serial.print("Config IP Address: ");
     Serial.println(WiFi.softAPIP());
+}
+
+// Copies the values of the web form parameters to Settings
+static void applyParamsToSettings()
+{
+    Settings.PoolAddress = pool_text_box->getValue();
+    Serial.print("PoolString: ");
+    Serial.println(Settings.PoolAddress);
+
+    Settings.PoolPort = atoi(port_text_box_num->getValue());
+    Serial.print("portNumber: ");
+    Serial.println(Settings.PoolPort);
+
+    strncpy(Settings.PoolPassword, password_text_box->getValue(), sizeof(Settings.PoolPassword) - 1);
+    Settings.PoolPassword[sizeof(Settings.PoolPassword) - 1] = '\0';
+    Serial.print("poolPassword: ");
+    Serial.println(Settings.PoolPassword);
+
+    strncpy(Settings.BtcWallet, addr_text_box->getValue(), sizeof(Settings.BtcWallet) - 1);
+    Settings.BtcWallet[sizeof(Settings.BtcWallet) - 1] = '\0';
+    Serial.print("btcString: ");
+    Serial.println(Settings.BtcWallet);
+
+    Settings.TzRule = tz_rule_hidden->getValue();
+    Serial.print("TzRule: ");
+    Serial.println(Settings.TzRule);
+
+    // Empty means no password for the web portal
+    Settings.WebPassword = web_password_text_box->getValue();
+
+    Settings.saveStats = (strncmp(save_stats_to_nvs->getValue(), "T", 1) == 0);
+
+    #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+    Settings.invertColors = (strncmp(invertColors->getValue(), "T", 1) == 0);
+    Serial.print("Invert Colors: ");
+    Serial.println(Settings.invertColors);
+    #endif
+
+    #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
+    Settings.Brightness = atoi(brightness_text_box_num->getValue());
+    Serial.print("Brightness: ");
+    Serial.println(Settings.Brightness);
+    #endif
+}
+
+// Builds the <select> with the time zones. The selected option is copied to the hidden TzRule input.
+static String buildTzSelectHtml(const String& currentRule)
+{
+    String html = "<br/><label for='tzSelect'>Time zone</label><br/>"
+                  "<select id='tzSelect' onchange=\"document.getElementById('TzRule').value=this.value\">";
+    bool found = false;
+    String options;
+    for (size_t i = 0; i < TZ_OPTIONS_COUNT; i++) {
+        bool selected = currentRule == TZ_OPTIONS[i].rule;
+        found = found || selected;
+        options += String("<option value='") + TZ_OPTIONS[i].rule + "'" + (selected ? " selected" : "") + ">" + TZ_OPTIONS[i].label + "</option>";
+    }
+    if (!found) {
+        // Old config with only an integer offset (or a rule that is not in the list): keep it selectable
+        String label = Settings.TzRule.length() > 0
+            ? String("Custom (") + currentRule + ")"
+            : String("UTC") + (Settings.Timezone >= 0 ? "+" : "") + Settings.Timezone + " (fixed, no DST)";
+        html += String("<option value='") + currentRule + "' selected>" + label + "</option>";
+    }
+    html += options;
+    html += "</select>";
+    return html;
+}
+
+// Asks for HTTP basic auth (user "admin") on every request of the web portal
+class WebAuthHandler : public RequestHandler {
+public:
+    explicit WebAuthHandler(WebServer* server) : _server(server) {}
+    bool canHandle(HTTPMethod, String) override { return needsAuth(); }
+    bool canUpload(String) override { return needsAuth(); }
+    bool handle(WebServer& server, HTTPMethod, String) override
+    {
+        server.requestAuthentication(BASIC_AUTH, "NerdMiner");
+        return true;
+    }
+
+private:
+    bool needsAuth()
+    {
+        return Settings.WebPassword.length() > 0 && !_server->authenticate("admin", Settings.WebPassword.c_str());
+    }
+    WebServer* _server;
+};
+
+// Called by WiFiManager when it creates the web server, before it registers its own routes
+static void webServerCallback()
+{
+    wm.server->collectHeaders(nullptr, 0); // so authenticate() can see the Authorization header
+    if (Settings.WebPassword.length() > 0) {
+        wm.server->addHandler(new WebAuthHandler(wm.server.get()));
+    }
+    // Routes that are not offered in the menu stay disabled
+    const char* disabledRoutes[] = { "/erase", "/update", "/updatedone", "/exit", "/close" };
+    for (const char* route : disabledRoutes) {
+        wm.server->on(route, []() { wm.server->send(404, "text/plain", "Not found"); });
+    }
+}
+
+// Called when the parameters are saved from the web portal while mining
+static void webSaveParamsCallback()
+{
+    Serial.println("Config saved from web portal, restarting");
+    applyParamsToSettings();
+    nvMem.saveConfig(&Settings);
+    restartPending = true;
+    restartRequestedAt = millis();
 }
 
 void reset_configuration()
@@ -204,60 +339,66 @@ void init_WifiManager()
     // Custom elements
 
     // Text box (String) - 80 characters maximum
-    WiFiManagerParameter pool_text_box("Poolurl", "Pool url", Settings.PoolAddress.c_str(), 80);
+    pool_text_box = new WiFiManagerParameter("Poolurl", "Pool url", Settings.PoolAddress.c_str(), 80);
 
     // Need to convert numerical input to string to display the default value.
     char convertedValue[6];
     sprintf(convertedValue, "%d", Settings.PoolPort);
 
     // Text box (Number) - 7 characters maximum
-    WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
+    port_text_box_num = new WiFiManagerParameter("Poolport", "Pool port", convertedValue, 7);
 
     // Text box (String) - 80 characters maximum
     //WiFiManagerParameter password_text_box("Poolpassword", "Pool password (Optional)", Settings.PoolPassword, 80);
 
     // Text box (String) - 80 characters maximum
-    WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", Settings.BtcWallet, 80);
+    addr_text_box = new WiFiManagerParameter("btcAddress", "Your BTC address", Settings.BtcWallet, 80);
 
-  // Text box (Number) - 2 characters maximum
-  char charZone[6];
-  sprintf(charZone, "%d", Settings.Timezone);
-  WiFiManagerParameter time_text_box_num("TimeZone", "TimeZone fromUTC (-12/+12)", charZone, 3);
+  // Time zone: a <select> that copies the POSIX rule of the chosen option to a hidden input
+  String currentTzRule = effectiveTzRule(Settings);
+  tzSelectHtml = buildTzSelectHtml(currentTzRule);
+  tz_select_html = new WiFiManagerParameter(tzSelectHtml.c_str());
+  tz_rule_hidden = new WiFiManagerParameter("TzRule", "", currentTzRule.c_str(), 64, "type='hidden'", WFM_NO_LABEL);
 
-  WiFiManagerParameter features_html("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
+  // Text box (Password) - 64 characters maximum
+  web_password_text_box = new WiFiManagerParameter("WebPassword", "Web config password (user: admin, empty = no password)", Settings.WebPassword.c_str(), 64, "type='password'");
 
-  char checkboxParams[24] = "type=\"checkbox\"";
+  features_html = new WiFiManagerParameter("<hr><br><label style=\"font-weight: bold;margin-bottom: 25px;display: inline-block;\">Features</label>");
+
+  strcpy(saveStatsAttrs, "type=\"checkbox\"");
   if (Settings.saveStats)
   {
-    strcat(checkboxParams, " checked");
+    strcat(saveStatsAttrs, " checked");
   }
-  WiFiManagerParameter save_stats_to_nvs("SaveStatsToNVS", "Save mining statistics to flash memory.", "T", 2, checkboxParams, WFM_LABEL_AFTER);
+  save_stats_to_nvs = new WiFiManagerParameter("SaveStatsToNVS", "Save mining statistics to flash memory.", "T", 2, saveStatsAttrs, WFM_LABEL_AFTER);
   // Text box (String) - 80 characters maximum
-  WiFiManagerParameter password_text_box("Poolpassword - Optional", "Pool password", Settings.PoolPassword, 80);
+  password_text_box = new WiFiManagerParameter("Poolpassword - Optional", "Pool password", Settings.PoolPassword, 80);
 
   // Add all defined parameters
-  wm.addParameter(&pool_text_box);
-  wm.addParameter(&port_text_box_num);
-  wm.addParameter(&password_text_box);
-  wm.addParameter(&addr_text_box);
-  wm.addParameter(&time_text_box_num);
-  wm.addParameter(&features_html);
-  wm.addParameter(&save_stats_to_nvs);
+  wm.addParameter(pool_text_box);
+  wm.addParameter(port_text_box_num);
+  wm.addParameter(password_text_box);
+  wm.addParameter(addr_text_box);
+  wm.addParameter(tz_select_html);
+  wm.addParameter(tz_rule_hidden);
+  wm.addParameter(web_password_text_box);
+  wm.addParameter(features_html);
+  wm.addParameter(save_stats_to_nvs);
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-  char checkboxParams2[24] = "type=\"checkbox\"";
+  strcpy(invertColorsAttrs, "type=\"checkbox\"");
   if (Settings.invertColors)
   {
-    strcat(checkboxParams2, " checked");
+    strcat(invertColorsAttrs, " checked");
   }
-  WiFiManagerParameter invertColors("inverColors", "Invert Display Colors (if the colors looks weird)", "T", 2, checkboxParams2, WFM_LABEL_AFTER);
-  wm.addParameter(&invertColors);
+  invertColors = new WiFiManagerParameter("inverColors", "Invert Display Colors (if the colors looks weird)", "T", 2, invertColorsAttrs, WFM_LABEL_AFTER);
+  wm.addParameter(invertColors);
   #endif
   #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-    char brightnessConvValue[2];
+    char brightnessConvValue[6];
     sprintf(brightnessConvValue, "%d", Settings.Brightness);
     // Text box (Number) - 3 characters maximum
-    WiFiManagerParameter brightness_text_box_num("Brightness", "Screen backlight Duty Cycle (0-255)", brightnessConvValue, 3);
-    wm.addParameter(&brightness_text_box_num);
+    brightness_text_box_num = new WiFiManagerParameter("Brightness", "Screen backlight Duty Cycle (0-255)", brightnessConvValue, 3);
+    wm.addParameter(brightness_text_box_num);
   #endif
 
     Serial.println("AllDone: ");
@@ -274,19 +415,7 @@ void init_WifiManager()
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
-            Settings.PoolAddress = pool_text_box.getValue();
-            Settings.PoolPort = atoi(port_text_box_num.getValue());
-            strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-            strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-            Settings.Timezone = atoi(time_text_box_num.getValue());
-            //Serial.println(save_stats_to_nvs.getValue());
-            Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-                Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-            #endif
-            #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-                Settings.Brightness = atoi(brightness_text_box_num.getValue());
-            #endif
+            applyParamsToSettings();
             nvMem.saveConfig(&Settings);
             delay(3*SECOND_MS);
             //reset and try again, or maybe put it to deep sleep
@@ -307,19 +436,7 @@ void init_WifiManager()
             Serial.println("Failed to connect to configured WIFI, and hit timeout");
             if (shouldSaveConfig) {
                 // Save new config            
-                Settings.PoolAddress = pool_text_box.getValue();
-                Settings.PoolPort = atoi(port_text_box_num.getValue());
-                strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-                strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-                Settings.Timezone = atoi(time_text_box_num.getValue());
-                // Serial.println(save_stats_to_nvs.getValue());
-                Settings.saveStats = (strncmp(save_stats_to_nvs.getValue(), "T", 1) == 0);
-                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-                Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-                #endif
-                #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-                Settings.Brightness = atoi(brightness_text_box_num.getValue());
-                #endif
+                applyParamsToSettings();
                 nvMem.saveConfig(&Settings);
                 vTaskDelay(2000 / portTICK_PERIOD_MS);      
             }        
@@ -337,80 +454,21 @@ void init_WifiManager()
 
 
         // Lets deal with the user config values
+        applyParamsToSettings();
 
-        // Copy the string value
-        Settings.PoolAddress = pool_text_box.getValue();
-        //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-        Serial.print("PoolString: ");
-        Serial.println(Settings.PoolAddress);
-
-        //Convert the number value
-        Settings.PoolPort = atoi(port_text_box_num.getValue());
-        Serial.print("portNumber: ");
-        Serial.println(Settings.PoolPort);
-
-        // Copy the string value
-        strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-        Serial.print("poolPassword: ");
-        Serial.println(Settings.PoolPassword);
-
-        // Copy the string value
-        strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-        Serial.print("btcString: ");
-        Serial.println(Settings.BtcWallet);
-
-        //Convert the number value
-        Settings.Timezone = atoi(time_text_box_num.getValue());
-        Serial.print("TimeZone fromUTC: ");
-        Serial.println(Settings.Timezone);
-
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-        Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-        Serial.print("Invert Colors: ");
-        Serial.println(Settings.invertColors);        
-        #endif
-
-        #if defined(ESP32_2432S028R) || defined(ESP32_2432S028_2USB)
-        Settings.Brightness = atoi(brightness_text_box_num.getValue());
-        Serial.print("Brightness: ");
-        Serial.println(Settings.Brightness);
-        #endif
-
+        if (!forceConfig) {
+            // Keep the configuration web portal available on the miner's IP while mining
+            wm.setSaveParamsCallback(webSaveParamsCallback);
+            wm.setWebServerCallback(webServerCallback);
+            wm.setConfigPortalBlocking(false);
+            wm.setShowInfoErase(false);
+            wm.setShowInfoUpdate(false);
+            std::vector<const char*> menu = { "param", "wifi", "info", "sep", "restart" };
+            wm.setMenu(menu);
+            wm.startWebPortal();
+            Serial.println("Web config available at http://" + WiFi.localIP().toString());
+        }
     }
-
-    // Lets deal with the user config values
-
-    // Copy the string value
-    Settings.PoolAddress = pool_text_box.getValue();
-    //strncpy(Settings.PoolAddress, pool_text_box.getValue(), sizeof(Settings.PoolAddress));
-    Serial.print("PoolString: ");
-    Serial.println(Settings.PoolAddress);
-
-    //Convert the number value
-    Settings.PoolPort = atoi(port_text_box_num.getValue());
-    Serial.print("portNumber: ");
-    Serial.println(Settings.PoolPort);
-
-    // Copy the string value
-    strncpy(Settings.PoolPassword, password_text_box.getValue(), sizeof(Settings.PoolPassword));
-    Serial.print("poolPassword: ");
-    Serial.println(Settings.PoolPassword);
-
-    // Copy the string value
-    strncpy(Settings.BtcWallet, addr_text_box.getValue(), sizeof(Settings.BtcWallet));
-    Serial.print("btcString: ");
-    Serial.println(Settings.BtcWallet);
-
-    //Convert the number value
-    Settings.Timezone = atoi(time_text_box_num.getValue());
-    Serial.print("TimeZone fromUTC: ");
-    Serial.println(Settings.Timezone);
-
-    #ifdef ESP32_2432S028R
-    Settings.invertColors = (strncmp(invertColors.getValue(), "T", 1) == 0);
-    Serial.print("Invert Colors: ");
-    Serial.println(Settings.invertColors);
-    #endif
 
     // Save the custom parameters to FS
     if (shouldSaveConfig)
@@ -431,6 +489,10 @@ int oldStatus = 0;
 void wifiManagerProcess() {
 
     wm.process(); // avoid delays() in loop when non-blocking and other long running code
+
+    if (restartPending && millis() - restartRequestedAt > 2000) {
+        ESP.restart();
+    }
 
     int newStatus = WiFi.status();
     if (newStatus != oldStatus) {
