@@ -144,7 +144,7 @@ void configModeCallback(WiFiManager* myWiFiManager)
 }
 
 // Copies the values of the web form parameters to Settings
-static void applyParamsToSettings()
+static void applyParamsToSettings(TSettings& Settings)
 {
     Settings.PoolAddress = pool_text_box->getValue();
     Serial.print("PoolString: ");
@@ -210,35 +210,34 @@ static String buildTzSelectHtml(const String& currentRule)
     return html;
 }
 
-// Asks for HTTP basic auth (user "admin") on every request of the web portal
+// Asks for HTTP basic auth (user "admin") on every request of the web portal.
+// WebServer picks the handler before it reads the request headers, so canHandle() cannot check the
+// credentials: it just claims the request and handle() decides whether to pass it to the next handlers.
+// canUpload() stays false, so uploaded data is discarded.
 class WebAuthHandler : public RequestHandler {
 public:
-    explicit WebAuthHandler(WebServer* server) : _server(server) {}
-    bool canHandle(HTTPMethod, String) override { return needsAuth(); }
-    bool canUpload(String) override { return needsAuth(); }
-    bool handle(WebServer& server, HTTPMethod, String) override
+    bool canHandle(HTTPMethod, String) override { return Settings.WebPassword.length() > 0; }
+    bool handle(WebServer& server, HTTPMethod method, String uri) override
     {
-        server.requestAuthentication(BASIC_AUTH, "NerdMiner");
-        return true;
+        if (!server.authenticate("admin", Settings.WebPassword.c_str())) {
+            server.requestAuthentication(BASIC_AUTH, "NerdMiner");
+            return true;
+        }
+        for (RequestHandler* h = next(); h; h = h->next()) {
+            if (h->canHandle(method, uri)) return h->handle(server, method, uri);
+        }
+        return false;
     }
-
-private:
-    bool needsAuth()
-    {
-        return Settings.WebPassword.length() > 0 && !_server->authenticate("admin", Settings.WebPassword.c_str());
-    }
-    WebServer* _server;
 };
 
 // Called by WiFiManager when it creates the web server, before it registers its own routes
 static void webServerCallback()
 {
-    wm.server->collectHeaders(nullptr, 0); // so authenticate() can see the Authorization header
     if (Settings.WebPassword.length() > 0) {
-        wm.server->addHandler(new WebAuthHandler(wm.server.get()));
+        wm.server->addHandler(new WebAuthHandler());
     }
     // Routes that are not offered in the menu stay disabled
-    const char* disabledRoutes[] = { "/erase", "/update", "/updatedone", "/exit", "/close" };
+    const char* disabledRoutes[] = { "/erase", "/update", "/u", "/exit", "/close" };
     for (const char* route : disabledRoutes) {
         wm.server->on(route, []() { wm.server->send(404, "text/plain", "Not found"); });
     }
@@ -248,8 +247,10 @@ static void webServerCallback()
 static void webSaveParamsCallback()
 {
     Serial.println("Config saved from web portal, restarting");
-    applyParamsToSettings();
-    nvMem.saveConfig(&Settings);
+    // Work on a copy: the mining tasks keep reading Settings until the restart
+    TSettings newSettings = Settings;
+    applyParamsToSettings(newSettings);
+    nvMem.saveConfig(&newSettings);
     restartPending = true;
     restartRequestedAt = millis();
 }
@@ -415,7 +416,7 @@ void init_WifiManager()
         {
             //Could be break forced after edditing, so save new config
             Serial.println("failed to connect and hit timeout");
-            applyParamsToSettings();
+            applyParamsToSettings(Settings);
             nvMem.saveConfig(&Settings);
             delay(3*SECOND_MS);
             //reset and try again, or maybe put it to deep sleep
@@ -436,7 +437,7 @@ void init_WifiManager()
             Serial.println("Failed to connect to configured WIFI, and hit timeout");
             if (shouldSaveConfig) {
                 // Save new config            
-                applyParamsToSettings();
+                applyParamsToSettings(Settings);
                 nvMem.saveConfig(&Settings);
                 vTaskDelay(2000 / portTICK_PERIOD_MS);      
             }        
@@ -454,13 +455,13 @@ void init_WifiManager()
 
 
         // Lets deal with the user config values
-        applyParamsToSettings();
+        applyParamsToSettings(Settings);
 
         if (!forceConfig) {
             // Keep the configuration web portal available on the miner's IP while mining
             wm.setSaveParamsCallback(webSaveParamsCallback);
             wm.setWebServerCallback(webServerCallback);
-            wm.setConfigPortalBlocking(false);
+            wm.setConfigPortalBlocking(false); // line 432 set it to true for autoConnect
             wm.setShowInfoErase(false);
             wm.setShowInfoUpdate(false);
             std::vector<const char*> menu = { "param", "wifi", "info", "sep", "restart" };
