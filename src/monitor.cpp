@@ -2,14 +2,14 @@
 #include <WiFi.h>
 #include "mbedtls/md.h"
 #include "HTTPClient.h"
-#include <NTPClient.h>
-#include <WiFiUdp.h>
+#include <time.h>
 #include <list>
 #include "mining.h"
 #include "utils.h"
 #include "monitor.h"
 #include "drivers/storage/storage.h"
 #include "drivers/devices/device.h"
+#include "timezones.h"
 
 extern uint32_t templates;
 extern uint32_t hashes;
@@ -29,8 +29,6 @@ extern monitor_data mMonitor;
 extern TSettings Settings; 
 bool invertColors = false;
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 unsigned int bitcoin_price=0;
 String current_block = "793261";
 global_data gData;
@@ -41,13 +39,10 @@ String poolAPIUrl;
 void setup_monitor(void){
     /******** TIME ZONE SETTING *****/
 
-    timeClient.begin();
-    
-    // Adjust offset depending on your zone
-    // GMT +2 in seconds (zona horaria de Europa Central)
-    timeClient.setTimeOffset(3600 * Settings.Timezone);
+    // SNTP keeps the clock in sync; the POSIX TZ rule handles the offset and DST changes
+    configTzTime(effectiveTzRule(Settings).c_str(), "pool.ntp.org", "europe.pool.ntp.org", "time.google.com");
 
-    Serial.println("TimeClient setup done");
+    Serial.println("SNTP setup done");
 #ifdef SCREEN_WORKERS_ENABLE
     poolAPIUrl = getPoolAPIUrl();
     Serial.println("poolAPIUrl: " + poolAPIUrl);
@@ -199,58 +194,48 @@ String getBTCprice(void){
   return String(price_buffer);
 }
 
-unsigned long mTriggerUpdate = 0;
-unsigned long initialMillis = millis();
-unsigned long initialTime = 0;
 unsigned long mPoolUpdate = 0;
 
+#define MIN_VALID_EPOCH 1700000000 // before this the clock has not been synced by SNTP yet
+
 void getTime(unsigned long* currentHours, unsigned long* currentMinutes, unsigned long* currentSeconds){
-  
-  //Check if need an NTP call to check current time
-  if((mTriggerUpdate == 0) || (millis() - mTriggerUpdate > UPDATE_PERIOD_h * 60 * 60 * 1000)){ //60 sec. * 60 min * 1000ms
-    if(WiFi.status() == WL_CONNECTED) {
-        if(timeClient.update()) mTriggerUpdate = millis(); //NTP call to get current time
-        initialTime = timeClient.getEpochTime(); // Guarda la hora inicial (en segundos desde 1970)
-        Serial.print("TimeClient NTPupdateTime ");
-    }
-  }
+  *currentHours = 0;
+  *currentMinutes = 0;
+  *currentSeconds = 0;
 
-  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
-  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+  time_t now = time(nullptr);
+  if (now < MIN_VALID_EPOCH) return;
 
-  // convierte la hora actual en horas, minutos y segundos
-  *currentHours = currentTime % 86400 / 3600;
-  *currentMinutes = currentTime % 3600 / 60;
-  *currentSeconds = currentTime % 60;
+  struct tm tm;
+  localtime_r(&now, &tm);
+  *currentHours = tm.tm_hour;
+  *currentMinutes = tm.tm_min;
+  *currentSeconds = tm.tm_sec;
 }
 
 String getDate(){
-  
-  unsigned long elapsedTime = (millis() - mTriggerUpdate) / 1000; // Tiempo transcurrido en segundos
-  unsigned long currentTime = initialTime + elapsedTime; // La hora actual
+  time_t now = time(nullptr);
+  if (now < MIN_VALID_EPOCH) return "";
 
-  // Convierte la hora actual (epoch time) en una estructura tm
-  struct tm *tm = localtime((time_t *)&currentTime);
-
-  int year = tm->tm_year + 1900; // tm_year es el número de años desde 1900
-  int month = tm->tm_mon + 1;    // tm_mon es el mes del año desde 0 (enero) hasta 11 (diciembre)
-  int day = tm->tm_mday;         // tm_mday es el día del mes
+  struct tm tm;
+  localtime_r(&now, &tm);
 
   char currentDate[20];
-  sprintf(currentDate, "%02d/%02d/%04d", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
+  sprintf(currentDate, "%02d/%02d/%04d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
 
   return String(currentDate);
 }
 
 String getTime(void){
+  if (time(nullptr) < MIN_VALID_EPOCH) return "--:--";
+
   unsigned long currentHours, currentMinutes, currentSeconds;
   getTime(&currentHours, &currentMinutes, &currentSeconds);
 
   char LocalHour[10];
-  sprintf(LocalHour, "%02d:%02d", currentHours, currentMinutes);
-  
-  String mystring(LocalHour);
-  return LocalHour;
+  sprintf(LocalHour, "%02lu:%02lu", currentHours, currentMinutes);
+
+  return String(LocalHour);
 }
 
 enum EHashRateScale

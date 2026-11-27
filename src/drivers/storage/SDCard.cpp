@@ -99,7 +99,7 @@ bool SDCard::loadConfigFile(TSettings* Settings)
             if (configFile)
             {
                 cardBusy_ = true;
-                StaticJsonDocument<512> json;
+                StaticJsonDocument<1024> json;
                 DeserializationError error = deserializeJson(json, configFile);
                 configFile.close();
                 cardBusy_ = false;
@@ -121,6 +121,16 @@ bool SDCard::loadConfigFile(TSettings* Settings)
                         Settings->PoolPort = json[JSON_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_KEY_TIMEZONE].as<int>();
+                    if (json.containsKey(JSON_KEY_TZRULE)) {
+                        const char* tzRule = json[JSON_KEY_TZRULE] | "";
+                        Settings->TzRule = tzRule;
+                    } else {
+                        Settings->TzRule = ""; // not provided: respect the integer Timezone
+                    }
+                    if (json.containsKey(JSON_KEY_WEBPW)) {
+                        const char* webPw = json[JSON_KEY_WEBPW] | "";
+                        Settings->WebPassword = webPw; // empty = no password
+                    } // else: keep the default password
                     if (json.containsKey(JSON_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_KEY_STATS2NV].as<bool>();
                     if (json.containsKey(JSON_KEY_INVCOLOR)) {
