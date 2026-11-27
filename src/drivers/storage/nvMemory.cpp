@@ -34,6 +34,7 @@ bool nvMemory::saveConfig(TSettings* Settings)
         json[JSON_SPIFFS_KEY_POOLPASS] = Settings->PoolPassword;
         json[JSON_SPIFFS_KEY_WALLETID] = Settings->BtcWallet;
         json[JSON_SPIFFS_KEY_TIMEZONE] = Settings->Timezone;
+        json[JSON_SPIFFS_KEY_TZRULE] = Settings->TzRule;
         json[JSON_SPIFFS_KEY_STATS2NV] = Settings->saveStats;
         json[JSON_SPIFFS_KEY_INVCOLOR] = Settings->invertColors;
         json[JSON_SPIFFS_KEY_BRIGHTNESS] = Settings->Brightness;
@@ -97,6 +98,11 @@ bool nvMemory::loadConfig(TSettings* Settings)
                         Settings->PoolPort = json[JSON_SPIFFS_KEY_POOLPORT].as<int>();
                     if (json.containsKey(JSON_SPIFFS_KEY_TIMEZONE))
                         Settings->Timezone = json[JSON_SPIFFS_KEY_TIMEZONE].as<int>();
+                    if (json.containsKey(JSON_SPIFFS_KEY_TZRULE)) {
+                        Settings->TzRule = json[JSON_SPIFFS_KEY_TZRULE].as<String>();
+                    } else {
+                        Settings->TzRule = ""; // old config: fall back to the integer Timezone
+                    }
                     if (json.containsKey(JSON_SPIFFS_KEY_STATS2NV))
                         Settings->saveStats = json[JSON_SPIFFS_KEY_STATS2NV].as<bool>();
                     if (json.containsKey(JSON_SPIFFS_KEY_INVCOLOR)) {

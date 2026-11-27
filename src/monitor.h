@@ -9,9 +9,6 @@
 #define SCREEN_GLOBAL   2
 #define NO_SCREEN       3   //Used when board has no TFT
 
-//Time update period
-#define UPDATE_PERIOD_h   5
-
 //API BTC price (Update to USDT cus it's more liquidity and flow price updade)   
 
 //#define getBTCAPI "https://api.coindesk.com/v1/bpi/currentprice.json" -- doesn't work anymore
